@@ -1,0 +1,86 @@
+name: Derle (Web + Android)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  GODOT_VERSION: "4.3"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Godot ve export şablonlarını önbellekten al
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/godot
+            ~/.local/share/godot/export_templates
+          key: godot-${{ env.GODOT_VERSION }}-stable
+
+      - name: Godot indir
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p ~/godot ~/.local/share/godot/export_templates/${GODOT_VERSION}.stable
+          cd ~/godot
+          wget -q https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip
+          unzip -q Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip
+          mv Godot_v${GODOT_VERSION}-stable_linux.x86_64 godot
+          rm Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip
+          wget -q https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_export_templates.tpz
+          unzip -q Godot_v${GODOT_VERSION}-stable_export_templates.tpz
+          mv templates/* ~/.local/share/godot/export_templates/${GODOT_VERSION}.stable/
+          rm -rf templates Godot_v${GODOT_VERSION}-stable_export_templates.tpz
+
+      - name: Projeyi içe aktar
+        run: |
+          chmod +x ~/godot/godot
+          ~/godot/godot --headless --import || true
+
+      - name: Web derlemesi
+        run: |
+          mkdir -p build/web
+          ~/godot/godot --headless --export-release "Web" build/web/index.html
+          touch build/web/.nojekyll
+
+      - name: Web'i GitHub Pages'e yayınla
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: build/web
+          publish_branch: gh-pages
+          force_orphan: true
+
+      - name: Android ayarları
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Android APK derlemesi
+        run: |
+          keytool -genkeypair -v -keystore debug.keystore -storepass android -alias androiddebugkey \
+            -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+          for f in editor_settings-4.tres editor_settings-4.3.tres; do
+            mkdir -p ~/.config/godot
+            printf '[gd_resource type="EditorSettings" format=3]\n\n[resource]\nexport/android/android_sdk_path = "%s"\nexport/android/java_sdk_path = "%s"\n' "$ANDROID_SDK_ROOT" "$JAVA_HOME" > ~/.config/godot/$f
+          done
+          export GODOT_ANDROID_KEYSTORE_DEBUG_PATH="$PWD/debug.keystore"
+          export GODOT_ANDROID_KEYSTORE_DEBUG_USER=androiddebugkey
+          export GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD=android
+          mkdir -p build/android
+          ~/godot/godot --headless --export-debug "Android" build/android/komando.apk
+
+      - name: APK'yı yükle
+        uses: actions/upload-artifact@v4
+        with:
+          name: komando-apk
+          path: build/android/komando.apk
