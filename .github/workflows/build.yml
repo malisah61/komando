@@ -14,8 +14,14 @@ permissions:
 env:
   GODOT_VERSION: "4.3"
 
+concurrency:
+  group: derle
+  cancel-in-progress: false
+
 jobs:
   build:
+    # sprite render atlandiysa/basarisizsa tekrar derleme
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
