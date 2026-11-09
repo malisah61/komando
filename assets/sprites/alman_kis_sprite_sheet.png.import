@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://b3besn4tm6qqv"
-path="res://.godot/imported/commandos_sprite_sheet.png-000e60d070d5f3d870b6b5d7a4674605.ctex"
+uid="uid://v6iaij12q4rq"
+path="res://.godot/imported/alman_kis_sprite_sheet.png-0fabaf9b028beca1b10c4626d19038a8.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/sprites/commandos_sprite_sheet.png"
-dest_files=["res://.godot/imported/commandos_sprite_sheet.png-000e60d070d5f3d870b6b5d7a4674605.ctex"]
+source_file="res://assets/sprites/alman_kis_sprite_sheet.png"
+dest_files=["res://.godot/imported/alman_kis_sprite_sheet.png-0fabaf9b028beca1b10c4626d19038a8.ctex"]
 
 [params]
 

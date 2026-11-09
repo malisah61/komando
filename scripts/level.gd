@@ -20,7 +20,15 @@ const TYPES := {
 	"sandbag": [true,  false, 14.0, Color(0.74, 0.66, 0.46), Color(0.52, 0.45, 0.3)],
 	"bush":    [false, true,  22.0, Color(0.24, 0.44, 0.18, 0.92), Color(0.16, 0.3, 0.12, 0.92)],
 	"crate":   [true,  true,  28.0, Color(0.6, 0.45, 0.25), Color(0.42, 0.3, 0.16)],
+	"tree":    [true,  true,  42.0, Color(0.17, 0.33, 0.13), Color(0.1, 0.21, 0.07)],
+	"water":   [true,  false, 0.0,  Color(0.22, 0.38, 0.5),  Color(0.16, 0.3, 0.42)],
+	"fence":   [true,  false, 12.0, Color(0.48, 0.36, 0.22), Color(0.33, 0.24, 0.14)],
+	"tent":    [true,  true,  24.0, Color(0.44, 0.46, 0.32), Color(0.31, 0.33, 0.22)],
+	"truck":   [true,  true,  26.0, Color(0.31, 0.34, 0.25), Color(0.2, 0.22, 0.16)],
+	"tank":    [true,  true,  24.0, Color(0.37, 0.39, 0.34), Color(0.24, 0.26, 0.22)],
+	"rock":    [true,  true,  18.0, Color(0.52, 0.52, 0.5),  Color(0.36, 0.36, 0.34)],
 }
+const GRID := 128.0
 
 var data := {}
 var size := Vector2(1600, 1100)
@@ -34,6 +42,12 @@ var move_polys: Array = []        # PackedVector2Array
 var surfaces: Array = []          # {points, color, footprints}
 var floors: Array = []            # Rect2 (bina ici)
 var roads: Array = []
+var bridges: Array = []           # Rect2 (ahsap kopru)
+var water: Array = []             # PackedVector2Array (zeminde cizilir)
+var hide_zones: Array = []        # [merkez, yaricap] ya da PackedVector2Array (calilar)
+var _grid := {}                   # Vector2i -> [segment indeksleri]
+var _stamp := PackedInt32Array()
+var _query := 0
 var footprints: Array = []        # {pos, rot, age, noticed}
 
 var _redraw_t := 0.0
@@ -56,6 +70,8 @@ func load_level(path: String, world: Node2D, roofs: Node2D) -> bool:
 	document_pos = _v(data["document"])
 	for r in data.get("roads", []):
 		roads.append(Rect2(r[0], r[1], r[2], r[3]))
+	for r in data.get("bridges", []):
+		bridges.append(Rect2(r[0], r[1], r[2], r[3]))
 	for s in data.get("surfaces", []):
 		var col := Color(0.4, 0.3, 0.18) if s.get("type", "") == "mud" else Color(0.9, 0.92, 0.95)
 		surfaces.append({"points": _poly(s["points"]), "color": col, "footprints": s.get("footprints", false)})
@@ -70,6 +86,7 @@ func load_level(path: String, world: Node2D, roofs: Node2D) -> bool:
 		_build_obstacle(o, world)
 
 	_build_navigation()
+	_build_grid()
 	queue_redraw()
 	return true
 
@@ -86,6 +103,15 @@ func _build_obstacle(o: Dictionary, world: Node2D) -> void:
 	var blocks_move: bool = o.get("move", t[0])
 	var blocks_view: bool = o.get("view", t[1])
 	_add_solid(pts, blocks_move, blocks_view)
+	if blocks_view and not blocks_move:
+		if o.has("circle"):
+			var cc: Array = o["circle"]
+			hide_zones.append([Vector2(cc[0], cc[1]), float(cc[2])])
+		else:
+			hide_zones.append(pts)
+	if t[2] <= 0.0:
+		water.append(pts)     # yuksekligi olmayan: zemine cizilir
+		return
 	var p = Prop.new()
 	p.setup(pts, t[2], t[3], t[4])
 	world.add_child(p)
@@ -193,19 +219,43 @@ func _build_navigation() -> void:
 
 
 # ---------------- Gorus hatti ----------------
+func _build_grid() -> void:
+	## gorus cizgilerini 128px hucrelere dagit: buyuk haritada hizli isin testi
+	_grid.clear()
+	_stamp.resize(view_segments.size())
+	for i in view_segments.size():
+		var bb: Rect2 = view_segments[i][2]
+		for cx in range(floori(bb.position.x / GRID), floori(bb.end.x / GRID) + 1):
+			for cy in range(floori(bb.position.y / GRID), floori(bb.end.y / GRID) + 1):
+				var key := Vector2i(cx, cy)
+				if not _grid.has(key):
+					_grid[key] = PackedInt32Array()
+				_grid[key].append(i)
+
+
 func ray_end(from: Vector2, to: Vector2) -> Vector2:
 	var best := to
 	var best_d := from.distance_to(to)
 	var ray_bb := Rect2(from, Vector2.ZERO).expand(to).grow(1.0)
-	for s in view_segments:
-		if not ray_bb.intersects(s[2], true):
-			continue
-		var hit = Geometry2D.segment_intersects_segment(from, to, s[0], s[1])
-		if hit != null:
-			var d: float = from.distance_to(hit)
-			if d < best_d:
-				best_d = d
-				best = hit
+	_query += 1
+	for cx in range(floori(ray_bb.position.x / GRID), floori(ray_bb.end.x / GRID) + 1):
+		for cy in range(floori(ray_bb.position.y / GRID), floori(ray_bb.end.y / GRID) + 1):
+			var cell = _grid.get(Vector2i(cx, cy))
+			if cell == null:
+				continue
+			for i in cell:
+				if _stamp[i] == _query:
+					continue
+				_stamp[i] = _query
+				var s: Array = view_segments[i]
+				if not ray_bb.intersects(s[2], true):
+					continue
+				var hit = Geometry2D.segment_intersects_segment(from, to, s[0], s[1])
+				if hit != null:
+					var d: float = from.distance_to(hit)
+					if d < best_d:
+						best_d = d
+						best = hit
 	return best
 
 
@@ -215,15 +265,11 @@ func has_los(a: Vector2, b: Vector2) -> bool:
 
 func is_inside_view_blocker(p: Vector2) -> bool:
 	# calilik icinde mi? (gorusu engelleyen ama hareketi engellemeyen)
-	for o in data.get("obstacles", []):
-		var t: Array = TYPES.get(o.get("type", "wall"), TYPES["wall"])
-		if o.get("move", t[0]) or not o.get("view", t[1]):
-			continue
-		if o.has("circle"):
-			var c: Array = o["circle"]
-			if p.distance_to(Vector2(c[0], c[1])) < c[2]:
+	for z in hide_zones:
+		if z is Array:
+			if p.distance_to(z[0]) < z[1]:
 				return true
-		elif Geometry2D.is_point_in_polygon(p, _poly(o["points"])):
+		elif Geometry2D.is_point_in_polygon(p, z):
 			return true
 	return false
 
@@ -261,6 +307,19 @@ func _draw() -> void:
 		draw_rect(r, Color(0.55, 0.47, 0.34))
 	for s in surfaces:
 		draw_colored_polygon(s["points"], s["color"])
+	for w in water:
+		draw_colored_polygon(w, Color(0.2, 0.36, 0.48))
+		var edge: PackedVector2Array = w.duplicate()
+		edge.append(w[0])
+		draw_polyline(edge, Color(0.45, 0.42, 0.3), 5.0)
+	for b in bridges:
+		draw_rect(b, Color(0.42, 0.3, 0.18))
+		var x: float = b.position.x
+		while x < b.end.x:
+			draw_line(Vector2(x, b.position.y), Vector2(x, b.end.y), Color(0.3, 0.2, 0.11), 2.0)
+			x += 14.0
+		draw_rect(Rect2(b.position, Vector2(b.size.x, 6)), Color(0.3, 0.2, 0.11))
+		draw_rect(Rect2(b.position.x, b.end.y - 6, b.size.x, 6), Color(0.3, 0.2, 0.11))
 	for fl in floors:
 		draw_rect(fl, Color(0.45, 0.33, 0.22))
 		var y: float = fl.position.y + 16.0

@@ -1,0 +1,45 @@
+name: Sprite render (Blender)
+
+# tools/blender/ altindaki asker modeli/kiyafet/animasyon degisince
+# tum sprite sheet'leri yeniden render eder ve repoya geri yazar.
+# Commit mesajinda [render-yok] varsa calismaz.
+on:
+  push:
+    branches: [main]
+    paths: ["tools/blender/**"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  render:
+    if: ${{ github.event_name == 'workflow_dispatch' || !contains(github.event.head_commit.message, '[render-yok]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Blender önbellek
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: ~/blender
+          key: blender-4.2.3
+
+      - name: Blender indir
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p ~/blender && cd ~/blender
+          wget -q https://download.blender.org/release/Blender4.2/blender-4.2.3-linux-x64.tar.xz
+          tar -xf blender-4.2.3-linux-x64.tar.xz && rm blender-4.2.3-linux-x64.tar.xz
+
+      - name: Askerleri render et
+        run: ~/blender/blender-4.2.3-linux-x64/blender -b --python tools/blender/asker.py -- --out assets/sprites
+
+      - name: Repoya yaz
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add assets/sprites
+          git diff --cached --quiet || git commit -m "Sprite'lar yeniden render edildi [render-yok]"
+          git push

@@ -6,8 +6,15 @@ Commandos 2: Men of Courage'dan esinlenen, 2. Dünya Savaşı'nda geçen gerçek
 - **Tarayıcıda oyna:** https://malisah61.github.io/komando/
 - **APK indir:** https://github.com/malisah61/komando/releases/latest/download/komando.apk
 
-## Bölüm 0 – Normandiya Köyü
-Karargâhtaki gizli belgeyi çal, sol alttaki çıkışa dön.
+## Bölümler
+- **Bölüm 0 – Normandiya Köyü** (eğitim): küçük köy, 6 asker.
+- **Bölüm 1 – Nehir Operasyonu**: 3600x2600 geniş harita. Nehir ve iki köprü, çiftlik, köy, duvarlı karargâh, yakıt deposu, ormanlar; 23 asker (er + subay). Planları çal, sahildeki botlara dön. Harita `tools/gen_bolum1.py` ile üretilir.
+
+## Asker modeli ve sprite hattı (Blender)
+`tools/blender/asker.py` tek bir iskelet ve tek bir animasyon setiyle (bekleme, yürüme, koşma, bıçak, ölüm) her kıyafet için 8 yönlü sprite sheet üretir:
+`komando`, `alman_er`, `alman_subay`, `alman_kis`. Yeni kıyafet = `OUTFITS` sözlüğüne bir kayıt; yeni hareket = `ANIMS` + `pose()`. Hepsi tüm askerlere otomatik geçer.
+`tools/blender/` değişip push edilince GitHub Actions render alır ve `assets/sprites/` klasörüne yazar (commit mesajında `[render-yok]` varsa atlar).
+Bölüm dosyasında askerin türü: `{"path": [...], "type": "subay"}` → `alman_subay_sprite_sheet.png`.
 
 | Kontrol | İşlev |
 |---|---|

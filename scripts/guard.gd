@@ -3,7 +3,8 @@ extends CharacterBody2D
 ## Kademeli tespit metresi, ?/! geri bildirimi, ceset ve ayak izi fark etme.
 
 const SpriteSheet = preload("res://scripts/sprite_sheet.gd")
-const SHEET := "res://assets/sprites/enemy_sprite_sheet.png"
+const SHEET_FMT := "res://assets/sprites/alman_%s_sprite_sheet.png"   # Blender ciktisi
+const SHEET_FALLBACK := "res://assets/sprites/enemy_sprite_sheet.png"   # elle eklenen
 const VIEW_RANGE := 230.0
 const VIEW_HALF := 0.56          # ~32 derece
 const RAYS := 30
@@ -27,6 +28,7 @@ var _cone_t := 0.0
 var _scan_t := 0.0
 var _ready_nav := false
 var sprite: AnimatedSprite2D
+var kind := "er"                  # er / subay / kis (bolum dosyasindan)
 
 
 func _ready() -> void:
@@ -43,7 +45,10 @@ func _ready() -> void:
 	navigation_agent.target_desired_distance = 4.0
 	navigation_agent.radius = 10.0
 	add_child(navigation_agent)
-	sprite = SpriteSheet.attach(self, SHEET)
+	for path in [SHEET_FMT % kind, SHEET_FMT % "er", SHEET_FALLBACK]:
+		if ResourceLoader.exists(path):
+			sprite = SpriteSheet.attach(self, path)
+			break
 	base_facing = facing
 	# navigasyon haritasi ilk fizik karesinden sonra hazir olur
 	await get_tree().physics_frame
@@ -64,14 +69,17 @@ func _physics_process(delta: float) -> void:
 		_think(delta)
 		_watch(delta)
 	if sprite != null:
-		var anim := &"walk" if velocity.length() > 1.0 else &"idle"
-		if sprite.animation != anim and sprite.sprite_frames.has_animation(anim):
-			sprite.play(anim)
-		sprite.flip_h = cos(facing) < 0.0
+		var anim := &"idle"
+		if velocity.length() > 1.0:
+			anim = &"run" if main.alert_level > 0 and state == &"investigate" else &"walk"
+		SpriteSheet.play(sprite, anim, facing)
 	_cone_t -= delta
 	if _cone_t <= 0.0:
 		_cone_t = 0.06
-		_update_cone()
+		if _near_camera():
+			_update_cone()
+		elif cone.size() > 0:
+			cone.clear()
 	queue_redraw()
 
 
@@ -199,13 +207,22 @@ func _update_cone() -> void:
 		cone.append(main.level.ray_end(global_position, global_position + Vector2.from_angle(a) * r))
 
 
+func _near_camera() -> bool:
+	var cam: Camera2D = main.cam
+	if cam == null:
+		return true
+	var half: Vector2 = get_viewport_rect().size / cam.zoom * 0.5 + Vector2(320, 320)
+	var d := (global_position - cam.position).abs()
+	return d.x < half.x and d.y < half.y
+
+
 func kill() -> void:
 	alive = false
 	suspicion = 0.0
 	cone.clear()
 	velocity = Vector2.ZERO
-	if sprite != null and sprite.sprite_frames.has_animation(&"death"):
-		sprite.play(&"death")
+	if sprite != null:
+		SpriteSheet.play(sprite, &"death", facing, true)
 	# ceset hareketi engellemesin
 	collision_layer = 0
 	for ch in get_children():
@@ -226,7 +243,7 @@ func cone_color() -> Color:
 
 # ---------------- Cizim ----------------
 func _draw() -> void:
-	if not alive and sprite != null and sprite.sprite_frames.has_animation(&"death"):
+	if not alive and sprite != null and SpriteSheet.base_anim(sprite) == "death":
 		return
 	if not alive:
 		if sprite != null:
@@ -237,13 +254,13 @@ func _draw() -> void:
 		draw_rect(Rect2(-18, -9, 4, 18), Color(0.4, 0.1, 0.1, 0.7))
 		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 		return
+	var body := Vector2(0, -12)
+	if sprite != null:
+		_draw_alert(Vector2(0, -44))
+		return
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2(1, 0.5))
 	draw_circle(Vector2.ZERO, 12, Color(0, 0, 0, 0.35))
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
-	var body := Vector2(0, -12)
-	if sprite != null:
-		_draw_alert(Vector2(0, -36))
-		return
 	draw_circle(body, 11, Color(0.12, 0.13, 0.1))
 	draw_circle(body, 9.5, Color(0.45, 0.48, 0.4))                                     # feldgrau
 	draw_circle(body + Vector2.from_angle(facing) * 3 + Vector2(0, -3), 6.5, Color(0.3, 0.33, 0.28))  # kask

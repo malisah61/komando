@@ -20,7 +20,8 @@ func _gui_input(e: InputEvent) -> void:
 	elif e is InputEventMouseMotion and (e.button_mask & MOUSE_BUTTON_MASK_LEFT) != 0:
 		down = true
 	if down:
-		main.cam.position = (e.position / _scale()).clamp(Vector2.ZERO, main.level.size)
+		main.cam.position = e.position / _scale()
+		main._clamp_cam()
 		accept_event()
 
 

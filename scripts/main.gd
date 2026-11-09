@@ -7,7 +7,13 @@ const Commando = preload("res://scripts/commando.gd")
 const Guard = preload("res://scripts/guard.gd")
 const Hud = preload("res://scripts/hud.gd")
 
-@export var level_path := "res://levels/bolum0.json"
+const LEVELS := [
+	["res://levels/bolum0.json", "Bölüm 0 – Normandiya Köyü", "Eğitim: küçük köy, 6 asker"],
+	["res://levels/bolum1.json", "Bölüm 1 – Nehir Operasyonu", "Geniş harita: nehir, köprüler, köy, karargâh, 23 asker"],
+]
+static var level_choice := ""      # sahne yeniden yuklenince de hatirlanir
+
+var level_path := "res://levels/bolum1.json"
 
 var level
 var world: Node2D
@@ -27,6 +33,8 @@ var hud
 
 
 func _ready() -> void:
+	if level_choice != "":
+		level_path = level_choice
 	level = Level.new()
 	add_child(level)
 	var cones = ConeLayer.new()
@@ -48,6 +56,7 @@ func _ready() -> void:
 			g.waypoints.append(Vector2(p[0], p[1]))
 		g.position = g.waypoints[0]
 		g.facing = deg_to_rad(gd.get("facing", 0.0))
+		g.kind = gd.get("type", "er")
 		world.add_child(g)
 
 	commando = Commando.new()
@@ -59,9 +68,17 @@ func _ready() -> void:
 	cam.position = commando.position
 	add_child(cam)
 	cam.make_current()
+	_clamp_cam()
 	hud = Hud.new()
 	hud.main = self
 	add_child(hud)
+	if level_choice == "":
+		hud.show_menu(LEVELS)
+
+
+func choose_level(path: String) -> void:
+	level_choice = path
+	get_tree().reload_current_scene()
 
 
 # ---------------- Oyun akisi ----------------
@@ -140,7 +157,17 @@ func _zoom(f: float) -> void:
 
 
 func _clamp_cam() -> void:
-	cam.position = cam.position.clamp(Vector2.ZERO, level.size)
+	# gorus alani harita disina tasmasin (harita ekrandan kucukse ortala)
+	var half: Vector2 = get_viewport_rect().size / cam.zoom * 0.5
+	var lo: Vector2 = half
+	var hi: Vector2 = level.size - half
+	if hi.x < lo.x:
+		lo.x = level.size.x * 0.5
+		hi.x = lo.x
+	if hi.y < lo.y:
+		lo.y = level.size.y * 0.5
+		hi.y = lo.y
+	cam.position = cam.position.clamp(lo, hi)
 
 
 func _tap(p: Vector2) -> void:

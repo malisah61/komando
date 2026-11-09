@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://dv2yj7jlkuon5"
-path="res://.godot/imported/enemy_sprite_sheet.png-ceef7662eccec3e09f7a464d40a23661.ctex"
+uid="uid://cwqeneytdwcy7"
+path="res://.godot/imported/alman_subay_sprite_sheet.png-d7c1ed17ca00e5a14db9a1df945353d5.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/sprites/enemy_sprite_sheet.png"
-dest_files=["res://.godot/imported/enemy_sprite_sheet.png-ceef7662eccec3e09f7a464d40a23661.ctex"]
+source_file="res://assets/sprites/alman_subay_sprite_sheet.png"
+dest_files=["res://.godot/imported/alman_subay_sprite_sheet.png-d7c1ed17ca00e5a14db9a1df945353d5.ctex"]
 
 [params]
 

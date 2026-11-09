@@ -10,6 +10,7 @@ var g_start := {}
 
 
 func _initialize() -> void:
+	load("res://scripts/main.gd").level_choice = "res://levels/bolum0.json"
 	main = load("res://scenes/main.tscn").instantiate()
 	root.add_child(main)
 

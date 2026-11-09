@@ -127,8 +127,19 @@ func _ready() -> void:
 	cone_btn.toggled.connect(func(on): show_cones = on)
 	abil.add_child(cone_btn)
 	var center_btn := _button("Odak", false)
-	center_btn.pressed.connect(func(): main.cam.position = main.commando.global_position)
+	center_btn.pressed.connect(func():
+		main.cam.position = main.commando.global_position
+		main._clamp_cam())
 	abil.add_child(center_btn)
+
+	# --- sag ust: menu ---
+	var menu_btn := _button("Menü", false)
+	menu_btn.custom_minimum_size = Vector2(84, 52)
+	menu_btn.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	menu_btn.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	menu_btn.position = Vector2(-10, 10)
+	menu_btn.pressed.connect(func(): show_menu(main.LEVELS))
+	root.add_child(menu_btn)
 
 	# --- orta: sonuc ---
 	var mid := VBoxContainer.new()
@@ -148,6 +159,33 @@ func _ready() -> void:
 	restart_btn.visible = false
 	restart_btn.pressed.connect(func(): get_tree().reload_current_scene())
 	mid.add_child(restart_btn)
+
+
+func show_menu(levels: Array) -> void:
+	var shade := ColorRect.new()
+	shade.color = Color(0, 0, 0, 0.72)
+	shade.set_anchors_preset(Control.PRESET_FULL_RECT)
+	shade.mouse_filter = Control.MOUSE_FILTER_STOP     # oyuna dokunus gecmesin
+	add_child(shade)
+	var box := VBoxContainer.new()
+	box.set_anchors_preset(Control.PRESET_CENTER)
+	box.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	box.grow_vertical = Control.GROW_DIRECTION_BOTH
+	box.add_theme_constant_override("separation", 14)
+	shade.add_child(box)
+	var t := _label("KOMANDO", 54, ACCENT)
+	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	box.add_child(t)
+	var st := _label("Görev seç", 20, Color(1, 1, 1, 0.8))
+	st.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	box.add_child(st)
+	for lv in levels:
+		var b := _button("%s\n%s" % [lv[1], lv[2]], false)
+		b.custom_minimum_size = Vector2(520, 84)
+		b.add_theme_font_size_override("font_size", 20)
+		var path: String = lv[0]
+		b.pressed.connect(func(): main.choose_level(path))
+		box.add_child(b)
 
 
 func _process(_delta: float) -> void:

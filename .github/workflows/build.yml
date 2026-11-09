@@ -4,6 +4,9 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+  workflow_run:            # sprite render bitince yeniden derle
+    workflows: ["Sprite render (Blender)"]
+    types: [completed]
 
 permissions:
   contents: write

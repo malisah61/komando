@@ -1,5 +1,9 @@
 # Sprite sheet'ler
 
+**Blender'dan gelenler (8 yönlü):** `komando_`, `alman_er_`, `alman_subay_`, `alman_kis_sprite_sheet.png` — `tools/blender/asker.py` üretir, elle düzenleme.
+
+**Elle eklenecekler:** aşağıdaki adlarla koyarsan Blender'dakilerin yerine geçer.
+
 Buraya atılan sheet'ler oyun açılırken otomatik tanımlanır (`scripts/sprite_sheet.gd`).
 
 | Dosya | Kime bağlanır |
@@ -28,4 +32,3 @@ Aynı adla bir `.json` koy, örn. `commandos_sprite_sheet.json`:
 ```
 `anims` içindeki sayılar satır numarasıdır.
 
-Şu anki iki dosya yer tutucudur (geçici); kendi çizimlerinle üzerine yaz.

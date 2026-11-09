@@ -2,7 +2,8 @@ extends CharacterBody2D
 ## Oyuncu komandosu (Yesil Bere). NavigationAgent2D ile tikla-yuru, bicakla.
 
 const SpriteSheet = preload("res://scripts/sprite_sheet.gd")
-const SHEET := "res://assets/sprites/commandos_sprite_sheet.png"
+# once elle eklenen sheet, yoksa Blender'da render edilen
+const SHEETS := ["res://assets/sprites/commandos_sprite_sheet.png", "res://assets/sprites/komando_sprite_sheet.png"]
 
 @export var speed: float = 120.0
 
@@ -31,7 +32,10 @@ func _ready() -> void:
 	navigation_agent.target_desired_distance = 4.0
 	navigation_agent.radius = 10.0
 	add_child(navigation_agent)
-	sprite = SpriteSheet.attach(self, SHEET)
+	for path in SHEETS:
+		if ResourceLoader.exists(path):
+			sprite = SpriteSheet.attach(self, path)
+			break
 
 
 func nav_ready() -> bool:
@@ -93,14 +97,14 @@ func _physics_process(delta: float) -> void:
 
 
 func _play(anim: StringName, force := false) -> void:
-	if sprite == null or not sprite.sprite_frames.has_animation(anim):
+	if sprite == null:
 		return
 	# tek seferlik animasyon (bicak) bitene kadar bozma
-	if not force and sprite.animation == &"action" and sprite.is_playing():
+	if not force and SpriteSheet.base_anim(sprite) == "action" and sprite.is_playing():
 		return
-	if sprite.animation != anim or force:
-		sprite.play(anim)
-	sprite.flip_h = cos(facing) < 0.0
+	if anim == &"walk" and run:
+		anim = &"run"
+	SpriteSheet.play(sprite, anim, facing, force)
 
 
 func is_hidden() -> bool:
@@ -118,7 +122,8 @@ func _draw() -> void:
 			draw_arc(pts[pts.size() - 1] - global_position, 9, 0, TAU, 20, Color(1, 1, 1, 0.7), 2.0)
 	# golge + secim halkasi
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2(1, 0.5))
-	draw_circle(Vector2.ZERO, 12, Color(0, 0, 0, 0.35))
+	if sprite == null:
+		draw_circle(Vector2.ZERO, 12, Color(0, 0, 0, 0.35))
 	draw_arc(Vector2.ZERO, 18, 0, TAU, 28, Color(0.4, 1, 0.4, 0.9), 2.5)
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 	if sprite != null:

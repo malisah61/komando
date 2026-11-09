@@ -1,0 +1,45 @@
+{
+ "frame": 128,
+ "cols": 16,
+ "slot": 8,
+ "slots_per_row": 2,
+ "directions": 8,
+ "filter": "linear",
+ "display_px": 160,
+ "anims": {
+  "idle": {
+   "slot": 0,
+   "frames": 4,
+   "fps": 4,
+   "loop": true
+  },
+  "walk": {
+   "slot": 8,
+   "frames": 8,
+   "fps": 10,
+   "loop": true
+  },
+  "run": {
+   "slot": 16,
+   "frames": 8,
+   "fps": 14,
+   "loop": true
+  },
+  "action": {
+   "slot": 24,
+   "frames": 6,
+   "fps": 14,
+   "loop": false
+  },
+  "death": {
+   "slot": 32,
+   "frames": 6,
+   "fps": 10,
+   "loop": false
+  }
+ },
+ "pivot": [
+  64.0,
+  79.7
+ ]
+}
