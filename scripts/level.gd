@@ -1,0 +1,304 @@
+extends Node2D
+## Bolum dosyasini (levels/*.json) okur ve dunyayi kurar.
+## Ilke 1: her engelin `move` (hareketi engeller) ve `view` (gorusu engeller) bayragi var.
+## Ilke 2: engeller serbest cokgen.
+## Ilke 3: `footprints` zeminlerinde ayak izi kalir, askerler fark eder.
+## Ilke 4: haritalar koddan ayri veri dosyalarinda.
+
+const Prop = preload("res://scripts/prop.gd")
+const Roof = preload("res://scripts/roof.gd")
+
+const WALL := 12.0
+const DOOR := 60.0
+const WALL_H := 30.0
+const FOOTPRINT_LIFE := 40.0
+
+# tur -> [hareket, gorus, yukseklik, ust renk, yan renk]
+const TYPES := {
+	"hedge":   [true,  true,  26.0, Color(0.2, 0.36, 0.15), Color(0.12, 0.24, 0.09)],
+	"wall":    [true,  true,  34.0, Color(0.62, 0.6, 0.55), Color(0.42, 0.4, 0.36)],
+	"sandbag": [true,  false, 14.0, Color(0.74, 0.66, 0.46), Color(0.52, 0.45, 0.3)],
+	"bush":    [false, true,  22.0, Color(0.24, 0.44, 0.18, 0.92), Color(0.16, 0.3, 0.12, 0.92)],
+	"crate":   [true,  true,  28.0, Color(0.6, 0.45, 0.25), Color(0.42, 0.3, 0.16)],
+}
+
+var data := {}
+var size := Vector2(1600, 1100)
+var start := Vector2.ZERO
+var exit_rect := Rect2()
+var document_pos := Vector2.ZERO
+var document_taken := false
+
+var view_segments: Array = []     # [a, b, bbox]
+var move_polys: Array = []        # PackedVector2Array
+var surfaces: Array = []          # {points, color, footprints}
+var floors: Array = []            # Rect2 (bina ici)
+var roads: Array = []
+var footprints: Array = []        # {pos, rot, age, noticed}
+
+var _redraw_t := 0.0
+
+
+func load_level(path: String, world: Node2D, roofs: Node2D) -> bool:
+	var f := FileAccess.open(path, FileAccess.READ)
+	if f == null:
+		push_error("Bolum dosyasi acilamadi: " + path)
+		return false
+	var parsed = JSON.parse_string(f.get_as_text())
+	if typeof(parsed) != TYPE_DICTIONARY:
+		push_error("Bolum dosyasi bozuk: " + path)
+		return false
+	data = parsed
+	size = _v(data["size"])
+	start = _v(data["start"])
+	var e: Array = data["exit"]
+	exit_rect = Rect2(e[0], e[1], e[2], e[3])
+	document_pos = _v(data["document"])
+	for r in data.get("roads", []):
+		roads.append(Rect2(r[0], r[1], r[2], r[3]))
+	for s in data.get("surfaces", []):
+		var col := Color(0.4, 0.3, 0.18) if s.get("type", "") == "mud" else Color(0.9, 0.92, 0.95)
+		surfaces.append({"points": _poly(s["points"]), "color": col, "footprints": s.get("footprints", false)})
+
+	# harita kenarlari: gorusu keser
+	var border := PackedVector2Array([Vector2.ZERO, Vector2(size.x, 0), size, Vector2(0, size.y)])
+	_add_view_poly(border)
+
+	for b in data.get("buildings", []):
+		_build_building(b, world, roofs)
+	for o in data.get("obstacles", []):
+		_build_obstacle(o, world)
+
+	_build_navigation()
+	queue_redraw()
+	return true
+
+
+# ---------------- Kurulum ----------------
+func _build_obstacle(o: Dictionary, world: Node2D) -> void:
+	var t: Array = TYPES.get(o.get("type", "wall"), TYPES["wall"])
+	var pts: PackedVector2Array
+	if o.has("circle"):
+		var c: Array = o["circle"]
+		pts = _circle(Vector2(c[0], c[1]), c[2], 10)
+	else:
+		pts = _poly(o["points"])
+	var blocks_move: bool = o.get("move", t[0])
+	var blocks_view: bool = o.get("view", t[1])
+	_add_solid(pts, blocks_move, blocks_view)
+	var p = Prop.new()
+	p.setup(pts, t[2], t[3], t[4])
+	world.add_child(p)
+
+
+func _build_building(b: Dictionary, world: Node2D, roofs: Node2D) -> void:
+	var r: Array = b["rect"]
+	var rect := Rect2(r[0], r[1], r[2], r[3])
+	floors.append(rect)
+	var door: String = b.get("door", "S")
+	var x0 := rect.position.x
+	var y0 := rect.position.y
+	var x1 := rect.end.x
+	var y1 := rect.end.y
+	var cx := rect.get_center().x
+	var cy := rect.get_center().y
+	var hd := DOOR * 0.5
+	var walls: Array[Rect2] = []
+	# kuzey
+	if door == "N":
+		walls.append(Rect2(x0, y0, cx - hd - x0, WALL))
+		walls.append(Rect2(cx + hd, y0, x1 - cx - hd, WALL))
+	else:
+		walls.append(Rect2(x0, y0, rect.size.x, WALL))
+	# guney
+	if door == "S":
+		walls.append(Rect2(x0, y1 - WALL, cx - hd - x0, WALL))
+		walls.append(Rect2(cx + hd, y1 - WALL, x1 - cx - hd, WALL))
+	else:
+		walls.append(Rect2(x0, y1 - WALL, rect.size.x, WALL))
+	# bati
+	if door == "W":
+		walls.append(Rect2(x0, y0 + WALL, WALL, cy - hd - y0 - WALL))
+		walls.append(Rect2(x0, cy + hd, WALL, y1 - WALL - cy - hd))
+	else:
+		walls.append(Rect2(x0, y0 + WALL, WALL, rect.size.y - WALL * 2))
+	# dogu
+	if door == "E":
+		walls.append(Rect2(x1 - WALL, y0 + WALL, WALL, cy - hd - y0 - WALL))
+		walls.append(Rect2(x1 - WALL, cy + hd, WALL, y1 - WALL - cy - hd))
+	else:
+		walls.append(Rect2(x1 - WALL, y0 + WALL, WALL, rect.size.y - WALL * 2))
+
+	var wall_props: Array = []
+	for w in walls:
+		var pts := _rect_poly(w)
+		_add_solid(pts, true, true)
+		var p = Prop.new()
+		p.setup(pts, WALL_H, Color(0.78, 0.72, 0.6), Color(0.6, 0.53, 0.42))
+		world.add_child(p)
+		wall_props.append(p)
+
+	# cati + icerisi icin seffaflasan alan
+	var rc: Array = b.get("roof", [0.58, 0.3, 0.24])
+	var roof_col := Color(rc[0], rc[1], rc[2])
+	var roof = Prop.new()
+	roof.setup(_rect_poly(rect.grow(6)), WALL_H + 8.0, roof_col, roof_col.darkened(0.3))
+	roof.ridge = true
+	roofs.add_child(roof)
+	var area = Roof.new()
+	area.roof_node = roof
+	area.wall_nodes = wall_props
+	var shape := CollisionShape2D.new()
+	var rs := RectangleShape2D.new()
+	rs.size = rect.size - Vector2(WALL * 2, WALL * 2)
+	shape.shape = rs
+	area.position = rect.get_center()
+	area.add_child(shape)
+	add_child(area)
+
+
+func _add_solid(pts: PackedVector2Array, blocks_move: bool, blocks_view: bool) -> void:
+	if blocks_view:
+		_add_view_poly(pts)
+	if blocks_move:
+		move_polys.append(pts)
+		var body := StaticBody2D.new()
+		body.collision_layer = 1
+		body.collision_mask = 0
+		var cp := CollisionPolygon2D.new()
+		cp.polygon = pts
+		body.add_child(cp)
+		add_child(body)
+
+
+func _add_view_poly(pts: PackedVector2Array) -> void:
+	for i in pts.size():
+		var a: Vector2 = pts[i]
+		var b: Vector2 = pts[(i + 1) % pts.size()]
+		var bb := Rect2(a, Vector2.ZERO).expand(b)
+		view_segments.append([a, b, bb])
+
+
+func _build_navigation() -> void:
+	var navpoly := NavigationPolygon.new()
+	navpoly.agent_radius = 11.0
+	var src := NavigationMeshSourceGeometryData2D.new()
+	src.add_traversable_outline(PackedVector2Array([Vector2.ZERO, Vector2(size.x, 0), size, Vector2(0, size.y)]))
+	for p in move_polys:
+		src.add_obstruction_outline(p)
+	NavigationServer2D.bake_from_source_geometry_data(navpoly, src)
+	var region := NavigationRegion2D.new()
+	region.navigation_polygon = navpoly
+	add_child(region)
+
+
+# ---------------- Gorus hatti ----------------
+func ray_end(from: Vector2, to: Vector2) -> Vector2:
+	var best := to
+	var best_d := from.distance_to(to)
+	var ray_bb := Rect2(from, Vector2.ZERO).expand(to).grow(1.0)
+	for s in view_segments:
+		if not ray_bb.intersects(s[2], true):
+			continue
+		var hit = Geometry2D.segment_intersects_segment(from, to, s[0], s[1])
+		if hit != null:
+			var d: float = from.distance_to(hit)
+			if d < best_d:
+				best_d = d
+				best = hit
+	return best
+
+
+func has_los(a: Vector2, b: Vector2) -> bool:
+	return ray_end(a, b).distance_to(b) < 1.0
+
+
+func is_inside_view_blocker(p: Vector2) -> bool:
+	# calilik icinde mi? (gorusu engelleyen ama hareketi engellemeyen)
+	for o in data.get("obstacles", []):
+		var t: Array = TYPES.get(o.get("type", "wall"), TYPES["wall"])
+		if o.get("move", t[0]) or not o.get("view", t[1]):
+			continue
+		if o.has("circle"):
+			var c: Array = o["circle"]
+			if p.distance_to(Vector2(c[0], c[1])) < c[2]:
+				return true
+		elif Geometry2D.is_point_in_polygon(p, _poly(o["points"])):
+			return true
+	return false
+
+
+# ---------------- Ayak izleri ----------------
+func leaves_footprints(p: Vector2) -> bool:
+	for s in surfaces:
+		if s["footprints"] and Geometry2D.is_point_in_polygon(p, s["points"]):
+			return true
+	return false
+
+
+func add_footprint(p: Vector2, rot: float) -> void:
+	footprints.append({"pos": p, "rot": rot, "age": 0.0, "noticed": false})
+
+
+func _process(delta: float) -> void:
+	var i := footprints.size() - 1
+	while i >= 0:
+		footprints[i]["age"] += delta
+		if footprints[i]["age"] > FOOTPRINT_LIFE:
+			footprints.remove_at(i)
+		i -= 1
+	_redraw_t -= delta
+	if _redraw_t <= 0.0:
+		_redraw_t = 0.25
+		queue_redraw()
+
+
+# ---------------- Zemin cizimi ----------------
+func _draw() -> void:
+	var font := ThemeDB.fallback_font
+	draw_rect(Rect2(Vector2.ZERO, size), Color(0.36, 0.45, 0.26))
+	for r in roads:
+		draw_rect(r, Color(0.55, 0.47, 0.34))
+	for s in surfaces:
+		draw_colored_polygon(s["points"], s["color"])
+	for fl in floors:
+		draw_rect(fl, Color(0.45, 0.33, 0.22))
+		var y: float = fl.position.y + 16.0
+		while y < fl.end.y:
+			draw_line(Vector2(fl.position.x, y), Vector2(fl.end.x, y), Color(0.38, 0.27, 0.18), 1.0)
+			y += 16.0
+	for fp in footprints:
+		var a: float = 1.0 - float(fp["age"]) / FOOTPRINT_LIFE
+		draw_set_transform(fp["pos"], fp["rot"], Vector2.ONE)
+		draw_rect(Rect2(-4, -5, 7, 3), Color(0.15, 0.1, 0.05, 0.7 * a))
+		draw_rect(Rect2(-4, 2, 7, 3), Color(0.15, 0.1, 0.05, 0.7 * a))
+		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	draw_rect(exit_rect, Color(0.3, 0.9, 0.4, 0.22))
+	draw_rect(exit_rect, Color(0.3, 0.9, 0.4, 0.8), false, 3.0)
+	draw_string(font, exit_rect.position + Vector2(40, 30), "ÇIKIŞ", HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color.WHITE)
+	if not document_taken:
+		draw_rect(Rect2(document_pos - Vector2(12, 9), Vector2(24, 18)), Color(1, 0.9, 0.3))
+		draw_rect(Rect2(document_pos - Vector2(12, 9), Vector2(24, 18)), Color(0.4, 0.3, 0), false, 2.0)
+
+
+# ---------------- Yardimcilar ----------------
+func _v(a: Array) -> Vector2:
+	return Vector2(a[0], a[1])
+
+
+func _poly(arr: Array) -> PackedVector2Array:
+	var out := PackedVector2Array()
+	for p in arr:
+		out.append(Vector2(p[0], p[1]))
+	return out
+
+
+func _rect_poly(r: Rect2) -> PackedVector2Array:
+	return PackedVector2Array([r.position, Vector2(r.end.x, r.position.y), r.end, Vector2(r.position.x, r.end.y)])
+
+
+func _circle(c: Vector2, r: float, n: int) -> PackedVector2Array:
+	var out := PackedVector2Array()
+	for i in n:
+		out.append(c + Vector2.from_angle(TAU * i / n) * r)
+	return out

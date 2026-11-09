@@ -2,25 +2,47 @@
 
 Commandos 2: Men of Courage'dan esinlenen, 2. Dünya Savaşı'nda geçen gerçek zamanlı taktik / gizlilik oyunu.
 
-- **Motor:** Godot 4.3 · **Dil:** GDScript (sonra gerekirse performans kritik kısımlar C++ GDExtension)
-- **Platformlar:** Web (tarayıcı) ve Android
+- **Motor:** Godot 4.3 · **Dil:** GDScript
 - **Tarayıcıda oyna:** https://malisah61.github.io/komando/
 - **APK indir:** https://github.com/malisah61/komando/releases/latest/download/komando.apk
 
-## Bölüm 0 – Normandiya Köyü (prototip)
-Hedef: Karargâhtaki gizli belgeyi çal ve çıkış bölgesine dön.
+## Bölüm 0 – Normandiya Köyü
+Karargâhtaki gizli belgeyi çal, sol alttaki çıkışa dön.
 
 | Kontrol | İşlev |
 |---|---|
 | Dokun / tıkla | Yürü |
-| Askere dokun | Arkasından yaklaşıp bıçakla |
-| Sürükle | Kamerayı kaydır |
+| Askere dokun | Yaklaşıp bıçakla |
+| Sürükle | Kamera |
 | İki parmak / tekerlek | Yakınlaştır |
 
-Görüş konisine girersen asker şüphelenir (sarı halka). Halka dolarsa alarm çalar. Cesetler de fark edilir.
+## Tasarım ilkeleri (rtte motorundan alınan 4 fikir)
+1. **Hareket / görüş ayrımı:** her engelin `move` ve `view` özelliği var. Çalılık görüşü keser ama içinden geçilir; kum torbası geçişi engeller ama üstünden görülür.
+2. **Çokgen engeller:** engeller serbest şekilli (`points`) ya da daire (`circle`).
+3. **Ayak izi zeminleri:** `footprints: true` olan çamurda iz kalır; askerler izi görürse takip eder.
+4. **Veri dosyasında bölümler:** her harita `levels/*.json` içinde, koddan bağımsız.
+
+Ek olarak: NavigationAgent2D ile yol bulma, Y-Sort derinlik sıralaması, girilince şeffaflaşan çatılar, kademeli şüphe metresi (?/!), ceset ve ayak izi araştırma, ceset bulununca alarm seviyesi.
+
+## Bölüm dosyası biçimi
+```json
+{"type": "bush", "circle": [500, 985, 38]}                     // görüşü keser, geçilir
+{"type": "sandbag", "points": [[880,900],[1060,900],[1060,926],[880,926]]}
+{"type": "hedge", "points": [...], "move": true, "view": false} // varsayılanı ezmek için
+{"name": "Karargâh", "rect": [1120, 90, 300, 200], "door": "W"} // bina: N/S/E/W kapı
+{"path": [[1190, 195]], "facing": 0}                           // tek noktalı = nöbetçi
+```
+Türler: `hedge`, `wall`, `sandbag`, `bush`, `crate`.
 
 ## Klasörler
-- `scripts/main.gd` – harita, yol bulma, görüş hattı, kamera, arayüz
-- `scripts/guard.gd` – düşman yapay zekâsı (devriye, görüş, şüphe)
-- `scripts/commando.gd` – oyuncu komandosu
-- `.github/workflows/build.yml` – otomatik Web + Android derleme
+- `scripts/level.gd` – bölüm yükleme, engeller, binalar, navigasyon, görüş hattı, ayak izleri
+- `scripts/guard.gd` – düşman yapay zekâsı (devriye → şüphe → araştırma → arama)
+- `scripts/commando.gd` – oyuncu (CharacterBody2D + NavigationAgent2D)
+- `scripts/prop.gd` – yarı izometrik yükseltilmiş çizim
+- `scripts/roof.gd` – şeffaflaşan çatı
+- `tests/sim.gd` – otomatik test: `godot --headless --script res://tests/sim.gd`
+
+## Araştırılan kaynaklar
+- [martinstarman/rtte](https://github.com/martinstarman/rtte) (MIT) – 4 tasarım ilkesi
+- [thedivergentai/gd-agentic-skills](https://github.com/thedivergentai/gd-agentic-skills) – gizlilik yapay zekâsı ilkeleri (kademeli tespit, araştırma, ceset katmanı, gruplar)
+- [elyar-jamali/TopDown_Stealth_Game](https://github.com/elyar-jamali/TopDown_Stealth_Game) – yalnızca fikir (ticari olmayan lisans, kod alınmadı)
