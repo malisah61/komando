@@ -1,6 +1,9 @@
 extends CharacterBody2D
 ## Oyuncu komandosu (Yesil Bere). NavigationAgent2D ile tikla-yuru, bicakla.
 
+const SpriteSheet = preload("res://scripts/sprite_sheet.gd")
+const SHEET := "res://assets/sprites/commandos_sprite_sheet.png"
+
 @export var speed: float = 120.0
 
 var main
@@ -10,6 +13,8 @@ var alive := true
 var target_guard = null
 var _repath := 0.0
 var _step := 0.0
+var sprite: AnimatedSprite2D      # sprite sheet varsa dolu, yoksa sekillerle cizilir
+var run := false                  # HUD'daki Kos dugmesi
 
 
 func _ready() -> void:
@@ -26,6 +31,7 @@ func _ready() -> void:
 	navigation_agent.target_desired_distance = 4.0
 	navigation_agent.radius = 10.0
 	add_child(navigation_agent)
+	sprite = SpriteSheet.attach(self, SHEET)
 
 
 func nav_ready() -> bool:
@@ -54,6 +60,7 @@ func _physics_process(delta: float) -> void:
 		elif global_position.distance_to(target_guard.global_position) < 30.0:
 			target_guard.kill()
 			target_guard = null
+			_play(&"action", true)
 			navigation_agent.target_position = global_position
 		else:
 			_repath -= delta
@@ -63,13 +70,15 @@ func _physics_process(delta: float) -> void:
 
 	if navigation_agent.is_navigation_finished():
 		velocity = Vector2.ZERO
+		_play(&"idle")
 		queue_redraw()
 		return
 
 	var current_agent_position: Vector2 = global_position
 	var next_path_position: Vector2 = navigation_agent.get_next_path_position()
 	var direction: Vector2 = current_agent_position.direction_to(next_path_position)
-	velocity = direction * speed
+	velocity = direction * speed * (1.6 if run else 1.0)
+	_play(&"walk")
 	facing = lerp_angle(facing, direction.angle(), minf(1.0, delta * 12.0))
 	var before := global_position
 	move_and_slide()
@@ -81,6 +90,17 @@ func _physics_process(delta: float) -> void:
 		if main.level.leaves_footprints(global_position):
 			main.level.add_footprint(global_position, facing)
 	queue_redraw()
+
+
+func _play(anim: StringName, force := false) -> void:
+	if sprite == null or not sprite.sprite_frames.has_animation(anim):
+		return
+	# tek seferlik animasyon (bicak) bitene kadar bozma
+	if not force and sprite.animation == &"action" and sprite.is_playing():
+		return
+	if sprite.animation != anim or force:
+		sprite.play(anim)
+	sprite.flip_h = cos(facing) < 0.0
 
 
 func is_hidden() -> bool:
@@ -101,6 +121,11 @@ func _draw() -> void:
 	draw_circle(Vector2.ZERO, 12, Color(0, 0, 0, 0.35))
 	draw_arc(Vector2.ZERO, 18, 0, TAU, 28, Color(0.4, 1, 0.4, 0.9), 2.5)
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	if sprite != null:
+		sprite.modulate = Color(1, 0.6, 0.6) if not alive else (Color(1, 1, 1, 0.6) if is_hidden() else Color.WHITE)
+		if is_hidden():
+			draw_string(ThemeDB.fallback_font, Vector2(-22, -48), "gizli", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(0.7, 1, 0.7))
+		return
 	# govde (ayaklar orijinde, govde yukarida)
 	var body := Vector2(0, -12)
 	var col := Color(0.3, 0.42, 0.2) if alive else Color(0.55, 0.2, 0.2)

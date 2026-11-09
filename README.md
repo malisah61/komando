@@ -12,7 +12,10 @@ Karargâhtaki gizli belgeyi çal, sol alttaki çıkışa dön.
 | Kontrol | İşlev |
 |---|---|
 | Dokun / tıkla | Yürü |
-| Askere dokun | Yaklaşıp bıçakla |
+| **Bıçak** düğmesi + askere dokun | Yaklaşıp bıçakla |
+| **Koş** | Hızlı ama gürültülü: yakındaki askerler sesi duyar |
+| **Koni** / **Odak** | Görüş konilerini aç-kapa / kamerayı komandoya getir |
+| Mini haritaya dokun | Kamerayı oraya taşı |
 | Sürükle | Kamera |
 | İki parmak / tekerlek | Yakınlaştır |
 

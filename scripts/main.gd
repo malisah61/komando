@@ -5,6 +5,7 @@ const Level = preload("res://scripts/level.gd")
 const ConeLayer = preload("res://scripts/cone_layer.gd")
 const Commando = preload("res://scripts/commando.gd")
 const Guard = preload("res://scripts/guard.gd")
+const Hud = preload("res://scripts/hud.gd")
 
 @export var level_path := "res://levels/bolum0.json"
 
@@ -22,11 +23,7 @@ var press_pos := Vector2.ZERO
 var touches := {}
 var last_pinch := 0.0
 
-# arayuz
-var goal_label: Label
-var alert_label: Label
-var msg_label: Label
-var restart_btn: Button
+var hud
 
 
 func _ready() -> void:
@@ -62,7 +59,9 @@ func _ready() -> void:
 	cam.position = commando.position
 	add_child(cam)
 	cam.make_current()
-	_build_ui()
+	hud = Hud.new()
+	hud.main = self
+	add_child(hud)
 
 
 # ---------------- Oyun akisi ----------------
@@ -72,7 +71,7 @@ func _process(_delta: float) -> void:
 	if not level.document_taken and commando.global_position.distance_to(level.document_pos) < 26:
 		level.document_taken = true
 		level.queue_redraw()
-		goal_label.text = "Belge alındı! ÇIKIŞ bölgesine dön (sol alt)"
+		hud.on_document()
 	if level.document_taken and level.exit_rect.has_point(commando.global_position):
 		_end("GÖREV TAMAMLANDI", Color(0.5, 1, 0.5))
 
@@ -86,17 +85,13 @@ func caught(_by) -> void:
 
 func body_found(p: Vector2) -> void:
 	alert_level = 1
-	alert_label.text = "⚠ ALARM: Ceset bulundu! Askerler daha dikkatli."
-	alert_label.visible = true
+	hud.set_alert("ALARM: Ceset bulundu! Askerler daha dikkatli.")
 	get_tree().call_group("guards", "hear_alarm", p)
 
 
 func _end(text: String, col: Color) -> void:
 	game_over = true
-	msg_label.text = text
-	msg_label.add_theme_color_override("font_color", col)
-	msg_label.visible = true
-	restart_btn.visible = true
+	hud.show_end(text, col)
 
 
 # ---------------- Girdi ----------------
@@ -151,64 +146,12 @@ func _clamp_cam() -> void:
 func _tap(p: Vector2) -> void:
 	if game_over:
 		return
-	for g in get_tree().get_nodes_in_group("guards"):
-		# govde ayaklarin 12px ustunde cizildigi icin oraya da bak
-		if g.alive and (p.distance_to(g.global_position) < 26 or p.distance_to(g.global_position + Vector2(0, -12)) < 22):
-			commando.attack(g)
-			return
+	# Bicak yetenegi secili ise askere dokununca saldir (Commandos'taki gibi)
+	if hud.knife_mode:
+		for g in get_tree().get_nodes_in_group("guards"):
+			# govde ayaklarin ustunde cizildigi icin oraya da bak
+			if g.alive and (p.distance_to(g.global_position) < 28 or p.distance_to(g.global_position + Vector2(0, -16)) < 24):
+				commando.attack(g)
+				hud.used_knife()
+				return
 	commando.move_to(p)
-
-
-# ---------------- Arayuz ----------------
-func _build_ui() -> void:
-	var layer := CanvasLayer.new()
-	add_child(layer)
-
-	var title := _make_label(15)
-	title.position = Vector2(16, 8)
-	title.text = level.data.get("name", "")
-	title.modulate = Color(1, 1, 1, 0.75)
-	layer.add_child(title)
-
-	goal_label = _make_label(22)
-	goal_label.position = Vector2(16, 28)
-	goal_label.text = "Hedef: " + level.data.get("brief", "")
-	layer.add_child(goal_label)
-
-	alert_label = _make_label(20)
-	alert_label.position = Vector2(16, 60)
-	alert_label.add_theme_color_override("font_color", Color(1, 0.55, 0.3))
-	alert_label.visible = false
-	layer.add_child(alert_label)
-
-	var hint := _make_label(15)
-	hint.text = "Dokun: yürü  •  Askere dokun: bıçakla  •  Çalılıkta gizlenirsin  •  Çamurda iz bırakırsın  •  Sürükle: kamera"
-	hint.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
-	hint.position = Vector2(16, -34)
-	layer.add_child(hint)
-
-	msg_label = _make_label(56)
-	msg_label.set_anchors_preset(Control.PRESET_CENTER)
-	msg_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	msg_label.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	msg_label.position.y -= 80
-	msg_label.visible = false
-	layer.add_child(msg_label)
-
-	restart_btn = Button.new()
-	restart_btn.text = "  Yeniden Başla  "
-	restart_btn.add_theme_font_size_override("font_size", 30)
-	restart_btn.set_anchors_preset(Control.PRESET_CENTER)
-	restart_btn.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	restart_btn.position.y += 10
-	restart_btn.visible = false
-	restart_btn.pressed.connect(func(): get_tree().reload_current_scene())
-	layer.add_child(restart_btn)
-
-
-func _make_label(font_size: int) -> Label:
-	var l := Label.new()
-	l.add_theme_font_size_override("font_size", font_size)
-	l.add_theme_constant_override("outline_size", 6)
-	l.add_theme_color_override("font_outline_color", Color.BLACK)
-	return l

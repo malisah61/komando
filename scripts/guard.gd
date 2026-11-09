@@ -2,6 +2,8 @@ extends CharacterBody2D
 ## Dusman askeri. Durumlar: devriye -> suphe -> arastirma -> arama -> geri donus.
 ## Kademeli tespit metresi, ?/! geri bildirimi, ceset ve ayak izi fark etme.
 
+const SpriteSheet = preload("res://scripts/sprite_sheet.gd")
+const SHEET := "res://assets/sprites/enemy_sprite_sheet.png"
 const VIEW_RANGE := 230.0
 const VIEW_HALF := 0.56          # ~32 derece
 const RAYS := 30
@@ -24,6 +26,7 @@ var cone := PackedVector2Array()  # dunya koordinatlari
 var _cone_t := 0.0
 var _scan_t := 0.0
 var _ready_nav := false
+var sprite: AnimatedSprite2D
 
 
 func _ready() -> void:
@@ -40,6 +43,7 @@ func _ready() -> void:
 	navigation_agent.target_desired_distance = 4.0
 	navigation_agent.radius = 10.0
 	add_child(navigation_agent)
+	sprite = SpriteSheet.attach(self, SHEET)
 	base_facing = facing
 	# navigasyon haritasi ilk fizik karesinden sonra hazir olur
 	await get_tree().physics_frame
@@ -59,6 +63,11 @@ func _physics_process(delta: float) -> void:
 	if not main.game_over and _ready_nav:
 		_think(delta)
 		_watch(delta)
+	if sprite != null:
+		var anim := &"walk" if velocity.length() > 1.0 else &"idle"
+		if sprite.animation != anim and sprite.sprite_frames.has_animation(anim):
+			sprite.play(anim)
+		sprite.flip_h = cos(facing) < 0.0
 	_cone_t -= delta
 	if _cone_t <= 0.0:
 		_cone_t = 0.06
@@ -158,6 +167,11 @@ func _watch(delta: float) -> void:
 	if _scan_t > 0.0:
 		return
 	_scan_t = 0.25
+	# kosan komandonun ayak sesi (duvar arkasindan da duyulur, ama yakindan)
+	if c.alive and c.run and c.velocity.length() > 1.0 and (state == &"patrol" or state == &"search"):
+		if global_position.distance_to(c.global_position) < 150.0:
+			_set_investigate(c.global_position)
+			return
 	# ceset
 	for g in get_tree().get_nodes_in_group("guards"):
 		if g != self and not g.alive and not g.discovered and can_see(g.global_position):
@@ -190,6 +204,8 @@ func kill() -> void:
 	suspicion = 0.0
 	cone.clear()
 	velocity = Vector2.ZERO
+	if sprite != null and sprite.sprite_frames.has_animation(&"death"):
+		sprite.play(&"death")
 	# ceset hareketi engellemesin
 	collision_layer = 0
 	for ch in get_children():
@@ -210,7 +226,11 @@ func cone_color() -> Color:
 
 # ---------------- Cizim ----------------
 func _draw() -> void:
+	if not alive and sprite != null and sprite.sprite_frames.has_animation(&"death"):
+		return
 	if not alive:
+		if sprite != null:
+			sprite.visible = false
 		draw_set_transform(Vector2.ZERO, facing, Vector2.ONE)
 		draw_rect(Rect2(-14, -7, 28, 14), Color(0.32, 0.34, 0.3))
 		draw_circle(Vector2(13, 0), 6, Color(0.25, 0.27, 0.23))
@@ -221,10 +241,17 @@ func _draw() -> void:
 	draw_circle(Vector2.ZERO, 12, Color(0, 0, 0, 0.35))
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 	var body := Vector2(0, -12)
+	if sprite != null:
+		_draw_alert(Vector2(0, -36))
+		return
 	draw_circle(body, 11, Color(0.12, 0.13, 0.1))
 	draw_circle(body, 9.5, Color(0.45, 0.48, 0.4))                                     # feldgrau
 	draw_circle(body + Vector2.from_angle(facing) * 3 + Vector2(0, -3), 6.5, Color(0.3, 0.33, 0.28))  # kask
 	draw_line(body, body + Vector2.from_angle(facing + 0.4) * 17, Color(0.2, 0.15, 0.1), 3.0)          # tufek
+	_draw_alert(body)
+
+
+func _draw_alert(body: Vector2) -> void:
 	var font := ThemeDB.fallback_font
 	if suspicion > 0.0:
 		draw_arc(body + Vector2(0, -24), 8, -PI / 2, -PI / 2 + TAU * minf(suspicion, 1.0), 20, Color(1, 0.8, 0.2), 3.0)
