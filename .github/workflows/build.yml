@@ -5,7 +5,7 @@ on:
     branches: [main]
   workflow_dispatch:
   workflow_run:            # sprite render bitince yeniden derle
-    workflows: ["Sprite render (Blender)"]
+    workflows: ["Sprite render (Blender)", "Harita render (Blender)"]
     types: [completed]
 
 permissions:

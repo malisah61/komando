@@ -16,6 +16,16 @@ var _repath := 0.0
 var _step := 0.0
 var sprite: AnimatedSprite2D      # sprite sheet varsa dolu, yoksa sekillerle cizilir
 var run := false                  # HUD'daki Kos dugmesi
+var ghost: AnimatedSprite2D       # bina/agac arkasindayken gorunen silüet (Commandos gibi)
+
+const GHOST_SHADER := """
+shader_type canvas_item;
+uniform vec4 tint : source_color = vec4(0.45, 1.0, 0.45, 0.6);
+void fragment() {
+	vec4 c = texture(TEXTURE, UV);
+	COLOR = vec4(tint.rgb, step(0.8, c.a) * tint.a);
+}
+"""
 
 
 func _ready() -> void:
@@ -36,6 +46,20 @@ func _ready() -> void:
 		if ResourceLoader.exists(path):
 			sprite = SpriteSheet.attach(self, path)
 			break
+	if sprite != null:
+		ghost = AnimatedSprite2D.new()
+		ghost.sprite_frames = sprite.sprite_frames
+		ghost.scale = sprite.scale
+		ghost.offset = sprite.offset
+		ghost.texture_filter = sprite.texture_filter
+		ghost.z_index = 15
+		var sh := Shader.new()
+		sh.code = GHOST_SHADER
+		var m := ShaderMaterial.new()
+		m.shader = sh
+		ghost.material = m
+		ghost.visible = false
+		add_child(ghost)
 
 
 func nav_ready() -> bool:
@@ -105,6 +129,17 @@ func _play(anim: StringName, force := false) -> void:
 	if anim == &"walk" and run:
 		anim = &"run"
 	SpriteSheet.play(sprite, anim, facing, force)
+
+
+func _process(_delta: float) -> void:
+	if ghost == null:
+		return
+	ghost.visible = alive and main.level.is_occluded(global_position)
+	if ghost.visible:
+		if ghost.animation != sprite.animation:
+			ghost.animation = sprite.animation
+		ghost.frame = sprite.frame
+		ghost.flip_h = sprite.flip_h
 
 
 func is_hidden() -> bool:

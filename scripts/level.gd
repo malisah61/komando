@@ -52,6 +52,12 @@ var footprints: Array = []        # {pos, rot, age, noticed}
 
 var _redraw_t := 0.0
 
+# --- Blender'da render edilmis harita (levels/<bolum>_art/) ---
+var art := false
+var ground_tex: Texture2D
+var _areas: Array = []            # bina indeksi -> Roof alani
+var occluders: Array = []         # [ekran dikdortgeni, taban y, dugum] - silüet icin
+
 
 func load_level(path: String, world: Node2D, roofs: Node2D) -> bool:
 	var f := FileAccess.open(path, FileAccess.READ)
@@ -63,6 +69,8 @@ func load_level(path: String, world: Node2D, roofs: Node2D) -> bool:
 		push_error("Bolum dosyasi bozuk: " + path)
 		return false
 	data = parsed
+	var art_dir := path.get_basename() + "_art/"
+	art = ResourceLoader.exists(art_dir + "ground.jpg") and FileAccess.file_exists(art_dir + "manifest.json")
 	size = _v(data["size"])
 	start = _v(data["start"])
 	var e: Array = data["exit"]
@@ -80,10 +88,14 @@ func load_level(path: String, world: Node2D, roofs: Node2D) -> bool:
 	var border := PackedVector2Array([Vector2.ZERO, Vector2(size.x, 0), size, Vector2(0, size.y)])
 	_add_view_poly(border)
 
+	var bi := 0
 	for b in data.get("buildings", []):
 		_build_building(b, world, roofs)
+		bi += 1
 	for o in data.get("obstacles", []):
 		_build_obstacle(o, world)
+	if art:
+		_build_art(art_dir, world, roofs)
 
 	_build_navigation()
 	_build_grid()
@@ -112,6 +124,8 @@ func _build_obstacle(o: Dictionary, world: Node2D) -> void:
 	if t[2] <= 0.0:
 		water.append(pts)     # yuksekligi olmayan: zemine cizilir
 		return
+	if art:
+		return                # gorunum render edilmis atlastan gelir
 	var p = Prop.new()
 	p.setup(pts, t[2], t[3], t[4])
 	world.add_child(p)
@@ -159,18 +173,22 @@ func _build_building(b: Dictionary, world: Node2D, roofs: Node2D) -> void:
 	for w in walls:
 		var pts := _rect_poly(w)
 		_add_solid(pts, true, true)
+		if art:
+			continue
 		var p = Prop.new()
 		p.setup(pts, WALL_H, Color(0.78, 0.72, 0.6), Color(0.6, 0.53, 0.42))
 		world.add_child(p)
 		wall_props.append(p)
 
 	# cati + icerisi icin seffaflasan alan
-	var rc: Array = b.get("roof", [0.58, 0.3, 0.24])
-	var roof_col := Color(rc[0], rc[1], rc[2])
-	var roof = Prop.new()
-	roof.setup(_rect_poly(rect.grow(6)), WALL_H + 8.0, roof_col, roof_col.darkened(0.3))
-	roof.ridge = true
-	roofs.add_child(roof)
+	var roof = null
+	if not art:
+		var rc: Array = b.get("roof", [0.58, 0.3, 0.24])
+		var roof_col := Color(rc[0], rc[1], rc[2])
+		roof = Prop.new()
+		roof.setup(_rect_poly(rect.grow(6)), WALL_H + 8.0, roof_col, roof_col.darkened(0.3))
+		roof.ridge = true
+		roofs.add_child(roof)
 	var area = Roof.new()
 	area.roof_node = roof
 	area.wall_nodes = wall_props
@@ -181,6 +199,54 @@ func _build_building(b: Dictionary, world: Node2D, roofs: Node2D) -> void:
 	area.position = rect.get_center()
 	area.add_child(shape)
 	add_child(area)
+	_areas.append(area)
+
+
+func _build_art(dir: String, world: Node2D, roofs: Node2D) -> void:
+	## Blender ciktisi: zemin resmi + her nesne icin Y-Sort'a giren ayri sprite
+	ground_tex = load(dir + "ground.jpg")
+	var man = JSON.parse_string(FileAccess.get_file_as_string(dir + "manifest.json"))
+	var obj_tex: Texture2D = load(dir + "objects.png")
+	var roof_tex: Texture2D = load(dir + "roofs.png")
+	for e in man.get("objects", []):
+		var spr := _art_sprite(obj_tex, e)
+		world.add_child(spr)
+		occluders.append([Rect2(e["rect"][0], e["rect"][1], e["rect"][2], e["rect"][3]), float(e["base"][3]), spr])
+		if e["kind"] == "wall":
+			var a = _areas[int(e["building"])]
+			a.wall_nodes.append(spr)
+	for e in man.get("roofs", []):
+		var spr := _art_sprite(roof_tex, e)
+		roofs.add_child(spr)
+		occluders.append([Rect2(e["rect"][0], e["rect"][1], e["rect"][2], e["rect"][3]), INF, spr])
+		_areas[int(e["building"])].roof_node = spr
+
+
+func _art_sprite(tex: Texture2D, e: Dictionary) -> Sprite2D:
+	var r: Array = e["rect"]
+	var a: Array = e["atlas"]
+	var at := AtlasTexture.new()
+	at.atlas = tex
+	at.region = Rect2(a[0], a[1], r[2], r[3])
+	var spr := Sprite2D.new()
+	spr.texture = at
+	spr.centered = false
+	var base: Array = e["base"]
+	spr.position = Vector2((float(base[0]) + float(base[2])) * 0.5, float(base[3]))
+	spr.offset = Vector2(r[0], r[1]) - spr.position
+	return spr
+
+
+func is_occluded(p: Vector2) -> bool:
+	## karakter bir nesnenin/catinin arkasinda mi? (Commandos'taki silüet icin)
+	var head := p + Vector2(0, -22)
+	for o in occluders:
+		var rect: Rect2 = o[0]
+		if not rect.has_point(head):
+			continue
+		if o[1] > p.y and o[2].modulate.a > 0.5:
+			return true
+	return false
 
 
 func _add_solid(pts: PackedVector2Array, blocks_move: bool, blocks_view: bool) -> void:
@@ -302,6 +368,14 @@ func _process(delta: float) -> void:
 # ---------------- Zemin cizimi ----------------
 func _draw() -> void:
 	var font := ThemeDB.fallback_font
+	if ground_tex != null:
+		draw_texture(ground_tex, Vector2.ZERO)
+	else:
+		_draw_plain_ground()
+	_draw_overlays(font)
+
+
+func _draw_plain_ground() -> void:
 	draw_rect(Rect2(Vector2.ZERO, size), Color(0.36, 0.45, 0.26))
 	for r in roads:
 		draw_rect(r, Color(0.55, 0.47, 0.34))
@@ -326,6 +400,9 @@ func _draw() -> void:
 		while y < fl.end.y:
 			draw_line(Vector2(fl.position.x, y), Vector2(fl.end.x, y), Color(0.38, 0.27, 0.18), 1.0)
 			y += 16.0
+
+
+func _draw_overlays(font: Font) -> void:
 	for fp in footprints:
 		var a: float = 1.0 - float(fp["age"]) / FOOTPRINT_LIFE
 		draw_set_transform(fp["pos"], fp["rot"], Vector2.ONE)

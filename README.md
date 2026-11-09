@@ -10,6 +10,15 @@ Commandos 2: Men of Courage'dan esinlenen, 2. Dünya Savaşı'nda geçen gerçek
 - **Bölüm 0 – Normandiya Köyü** (eğitim): küçük köy, 6 asker.
 - **Bölüm 1 – Nehir Operasyonu**: 3600x2600 geniş harita. Nehir ve iki köprü, çiftlik, köy, duvarlı karargâh, yakıt deposu, ormanlar; 23 asker (er + subay). Planları çal, sahildeki botlara dön. Harita `tools/gen_bolum1.py` ile üretilir.
 
+## Harita render hattı (Blender)
+`tools/blender/harita.py` bölüm dosyasından 3D sahneyi kurar (kiremit çatılı evler, pencereler, ağaçlar, çitler, kum torbaları, çadırlar, kamyonlar, tank, nehir, köprüler, çimen detayları) ve oyunun eğik bakış açısıyla render alır:
+- `levels/<bölüm>_art/ground.jpg` – zemin (nesnelerin gölgeleri dahil)
+- `objects.png` – her nesne ayrı parça; oyunda Y-Sort ile karakterlerle doğru sıralanır
+- `roofs.png` – çatılar; binaya girince şeffaflaşır
+- `manifest.json` – parçaların atlas ve dünya konumları
+
+Bölüm dosyası ya da script değişip push edilince GitHub Actions haritaları yeniden render eder. Komando bir nesnenin arkasında kalınca yeşil silüeti görünür.
+
 ## Asker modeli ve sprite hattı (Blender)
 `tools/blender/asker.py` tek bir iskelet ve tek bir animasyon setiyle (bekleme, yürüme, koşma, bıçak, ölüm) her kıyafet için 8 yönlü sprite sheet üretir:
 `komando`, `alman_er`, `alman_subay`, `alman_kis`. Yeni kıyafet = `OUTFITS` sözlüğüne bir kayıt; yeni hareket = `ANIMS` + `pose()`. Hepsi tüm askerlere otomatik geçer.

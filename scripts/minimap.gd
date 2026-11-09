@@ -35,19 +35,22 @@ func _draw() -> void:
 		return
 	var lvl = main.level
 	var k := _scale()
-	draw_rect(Rect2(Vector2.ZERO, lvl.size * k), Color(0.3, 0.38, 0.22, 0.92))
-	for r in lvl.roads:
-		draw_rect(Rect2(r.position * k, r.size * k), Color(0.5, 0.43, 0.3))
-	for s in lvl.surfaces:
-		var pts := PackedVector2Array()
-		for p in s["points"]:
-			pts.append(p * k)
-		draw_colored_polygon(pts, s["color"].darkened(0.1))
+	if lvl.ground_tex != null:
+		draw_texture_rect(lvl.ground_tex, Rect2(Vector2.ZERO, lvl.size * k), false)
+	else:
+		draw_rect(Rect2(Vector2.ZERO, lvl.size * k), Color(0.3, 0.38, 0.22, 0.92))
+		for r in lvl.roads:
+			draw_rect(Rect2(r.position * k, r.size * k), Color(0.5, 0.43, 0.3))
+		for s in lvl.surfaces:
+			var pts := PackedVector2Array()
+			for p in s["points"]:
+				pts.append(p * k)
+			draw_colored_polygon(pts, s["color"].darkened(0.1))
 	for poly in lvl.move_polys:
 		var pts := PackedVector2Array()
 		for p in poly:
 			pts.append(p * k)
-		draw_colored_polygon(pts, Color(0.75, 0.68, 0.55))
+		draw_colored_polygon(pts, Color(0.2, 0.18, 0.14, 0.75) if lvl.ground_tex != null else Color(0.75, 0.68, 0.55))
 	draw_rect(Rect2(lvl.exit_rect.position * k, lvl.exit_rect.size * k), Color(0.3, 0.9, 0.4, 0.6))
 	if not lvl.document_taken:
 		draw_circle(lvl.document_pos * k, 3.5, Color(1, 0.9, 0.2))
