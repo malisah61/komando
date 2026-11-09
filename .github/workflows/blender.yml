@@ -1,0 +1,19 @@
+name: Araç - Blender indir
+on:
+  push:
+    branches: [arac-blender]
+permissions:
+  contents: write
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    steps:
+      - run: wget -q https://download.blender.org/release/Blender4.2/blender-4.2.3-linux-x64.tar.xz
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: arac-blender-4.2.3
+          name: "Araç: Blender 4.2.3 (render için)"
+          body: "Sprite render hattı için Blender kopyası (GPL)."
+          files: blender-4.2.3-linux-x64.tar.xz
+          make_latest: false
+          prerelease: true
