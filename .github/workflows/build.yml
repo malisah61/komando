@@ -84,3 +84,12 @@ jobs:
         with:
           name: komando-apk
           path: build/android/komando.apk
+
+      - name: APK'yı sürüm (Release) olarak yayınla
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: son-surum
+          name: Komando - son sürüm
+          body: "Otomatik derleme: ${{ github.sha }}"
+          files: build/android/komando.apk
+          make_latest: true

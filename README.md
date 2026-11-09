@@ -5,7 +5,7 @@ Commandos 2: Men of Courage'dan esinlenen, 2. Dünya Savaşı'nda geçen gerçek
 - **Motor:** Godot 4.3 · **Dil:** GDScript (sonra gerekirse performans kritik kısımlar C++ GDExtension)
 - **Platformlar:** Web (tarayıcı) ve Android
 - **Tarayıcıda oyna:** https://malisah61.github.io/komando/
-- **APK:** Actions sekmesi → son "Derle" çalışması → `komando-apk`
+- **APK indir:** https://github.com/malisah61/komando/releases/latest/download/komando.apk
 
 ## Bölüm 0 – Normandiya Köyü (prototip)
 Hedef: Karargâhtaki gizli belgeyi çal ve çıkış bölgesine dön.
