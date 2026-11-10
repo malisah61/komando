@@ -1,0 +1,14 @@
+{
+ "_aciklama": "Poly Haven (CC0) doku yuvalari. Her yuva icin anahtar kelimeler sirayla denenir; ilk eslesen doku indirilir.",
+ "grass":   ["aerial_grass_rock", "grass_path", "forest_ground", "grass"],
+ "dirt":    ["dirt_road", "aerial_ground", "brown_mud_dry", "dry_ground", "dirt"],
+ "mud":     ["brown_mud", "mud_forest", "mud"],
+ "plaster": ["painted_plaster_wall", "plaster", "white_plaster"],
+ "roof":    ["roof_tiles", "clay_roof", "roof"],
+ "stone":   ["castle_wall", "stone_wall", "stone_brick", "cobblestone"],
+ "planks":  ["wood_planks", "wooden_planks", "planks"],
+ "bark":    ["bark_brown", "pine_bark", "bark"],
+ "rock":    ["rock_face", "rocky", "rock"],
+ "fabric":  ["fabric_pattern", "denim", "fabric", "canvas"],
+ "metal":   ["green_metal_rust", "painted_metal", "rust", "metal_plate"]
+}
