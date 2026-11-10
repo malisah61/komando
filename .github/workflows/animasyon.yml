@@ -1,0 +1,34 @@
+name: Araç - Animasyon kütüphanesi indir (Quaternius UAL, CC0)
+on:
+  push:
+    branches: [main]
+    paths: ["tools/animasyon_indir.txt"]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  indir:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: İndir ve aç
+        run: |
+          mkdir -p /tmp/ual && cd /tmp/ual
+          wget -q -O ual.zip "https://opengameart.org/sites/default/files/universal_animation_librarystandard.zip"
+          unzip -q ual.zip
+          find . -type f | sort > /tmp/liste.txt
+          cat /tmp/liste.txt
+      - name: GLB dosyalarını repoya koy
+        run: |
+          mkdir -p kaynak/ual
+          cp /tmp/liste.txt kaynak/ual/ICERIK.txt
+          find /tmp/ual -iname "*.glb" -exec cp {} kaynak/ual/ \;
+          printf '' > kaynak/.gdignore
+          printf '# Quaternius Universal Animation Library (CC0)\nKaynak: https://opengameart.org/content/universal-animation-library\nLisans: CC0 1.0 (kamu malı)\n' > kaynak/ual/KAYNAK.md
+          ls -la kaynak/ual
+      - run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add kaynak
+          git diff --cached --quiet || git commit -m "Quaternius UAL (CC0) animasyonları eklendi [render-yok]"
+          git pull --rebase && git push
