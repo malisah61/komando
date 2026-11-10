@@ -27,7 +27,12 @@ SHEAR = 1.0
 WALL = 12.0
 DOOR = 60.0
 WALL_H = 50.0
-SAMPLES = 32
+SAMPLES = 64
+SCALE = 2            # oyun pikseli basina render pikseli (yakinlastirinca da net)
+TILE = 2048          # zemin resmi bu boyutta parcalara bolunur (telefon doku siniri)
+PAGE = 4096          # atlas sayfasi en buyuk boyutu
+TEX_DIR = "assets/textures"
+PAINT = True         # Kuwahara "yagli boya" efekti
 
 
 # ================================================================ yardimcilar
@@ -93,6 +98,75 @@ def mat(name, c1, c2=None, rough=0.8, scale=0.03, bump=0.3, kind="noise", metal=
     return m
 
 
+def tex_mat(name, slot, tile, fallback, tint=None, rough=0.85, bump=0.4, big_var=0.0, desat=None):
+    """Poly Haven dokusu (kutu projeksiyonu, UV gerekmez). Doku yoksa yedek malzeme."""
+    diff = os.path.join(TEX_DIR, slot, "diff.jpg")
+    if not os.path.exists(diff):
+        return fallback
+    if name in _mats:
+        return _mats[name]
+    m = bpy.data.materials.new(name)
+    m.use_nodes = True
+    nodes, links = m.node_tree.nodes, m.node_tree.links
+    bsdf = nodes["Principled BSDF"]
+    bsdf.inputs["Roughness"].default_value = rough
+    tc = nodes.new("ShaderNodeTexCoord")
+    mp = nodes.new("ShaderNodeMapping")
+    mp.inputs["Scale"].default_value = (1.0 / tile, 1.0 / tile, 1.0 / tile)
+    links.new(tc.outputs["Object"], mp.inputs["Vector"])
+    it = nodes.new("ShaderNodeTexImage")
+    it.image = bpy.data.images.load(os.path.abspath(diff), check_existing=True)
+    it.projection = "BOX"
+    it.projection_blend = 0.25
+    links.new(mp.outputs["Vector"], it.inputs["Vector"])
+    col = it.outputs["Color"]
+    if desat is not None:
+        hsv = nodes.new("ShaderNodeHueSaturation")
+        hsv.inputs["Saturation"].default_value = desat
+        links.new(col, hsv.inputs["Color"])
+        col = hsv.outputs["Color"]
+    if tint is not None:
+        mul = nodes.new("ShaderNodeMixRGB")
+        mul.blend_type = "MULTIPLY"
+        mul.inputs["Fac"].default_value = 1.0
+        mul.inputs["Color2"].default_value = srgb(tint)
+        links.new(col, mul.inputs["Color1"])
+        col = mul.outputs["Color"]
+    if big_var > 0:
+        # buyuk olcekli renk dalgalanmasi: doku tekrari belli olmasin
+        nz = nodes.new("ShaderNodeTexNoise")
+        nz.inputs["Scale"].default_value = 0.004
+        links.new(tc.outputs["Object"], nz.inputs["Vector"])
+        ramp = nodes.new("ShaderNodeValToRGB")
+        ramp.color_ramp.elements[0].color = (0.75, 0.78, 0.6, 1)
+        ramp.color_ramp.elements[1].color = (1.15, 1.08, 0.9, 1)
+        links.new(nz.outputs["Fac"], ramp.inputs["Fac"])
+        mv = nodes.new("ShaderNodeMixRGB")
+        mv.blend_type = "MULTIPLY"
+        mv.inputs["Fac"].default_value = big_var
+        links.new(col, mv.inputs["Color1"])
+        links.new(ramp.outputs["Color"], mv.inputs["Color2"])
+        col = mv.outputs["Color"]
+    links.new(col, bsdf.inputs["Base Color"])
+    rp = os.path.join(TEX_DIR, slot, "rough.jpg")
+    if os.path.exists(rp):
+        ri = nodes.new("ShaderNodeTexImage")
+        ri.image = bpy.data.images.load(os.path.abspath(rp), check_existing=True)
+        ri.image.colorspace_settings.name = "Non-Color"
+        ri.projection = "BOX"
+        ri.projection_blend = 0.25
+        links.new(mp.outputs["Vector"], ri.inputs["Vector"])
+        links.new(ri.outputs["Color"], bsdf.inputs["Roughness"])
+    if bump > 0:
+        bn = nodes.new("ShaderNodeBump")
+        bn.inputs["Strength"].default_value = bump
+        bn.inputs["Distance"].default_value = 2.0
+        links.new(it.outputs["Color"], bn.inputs["Height"])
+        links.new(bn.outputs["Normal"], bsdf.inputs["Normal"])
+    _mats[name] = m
+    return m
+
+
 def grass_mat():
     """iki olcekli gurultu: buyuk lekeler (kuru/yesil) + ince cimen dokusu"""
     if "grass" in _mats:
@@ -155,7 +229,7 @@ def flat_poly(name, pts, z, material, coll):
     return obj_from_bm(name, bm, material, coll)
 
 
-def prism(name, pts, h, material, coll, z0=0.0, top_mat=None, jitter=0.0, rng=None):
+def prism(name, pts, h, material, coll, z0=0.0, top_mat=None, jitter=0.0, rng=None, bevel=0.0):
     bm = bmesh.new()
     vs = [bm.verts.new(B(p[0], p[1], z0)) for p in pts]
     f = bm.faces.new(vs)
@@ -165,6 +239,9 @@ def prism(name, pts, h, material, coll, z0=0.0, top_mat=None, jitter=0.0, rng=No
     top = [e for e in ext["geom"] if isinstance(e, bmesh.types.BMVert)]
     bmesh.ops.translate(bm, vec=Vector((0, 0, h)), verts=top)
     bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    if bevel > 0:
+        bmesh.ops.bevel(bm, geom=list(bm.edges), offset=bevel, segments=2, affect="EDGES", profile=0.5)
+        bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
     if jitter > 0 and rng:
         bmesh.ops.subdivide_edges(bm, edges=bm.edges[:], cuts=2, use_grid_fill=True)
         for v in bm.verts:
@@ -292,7 +369,7 @@ def build(level, quick=False):
     for c in (g_coll, o_coll, r_coll):
         sc.collection.children.link(c)
 
-    M = {
+    P = {
         "dirt": mat("dirt", (0.55, 0.45, 0.31), (0.42, 0.34, 0.23), 0.95, 0.05, 0.4),
         "mud": mat("mud", (0.30, 0.22, 0.14), (0.22, 0.16, 0.10), 0.45, 0.06, 0.5),
         "water": mat("water", (0.10, 0.22, 0.27), (0.14, 0.30, 0.34), 0.08, 0.02, 0.15),
@@ -316,13 +393,46 @@ def build(level, quick=False):
         "flower": mat("flower", (0.85, 0.80, 0.45)),
         "tuft": mat("tuft", (0.22, 0.33, 0.12), (0.30, 0.40, 0.16), 0.95, 0.3, 0.3),
     }
+    M = dict(P)
+    M["dirt"] = tex_mat("t_dirt", "dirt", 220, P["dirt"], (1.05, 0.95, 0.8), 0.95, 0.6, 0.3)
+    M["mud"] = tex_mat("t_mud", "mud", 160, P["mud"], (0.8, 0.7, 0.6), 0.5, 0.6)
+    M["bank"] = tex_mat("t_bank", "mud", 120, P["bank"], (0.95, 0.85, 0.7), 0.9, 0.5)
+    M["plank"] = tex_mat("t_plank", "planks", 90, P["plank"], (0.9, 0.8, 0.7), 0.7, 0.4)
+    M["floor"] = tex_mat("t_floor", "planks", 70, P["floor"], None, 0.7, 0.3)
+    M["plaster"] = tex_mat("t_plaster", "plaster", 90, P["plaster"], (1.0, 0.96, 0.88), 0.9, 0.3)
+    M["stone"] = tex_mat("t_stone", "stone", 70, P["stone"], None, 0.9, 0.6)
+    M["wood"] = tex_mat("t_wood", "planks", 60, P["wood"], (0.95, 0.85, 0.75), 0.7, 0.4)
+    M["bark"] = tex_mat("t_bark", "bark", 40, P["bark"], None, 0.9, 0.6)
+    M["rock"] = tex_mat("t_rock", "rock", 60, P["rock"], None, 0.9, 0.7)
+    M["olive"] = tex_mat("t_olive", "metal", 80, P["olive"], (0.55, 0.62, 0.42), 0.6, 0.3)
+    M["grey"] = tex_mat("t_grey", "metal", 80, P["grey"], (0.6, 0.62, 0.58), 0.55, 0.3)
+    M["beam"] = tex_mat("t_beam", "planks", 40, mat("beam", (0.24, 0.16, 0.10)), (0.45, 0.35, 0.28), 0.7, 0.3)
 
     # ------------------------------------------------ zemin
-    flat_poly("cimen", [[0, 0], [W, 0], [W, H], [0, H]], 0.0, grass_mat(), g_coll)
+    flat_poly("cimen", [[0, 0], [W, 0], [W, H], [0, H]], 0.0,
+              tex_mat("t_grass", "grass", 260, grass_mat(), (0.78, 1.0, 0.68), 0.95, 0.5, 0.9), g_coll)
     for ri, r in enumerate(level.get("roads", [])):
         x, y, w, h = r
         # ust uste binen yollar ayni yukseklikte olmasin (golge hatasi)
         flat_poly("yol", [[x, y], [x + w, y], [x + w, y + h], [x, y + h]], 0.2 + ri * 0.02, M["dirt"], g_coll)
+    puddle = mat("puddle", (0.36, 0.40, 0.42), None, 0.04)
+    rut = tex_mat("t_rut", "dirt", 220, mat("rut", (0.42, 0.34, 0.23)), (0.86, 0.78, 0.68), 0.9, 0.5)
+    for ri, r in enumerate(level.get("roads", [])):
+        x, y, w, h = r
+        if min(w, h) >= 60:
+            for off in (-0.22, 0.22):
+                if w >= h:
+                    yy = y + h / 2 + off * h
+                    flat_poly("iz", [[x, yy - 5], [x + w, yy - 5], [x + w, yy + 5], [x, yy + 5]], 0.45 + ri * 0.02, rut, g_coll)
+                else:
+                    xx = x + w / 2 + off * w
+                    flat_poly("iz", [[xx - 5, y], [xx + 5, y], [xx + 5, y + h], [xx - 5, y + h]], 0.45 + ri * 0.02, rut, g_coll)
+            for _ in range(int(max(w, h) / 400)):
+                px, py = rng.uniform(x + 10, x + w - 10), rng.uniform(y + 10, y + h - 10)
+                rr = rng.uniform(8, 18)
+                pts = [[px + math.cos(a) * rr * rng.uniform(0.8, 1.3), py + math.sin(a) * rr * 0.6 * rng.uniform(0.8, 1.2)]
+                       for a in [i * math.tau / 10 for i in range(10)]]
+                flat_poly("birikinti", pts, 0.7, puddle, g_coll)
     for s in level.get("surfaces", []):
         m = M["mud"] if s.get("type") == "mud" else mat("snow", (0.92, 0.93, 0.95), (0.82, 0.85, 0.9), 0.6, 0.05, 0.2)
         flat_poly("camur", s["points"], 0.6, m, g_coll)
@@ -337,9 +447,12 @@ def build(level, quick=False):
         prism("kopru", [[x, y], [x + w, y], [x + w, y + h], [x, y + h]], 3.0, M["plank"], g_coll, z0=1.2)
         box("korkuluk", x + w / 2, y + 3, 4, w, 5, 6, M["wood"], g_coll)
         box("korkuluk", x + w / 2, y + h - 3, 4, w, 5, 6, M["wood"], g_coll)
+    floor_coll = bpy.data.collections.new("BinaIci")
     for bd in level.get("buildings", []):
         x, y, w, h = bd["rect"]
-        flat_poly("ic", [[x, y], [x + w, y], [x + w, y + h], [x, y + h]], 0.9, M["floor"], g_coll)
+        fo = flat_poly("ic", [[x + WALL, y + WALL], [x + w - WALL, y + WALL], [x + w - WALL, y + h - WALL], [x + WALL, y + h - WALL]],
+                       0.9, M["floor"], g_coll)
+        floor_coll.objects.link(fo)
 
     # cimen ustu suslemeler: cakil ve cicek (sadece zemin katmaninda)
     if not quick:
@@ -381,12 +494,14 @@ def build(level, quick=False):
 
     glass = mat("glass", (0.10, 0.12, 0.14), None, 0.15)
     frame = mat("frame", (0.30, 0.22, 0.15))
+    shutter_cols = [(0.22, 0.36, 0.30), (0.25, 0.32, 0.45), (0.45, 0.20, 0.16), (0.30, 0.38, 0.22)]
     for bi, bd in enumerate(level.get("buildings", [])):
+        shutter = mat("panjur_%d" % (bi % 4), shutter_cols[bi % 4], [c * 0.8 for c in shutter_cols[bi % 4]], 0.7, 0.2, 0.2, "wave")
         rect = bd["rect"]
         bcx, bcy = rect[0] + rect[2] / 2, rect[1] + rect[3] / 2
         for wi, (x, y, w, h) in enumerate(building_walls(rect, bd.get("door", "S"))):
             pts = [[x, y], [x + w, y], [x + w, y + h], [x, y + h]]
-            parts = [prism("duvar", pts, WALL_H, M["plaster"], o_coll)]
+            parts = [prism("duvar", pts, WALL_H, M["plaster"], o_coll, bevel=1.2)]
             parts.append(prism("taban", [[x - 1.5, y - 1.5], [x + w + 1.5, y - 1.5], [x + w + 1.5, y + h + 1.5], [x - 1.5, y + h + 1.5]], 9, M["stone"], o_coll))
             horiz = w >= h
             L = w if horiz else h
@@ -399,19 +514,44 @@ def build(level, quick=False):
                     wy = (y + h if outward > 0 else y) + outward * 0.8
                     parts.append(box("cerceve", wx, wy, 16, 20, 2.5, 24, frame, o_coll))
                     parts.append(box("cam", wx, wy + outward * 0.6, 18, 15, 2.5, 19, glass, o_coll))
+                    for sd in (-1, 1):
+                        parts.append(box("panjur", wx + sd * 15, wy + outward * 0.4, 16, 9, 2.5, 24, shutter, o_coll))
                 else:
                     wy = y + 10 + (L - 20) * t0
                     outward = 1 if x + w / 2 > bcx else -1
                     wx = (x + w if outward > 0 else x) + outward * 0.8
                     parts.append(box("cerceve", wx, wy, 16, 2.5, 20, 24, frame, o_coll))
                     parts.append(box("cam", wx + outward * 0.6, wy, 18, 2.5, 15, 19, glass, o_coll))
+                    for sd in (-1, 1):
+                        parts.append(box("panjur", wx + outward * 0.4, wy + sd * 15, 16, 2.5, 9, 24, shutter, o_coll))
+            # Normandiya yari kereste (colombage) iskeleti: dis yuzde koyu kirisler
+            if bd.get("style", "colombage" if bi % 2 == 0 else "sade") == "colombage":
+                if horiz:
+                    outward = 1 if y + h / 2 > bcy else -1
+                    fy = (y + h if outward > 0 else y) + outward * 0.6
+                    for zb in (2, 30, WALL_H - 4):
+                        parts.append(box("kiris", x + w / 2, fy, zb, w, 2.0, 4, M["beam"], o_coll))
+                    xx = x
+                    while xx <= x + w:
+                        parts.append(box("dikme", min(xx, x + w - 2), fy, 0, 4, 2.0, WALL_H, M["beam"], o_coll))
+                        xx += 32
+                else:
+                    outward = 1 if x + w / 2 > bcx else -1
+                    fx = (x + w if outward > 0 else x) + outward * 0.6
+                    for zb in (2, 30, WALL_H - 4):
+                        parts.append(box("kiris", fx, y + h / 2, zb, 2.0, h, 4, M["beam"], o_coll))
+                    yy = y
+                    while yy <= y + h:
+                        parts.append(box("dikme", fx, min(yy, y + h - 2), 0, 2.0, 4, WALL_H, M["beam"], o_coll))
+                        yy += 32
             add(parts, {"kind": "wall", "building": bi, "wall": wi, "base": poly_bbox(pts)})
         # cati: uzun kenar boyunca semer cati
         x, y, w, h = rect
         ov = 8.0
         x0, y0, x1, y1 = x - ov, y - ov, x + w + ov, y + h + ov
         rc = bd.get("roof", [0.58, 0.3, 0.24])
-        rm = mat("roof_%d" % bi, rc, [c * 0.8 for c in rc], 0.8, 0.06, 0.6, "brick")
+        rm = tex_mat("t_roof_%d" % bi, "roof", 70, mat("roof_%d" % bi, rc, [c * 0.8 for c in rc], 0.8, 0.06, 0.6, "brick"),
+                     [min(1.0, c * 1.9) for c in rc], 0.8, 0.6, desat=0.25)
         bm = bmesh.new()
         ridge = 0.32 * min(w, h)
         if w >= h:
@@ -434,6 +574,12 @@ def build(level, quick=False):
             bm.faces.new([a[2], a[3], r1])
         bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
         roof = obj_from_bm("cati", bm, rm, r_coll)
+        gut = mat("oluk", (0.25, 0.25, 0.26), None, 0.4, metal=0.6)
+        gutters = []
+        if w >= h:
+            for gy in (y0, y1):
+                gutters.append(cyl("oluk", (x0 + x1) / 2, gy, WALL_H - 1, 2.2, x1 - x0, gut, r_coll, 6, axis="X"))
+        roof = join([roof] + gutters, "cati")
         baca = box("baca", x + w * 0.7, y + h * 0.35, WALL_H, 16, 16, ridge + 22, M["stone"], r_coll)
         roof = join([roof, baca], "r%d" % bi)
         items.append((roof, {"kind": "roof", "building": bi, "base": [x0, y0, x1, y1]}))
@@ -457,17 +603,20 @@ def build(level, quick=False):
             th = rng.uniform(26, 40)
             objs.append(cyl("govde", cx, cy, 0, r * 0.22, th + 10, M["bark"], o_coll, 8))
             leaf = M["leaf"] if rng.random() < 0.6 else M["leaf2"]
-            objs.append(blob("tac", (cx, cy), r * 1.25, th + r * 0.9, leaf, o_coll, rng, 2, 0.85))
-            for _ in range(3):
-                dx, dy = rng.uniform(-0.5, 0.5) * r, rng.uniform(-0.5, 0.5) * r
-                objs.append(blob("tac", (cx + dx, cy + dy), r * rng.uniform(0.6, 0.85), th + r * rng.uniform(1.0, 1.5), leaf, o_coll, rng, 2, 0.85))
+            objs.append(blob("tac", (cx, cy), r * 1.15, th + r * 0.9, leaf, o_coll, rng, 3, 0.85, 0.12))
+            for _ in range(7):
+                a = rng.uniform(0, math.tau)
+                d = rng.uniform(0.35, 0.8) * r
+                lm = leaf if rng.random() < 0.7 else M["leaf2"]
+                objs.append(blob("tac", (cx + math.cos(a) * d, cy + math.sin(a) * d), r * rng.uniform(0.45, 0.7),
+                                 th + r * rng.uniform(0.8, 1.6), lm, o_coll, rng, 2, 0.85, 0.15))
         elif t == "bush":
             objs.append(blob("cali", (cx, cy), r * 1.05, r * 0.45, M["hedge"], o_coll, rng, 2, 0.6, 0.22))
             objs.append(blob("cali", (cx + r * 0.3, cy - r * 0.2), r * 0.7, r * 0.6, M["leaf"], o_coll, rng, 2, 0.6, 0.22))
         elif t == "hedge":
             objs.append(prism("cit", pts, 30, M["hedge"], o_coll, jitter=4.0, rng=rng))
         elif t == "wall":
-            objs.append(prism("tas", pts, 36, M["stone"], o_coll))
+            objs.append(prism("tas", pts, 36, M["stone"], o_coll, bevel=1.5))
         elif t == "sandbag":
             # torbalari sira sira diz
             horiz = w >= h
@@ -480,7 +629,7 @@ def build(level, quick=False):
                     by = bb[1] + (h / 2 if horiz else L * t0)
                     objs.append(box("torba", bx, by, row * 8, (22 if horiz else min(w, 24)), (min(h, 24) if horiz else 22), 9, M["sand"], o_coll))
         elif t == "crate":
-            objs.append(prism("sandik", pts, 30, M["wood"], o_coll))
+            objs.append(prism("sandik", pts, 30, M["wood"], o_coll, bevel=1.5))
         elif t == "fence":
             horiz = w >= h
             L = w if horiz else h
@@ -545,7 +694,7 @@ def build(level, quick=False):
         for v in me.vertices:
             v.co.y += v.co.z * SHEAR
         me.update()
-    return g_coll, o_coll, r_coll, items
+    return g_coll, o_coll, r_coll, items, floor_coll
 
 
 # ================================================================ render
@@ -555,8 +704,8 @@ def setup_render(W, H, samples):
     sc.cycles.device = "CPU"
     sc.cycles.samples = samples
     sc.cycles.use_denoising = True
-    sc.render.resolution_x = W
-    sc.render.resolution_y = H
+    sc.render.resolution_x = W * SCALE
+    sc.render.resolution_y = H * SCALE
     sc.render.resolution_percentage = 100
     sc.view_settings.view_transform = "Standard"
     sc.view_settings.look = "Medium High Contrast"
@@ -586,6 +735,72 @@ def setup_render(W, H, samples):
     cam.location = (W / 2, -H / 2, 3000)
     sc.collection.objects.link(cam)
     sc.camera = cam
+    setup_paint(sc)
+
+
+def setup_paint(sc):
+    """Kompozitor: Kuwahara (yagli boya firca darbesi) + hafif renk doygunlugu. Saydamlik korunur."""
+    sc.use_nodes = True
+    sc.render.use_compositing = PAINT
+    nt = sc.node_tree
+    for n in list(nt.nodes):
+        nt.nodes.remove(n)
+    rl = nt.nodes.new("CompositorNodeRLayers")
+    kw = nt.nodes.new("CompositorNodeKuwahara")
+    try:
+        kw.variation = "ANISOTROPIC"
+    except Exception:
+        pass
+    size = 3 * SCALE
+    if hasattr(kw, "size"):
+        kw.size = size
+    elif "Size" in kw.inputs:
+        kw.inputs["Size"].default_value = size
+    for attr, val in (("uniformity", 4), ("sharpness", 0.6), ("eccentricity", 1.0)):
+        if hasattr(kw, attr):
+            setattr(kw, attr, val)
+    hs = nt.nodes.new("CompositorNodeHueSat")
+    if "Saturation" in hs.inputs:
+        hs.inputs["Saturation"].default_value = 1.08
+    sa = nt.nodes.new("CompositorNodeSetAlpha")
+    comp = nt.nodes.new("CompositorNodeComposite")
+    nt.links.new(rl.outputs["Image"], kw.inputs["Image"])
+    nt.links.new(kw.outputs["Image"], hs.inputs["Image"])
+    nt.links.new(hs.outputs["Image"], sa.inputs["Image"])
+    nt.links.new(rl.outputs["Alpha"], sa.inputs["Alpha"])
+    nt.links.new(sa.outputs["Image"], comp.inputs["Image"])
+
+
+def link_floor_light(floors, o, r):
+    """Bina ici zeminler: duvar/cati golgesi dusmesin (cati seffaflasinca ic karanlik gorunmesin).
+    Isik baglama (light linking): ana gunes zeminleri aydinlatmaz, ikinci gunes sadece zeminleri
+    aydinlatir ve onun icin binalar golge yapmaz."""
+    if not floors.objects:
+        return
+    sc = bpy.context.scene
+    sun = bpy.data.objects["gunes"]
+    try:
+        sc.collection.children.link(floors)
+        rc = bpy.data.collections.new("GunesAlici")
+        for ob in floors.objects:
+            rc.objects.link(ob)
+        for co in rc.collection_objects:
+            co.light_linking.link_state = "EXCLUDE"
+        sun.light_linking.receiver_collection = rc
+        sun2 = bpy.data.objects.new("gunes_ic", sun.data.copy())
+        sun2.rotation_euler = sun.rotation_euler
+        sc.collection.objects.link(sun2)
+        sun2.light_linking.receiver_collection = floors
+        bc = bpy.data.collections.new("IcGolgeYok")
+        for coll in (o, r):
+            for ob in coll.all_objects:
+                bc.objects.link(ob)
+        for co in bc.collection_objects:
+            co.light_linking.link_state = "EXCLUDE"
+        sun2.light_linking.blocker_collection = bc
+        print("isik baglama: tamam", flush=True)
+    except Exception as ex:
+        print("isik baglama desteklenmiyor:", ex, flush=True)
 
 
 def show(coll, camera=True, render=True):
@@ -633,6 +848,7 @@ def id_pass(items, coll_objs, W, H, tmp):
     sc = bpy.context.scene
     old = (sc.cycles.samples, sc.cycles.use_denoising, sc.cycles.filter_width,
            sc.view_settings.view_transform, sc.view_settings.look)
+    sc.render.use_compositing = False
     sc.cycles.samples = 1
     sc.cycles.use_denoising = False
     sc.cycles.filter_width = 0.01
@@ -661,33 +877,42 @@ def id_pass(items, coll_objs, W, H, tmp):
         for s, mm in zip(bpy.data.objects[name].material_slots, mats):
             s.material = mm
     sc.cycles.samples, sc.cycles.use_denoising, sc.cycles.filter_width, sc.view_settings.view_transform, sc.view_settings.look = old
+    sc.render.use_compositing = PAINT
     sc.render.image_settings.color_depth = "8"
     ids = np.rint(arr[:, :, 0] * 255).astype(np.int32) + np.rint(arr[:, :, 1] * 255).astype(np.int32) * 256
     ids[arr[:, :, 3] < 0.5] = 0
     return ids
 
 
-def pack(sprites, max_w=2048):
-    """basit raf (shelf) paketleme"""
+def pack(sprites, max_w=PAGE, max_h=PAGE):
+    """raf (shelf) paketleme, gerekirse birden fazla sayfa"""
     order = sorted(range(len(sprites)), key=lambda i: -sprites[i].shape[0])
+    pages = [[]]
     x = y = shelf = 0
     pos = [None] * len(sprites)
-    width = max_w
     for i in order:
         h, w = sprites[i].shape[:2]
-        if x + w > width:
+        if x + w > max_w:
             x = 0
-            y += shelf + 1
+            y += shelf + 2
             shelf = 0
-        pos[i] = (x, y)
-        x += w + 1
+        if y + h > max_h:
+            pages.append([])
+            x = y = shelf = 0
+        pos[i] = (len(pages) - 1, x, y)
+        pages[-1].append(i)
+        x += w + 2
         shelf = max(shelf, h)
-    height = y + shelf + 1
-    atlas = np.zeros((height, width, 4), dtype=np.float32)
-    for i, s in enumerate(sprites):
-        px, py = pos[i]
-        atlas[py:py + s.shape[0], px:px + s.shape[1]] = s
-    return atlas, pos
+    atlases = []
+    for pi, idxs in enumerate(pages):
+        hh = max(pos[i][2] + sprites[i].shape[0] for i in idxs) + 1
+        ww = max(pos[i][1] + sprites[i].shape[1] for i in idxs) + 1
+        atlas = np.zeros((hh, ww, 4), dtype=np.float32)
+        for i in idxs:
+            _, px, py = pos[i]
+            atlas[py:py + sprites[i].shape[0], px:px + sprites[i].shape[1]] = sprites[i]
+        atlases.append(atlas)
+    return atlases, pos
 
 
 def extract(beauty, ids, items, which, manifest_key, out_dir, manifest):
@@ -713,14 +938,20 @@ def extract(beauty, ids, items, which, manifest_key, out_dir, manifest):
         spr[~own_or_free] = 0.0
         sprites.append(spr)
         e = dict(info)
-        e["rect"] = [int(x0), int(y0), int(x1 - x0), int(y1 - y0)]
+        e["rect"] = [int(x0), int(y0), int(x1 - x0), int(y1 - y0)]     # render pikseli
         entries.append(e)
-    atlas, pos = pack(sprites)
+    atlases, pos = pack(sprites)
     for e, p in zip(entries, pos):
-        e["atlas"] = [int(p[0]), int(p[1])]
-    save_array(atlas, os.path.join(out_dir, manifest_key + ".png"))
+        e["page"] = int(p[0])
+        e["atlas"] = [int(p[1]), int(p[2])]
+    files = []
+    for pi, atlas in enumerate(atlases):
+        fn = f"{manifest_key}_{pi}.png"
+        save_array(atlas, os.path.join(out_dir, fn))
+        files.append(fn)
     manifest[manifest_key] = entries
-    print(f"  {manifest_key}: {len(entries)} parca, atlas {atlas.shape[1]}x{atlas.shape[0]}", flush=True)
+    manifest[manifest_key + "_pages"] = files
+    print(f"  {manifest_key}: {len(entries)} parca, {len(atlases)} sayfa", flush=True)
 
 
 def main():
@@ -730,6 +961,11 @@ def main():
     quick = "--quick" in argv
     if "--samples" in argv:
         samples = int(argv[argv.index("--samples") + 1])
+    global SCALE, PAINT
+    if "--scale" in argv:
+        SCALE = int(argv[argv.index("--scale") + 1])
+    if "--no-paint" in argv:
+        PAINT = False
     with open(path) as f:
         level = json.load(f)
     W, H = level["size"]
@@ -739,8 +975,9 @@ def main():
     os.makedirs(tmp, exist_ok=True)
 
     bpy.ops.wm.read_factory_settings(use_empty=True)
-    g, o, r, items = build(level, quick)
+    g, o, r, items, floors = build(level, quick)
     setup_render(W, H, samples)
+    link_floor_light(floors, o, r)
     sc = bpy.context.scene
     sc.render.image_settings.file_format = "PNG"
     sc.render.image_settings.color_mode = "RGBA"
@@ -751,17 +988,25 @@ def main():
     show(g, True, True); show(o, False, True); show(r, False, True)
     for ob in r.all_objects:
         ob.visible_shadow = False      # bina ici karanlik kalmasin (cati seffaflasinca gorunur)
-    ground = render_to_array(os.path.join(tmp, "ground.png"), W, H)
-    save_array(ground[:, :, :3].copy(), os.path.join(out_dir, "ground.jpg"), "JPEG", 88)
-
-    manifest = {"size": [W, H], "shear": SHEAR, "wall_h": WALL_H}
+    RW, RH = W * SCALE, H * SCALE
+    ground = render_to_array(os.path.join(tmp, "ground.png"), RW, RH)
+    manifest = {"size": [W, H], "shear": SHEAR, "wall_h": WALL_H, "scale": SCALE, "ground": []}
+    for f in os.listdir(out_dir):        # eski ciktilari temizle
+        if f.endswith((".jpg", ".png")) or f.endswith(".import"):
+            os.remove(os.path.join(out_dir, f))
+    for ty in range(0, RH, TILE):
+        for tx in range(0, RW, TILE):
+            part = ground[ty:ty + TILE, tx:tx + TILE, :3].copy()
+            fn = f"ground_{tx // TILE}_{ty // TILE}.jpg"
+            save_array(part, os.path.join(out_dir, fn), "JPEG", 90)
+            manifest["ground"].append({"file": fn, "rect": [tx / SCALE, ty / SCALE, part.shape[1] / SCALE, part.shape[0] / SCALE]})
     sc.render.film_transparent = True
 
     # 2) nesneler (catilar haric)
     print("nesne render...", flush=True)
     show(g, False, False); show(o, True, True); show(r, False, False)
-    beauty = render_to_array(os.path.join(tmp, "objects.png"), W, H)
-    ids = id_pass(items, set(ob.name for ob in o.all_objects), W, H, tmp)
+    beauty = render_to_array(os.path.join(tmp, "objects.png"), RW, RH)
+    ids = id_pass(items, set(ob.name for ob in o.all_objects), RW, RH, tmp)
     extract(beauty, ids, items, ("wall", "obstacle"), "objects", out_dir, manifest)
 
     # 3) catilar
@@ -769,8 +1014,8 @@ def main():
     show(o, False, False); show(r, True, True)
     for ob in r.all_objects:
         ob.visible_shadow = True
-    beauty = render_to_array(os.path.join(tmp, "roofs.png"), W, H)
-    ids = id_pass(items, set(ob.name for ob in r.all_objects), W, H, tmp)
+    beauty = render_to_array(os.path.join(tmp, "roofs.png"), RW, RH)
+    ids = id_pass(items, set(ob.name for ob in r.all_objects), RW, RH, tmp)
     extract(beauty, ids, items, ("roof",), "roofs", out_dir, manifest)
 
     with open(os.path.join(out_dir, "manifest.json"), "w") as f:

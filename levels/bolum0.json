@@ -1,6 +1,7 @@
 {
 	"name": "Bölüm 0 – Normandiya Köyü",
 	"brief": "Karargâhtaki gizli BELGEYİ çal, sol alttaki ÇIKIŞ'a dön.",
+	"story": "Eğitim görevi. Çavuş Tom 'Bıçak' Reilly'nin ilk sızma tatbikatı: küçük bir Normandiya köyündeki Alman karargâhından gizli bir belgeyi çal ve fark edilmeden geri dön.\n\nGörüş konilerine dikkat et: sarı halka dolarsa yakalanırsın. Askerleri arkalarından bıçakla, cesetleri görünür yerde bırakma, çamurda ayak izi bırakırsın.",
 	"size": [1600, 1100],
 	"start": [110, 1010],
 	"exit": [30, 920, 170, 160],
