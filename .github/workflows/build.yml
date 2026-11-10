@@ -67,6 +67,8 @@ jobs:
           publish_dir: build/web
           publish_branch: gh-pages
           force_orphan: true
+          full_commit_message: "Web yayini ${{ github.sha }}"
+        continue-on-error: true
 
       - name: Android ayarları
         uses: actions/setup-java@v4
