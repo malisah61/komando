@@ -6,9 +6,17 @@ Commandos 2: Men of Courage'dan esinlenen, 2. Dünya Savaşı'nda geçen gerçek
 - **Tarayıcıda oyna:** https://malisah61.github.io/komando/
 - **APK indir:** https://github.com/malisah61/komando/releases/latest/download/komando.apk
 
+## Senaryo
+Kampanya, karakterler ve bölüm planı: [docs/SENARYO.md](docs/SENARYO.md)
+
+## Görev sistemi
+Bölüm dosyasındaki `objectives` listesi: `reach` (buluş/konuş, eşya ver), `take` (çal), `rescue` (esiri kurtar, seni izler),
+`destroy` (patlayıcı kur: 2 sn kurulum + 8 sn fitil; `bridge` verilirse köprü yıkılır ve yollar değişir), `exit` (kaçış).
+`optional: true` olanlar zorunlu değil. Bölüm başında brifing ekranı, görev sırasında diyaloglar (oyun duraklar).
+
 ## Bölümler
 - **Bölüm 0 – Normandiya Köyü** (eğitim): küçük köy, 6 asker.
-- **Bölüm 1 – Nehir Operasyonu**: 3600x2600 geniş harita. Nehir ve iki köprü, çiftlik, köy, duvarlı karargâh, yakıt deposu, ormanlar; 23 asker (er + subay). Planları çal, sahildeki botlara dön. Harita `tools/gen_bolum1.py` ile üretilir.
+- **Bölüm 1 – Nehir Operasyonu**: 3600x2600 geniş harita, 25 asker. Direnişçi Pierre'den patlayıcı al, belediyede tutulan pilot Carter'ı kurtar, karargâhtan planları çal, kuzey köprüsünü uçur (isteğe bağlı: yakıt deposu), pilotla botlara dön. Hedef süre 25–45 dk. Harita `tools/gen_bolum1.py` ile üretilir.
 
 ## Harita render hattı (Blender)
 `tools/blender/harita.py` bölüm dosyasından 3D sahneyi kurar (kiremit çatılı evler, pencereler, ağaçlar, çitler, kum torbaları, çadırlar, kamyonlar, tank, nehir, köprüler, çimen detayları) ve oyunun eğik bakış açısıyla render alır:

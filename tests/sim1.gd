@@ -11,6 +11,7 @@ var times: Array = []
 
 func _initialize() -> void:
 	load("res://scripts/main.gd").level_choice = "res://levels/bolum1.json"
+	load("res://scripts/main.gd").briefed = load("res://scripts/main.gd").level_choice
 	main = load("res://scenes/main.tscn").instantiate()
 	root.add_child(main)
 

@@ -23,9 +23,18 @@ var knife_btn: Button
 var run_btn: Button
 var cone_btn: Button
 var slots: Array[Label] = []
+var obj_box: VBoxContainer
+var action_btn: Button
+var timer_label: Label
+var dialog_panel: PanelContainer
+var dialog_name: Label
+var dialog_text: Label
+var _dialog_lines: Array = []
+var _overlay: Control
 
 
 func _ready() -> void:
+	process_mode = Node.PROCESS_MODE_ALWAYS     # diyalog sirasinda oyun duraklar, arayuz calisir
 	var root := Control.new()
 	root.set_anchors_preset(Control.PRESET_FULL_RECT)
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -55,13 +64,26 @@ func _ready() -> void:
 	var title := _label(main.level.data.get("name", ""), 14, Color(1, 1, 1, 0.7))
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	top.add_child(title)
-	goal_label = _label("Hedef: " + main.level.data.get("brief", ""), 20)
+	goal_label = _label("", 20)
 	goal_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	top.add_child(goal_label)
 	alert_label = _label("", 18, Color(1, 0.5, 0.3))
 	alert_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	alert_label.visible = false
 	top.add_child(alert_label)
+	timer_label = _label("", 30, Color(1, 0.4, 0.25))
+	timer_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	top.add_child(timer_label)
+
+	# --- sol: gorev listesi (mini haritanin altinda) ---
+	var obj_panel := _panel()
+	obj_panel.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	obj_panel.position = Vector2(10, 222)
+	obj_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(obj_panel)
+	obj_box = VBoxContainer.new()
+	obj_box.add_theme_constant_override("separation", 2)
+	obj_panel.add_child(obj_box)
 
 	# --- sol alt: portre ---
 	var por := _panel()
@@ -113,6 +135,14 @@ func _ready() -> void:
 		inv.add_child(slot)
 		slots.append(slot)
 	slots[0].text = "BIÇAK"
+	_build_dialog(root)
+	refresh_objectives()
+	action_btn = _button("", false)
+	action_btn.custom_minimum_size = Vector2(BTN * 4 + 12, 60)
+	action_btn.add_theme_font_size_override("font_size", 22)
+	action_btn.visible = false
+	action_btn.pressed.connect(func(): main.mission.start_planting())
+	br_box.add_child(action_btn)
 	br_box.add_child(_label("YETENEKLER", 13, ACCENT))
 	var abil := HBoxContainer.new()
 	br_box.add_child(abil)
@@ -157,11 +187,14 @@ func _ready() -> void:
 	restart_btn.add_theme_font_size_override("font_size", 30)
 	restart_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	restart_btn.visible = false
-	restart_btn.pressed.connect(func(): get_tree().reload_current_scene())
+	restart_btn.pressed.connect(func():
+		get_tree().paused = false
+		get_tree().reload_current_scene())
 	mid.add_child(restart_btn)
 
 
 func show_menu(levels: Array) -> void:
+	get_tree().paused = true
 	var shade := ColorRect.new()
 	shade.color = Color(0, 0, 0, 0.72)
 	shade.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -186,6 +219,14 @@ func show_menu(levels: Array) -> void:
 		var path: String = lv[0]
 		b.pressed.connect(func(): main.choose_level(path))
 		box.add_child(b)
+	if main.level_choice != "":
+		var back := _button("Geri dön", false)
+		back.custom_minimum_size = Vector2(200, 56)
+		back.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		back.pressed.connect(func():
+			shade.queue_free()
+			get_tree().paused = false)
+		box.add_child(back)
 
 
 func _process(_delta: float) -> void:
@@ -208,10 +249,133 @@ func _process(_delta: float) -> void:
 
 
 # ---------------- Disaridan cagrilanlar ----------------
-func on_document() -> void:
-	slots[1].text = "BELGE"
-	slots[1].add_theme_color_override("font_color", Color(1, 0.9, 0.3))
-	goal_label.text = "Belge alındı! ÇIKIŞ bölgesine dön (sol alt)"
+const ITEM_NAMES := {"patlayici": "PATLAYICI", "belge": "BELGE", "planlar": "PLANLAR"}
+
+
+func refresh_objectives() -> void:
+	for ch in obj_box.get_children():
+		ch.queue_free()
+	obj_box.add_child(_label("GÖREVLER", 13, ACCENT))
+	var current := ""
+	for o in main.mission.objectives:
+		var done: bool = o["done"]
+		var opt: bool = o.get("optional", false)
+		var txt: String = ("[X] " if done else "[  ] ") + o["text"] + (" (isteğe bağlı)" if opt else "")
+		var col := Color(0.55, 0.85, 0.55) if done else (Color(0.8, 0.8, 0.7) if opt else Color.WHITE)
+		var l := _label(txt, 14, col)
+		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		l.custom_minimum_size.x = 260
+		obj_box.add_child(l)
+		if current == "" and not done and not opt:
+			current = o["text"]
+	goal_label.text = ("Hedef: " + current) if current != "" else ""
+
+
+func refresh_items() -> void:
+	var i := 1
+	for k in main.mission.items:
+		var n: int = main.mission.items[k]
+		if n <= 0 or i >= slots.size():
+			continue
+		slots[i].text = ITEM_NAMES.get(k, k.to_upper()) + (" x%d" % n if n > 1 else "")
+		slots[i].add_theme_color_override("font_color", Color(1, 0.9, 0.3))
+		i += 1
+	while i < slots.size():
+		slots[i].text = ""
+		i += 1
+
+
+func set_action(text: String, enabled: bool) -> void:
+	action_btn.visible = text != ""
+	action_btn.text = text
+	action_btn.disabled = not enabled
+
+
+func set_timer_text(t: String) -> void:
+	timer_label.text = t
+
+
+func show_dialog(lines: Array) -> void:
+	## lines: [["Konusan", "Metin"], ...]  -- oyun duraklar
+	_dialog_lines.append_array(lines)
+	if not dialog_panel.visible:
+		_next_line()
+
+
+func _next_line() -> void:
+	if _dialog_lines.is_empty():
+		dialog_panel.visible = false
+		get_tree().paused = false
+		return
+	var ln: Array = _dialog_lines.pop_front()
+	dialog_name.text = ln[0]
+	dialog_text.text = ln[1]
+	dialog_panel.visible = true
+	get_tree().paused = true
+
+
+func _build_dialog(root: Control) -> void:
+	dialog_panel = _panel()
+	dialog_panel.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+	dialog_panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	dialog_panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	dialog_panel.position.y = -170
+	dialog_panel.visible = false
+	root.add_child(dialog_panel)
+	var box := VBoxContainer.new()
+	box.custom_minimum_size = Vector2(620, 0)
+	dialog_panel.add_child(box)
+	dialog_name = _label("", 18, ACCENT)
+	box.add_child(dialog_name)
+	dialog_text = _label("", 18)
+	dialog_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	dialog_text.custom_minimum_size = Vector2(600, 0)
+	box.add_child(dialog_text)
+	var nb := _button("Devam  >", false)
+	nb.custom_minimum_size = Vector2(160, 52)
+	nb.size_flags_horizontal = Control.SIZE_SHRINK_END
+	nb.pressed.connect(_next_line)
+	box.add_child(nb)
+
+
+func show_briefing(data: Dictionary, objectives: Array) -> void:
+	get_tree().paused = true
+	var shade := ColorRect.new()
+	shade.color = Color(0.05, 0.05, 0.04, 0.9)
+	shade.set_anchors_preset(Control.PRESET_FULL_RECT)
+	shade.mouse_filter = Control.MOUSE_FILTER_STOP
+	add_child(shade)
+	var scroll := ScrollContainer.new()
+	scroll.set_anchors_preset(Control.PRESET_FULL_RECT)
+	scroll.offset_left = 60
+	scroll.offset_right = -60
+	scroll.offset_top = 30
+	scroll.offset_bottom = -30
+	shade.add_child(scroll)
+	var box := VBoxContainer.new()
+	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	box.add_theme_constant_override("separation", 12)
+	scroll.add_child(box)
+	box.add_child(_label("GÖREV BRİFİNGİ", 16, ACCENT))
+	box.add_child(_label(data.get("name", ""), 34))
+	var story := _label(data.get("story", data.get("brief", "")), 18, Color(0.92, 0.9, 0.82))
+	story.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	story.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	box.add_child(story)
+	box.add_child(_label("Görevler:", 18, ACCENT))
+	for o in objectives:
+		var l := _label("•  " + o["text"] + ("  (isteğe bağlı)" if o.get("optional", false) else ""), 17)
+		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		box.add_child(l)
+	var go := _button("Göreve Başla", false)
+	go.custom_minimum_size = Vector2(260, 64)
+	go.add_theme_font_size_override("font_size", 24)
+	go.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	go.pressed.connect(func():
+		shade.queue_free()
+		get_tree().paused = false)
+	box.add_child(go)
 
 
 func set_alert(text: String) -> void:

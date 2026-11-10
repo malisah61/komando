@@ -6,12 +6,15 @@ const ConeLayer = preload("res://scripts/cone_layer.gd")
 const Commando = preload("res://scripts/commando.gd")
 const Guard = preload("res://scripts/guard.gd")
 const Hud = preload("res://scripts/hud.gd")
+const Mission = preload("res://scripts/mission.gd")
+const Npc = preload("res://scripts/npc.gd")
 
 const LEVELS := [
 	["res://levels/bolum0.json", "Bölüm 0 – Normandiya Köyü", "Eğitim: küçük köy, 6 asker"],
 	["res://levels/bolum1.json", "Bölüm 1 – Nehir Operasyonu", "Geniş harita: nehir, köprüler, köy, karargâh, 23 asker"],
 ]
 static var level_choice := ""      # sahne yeniden yuklenince de hatirlanir
+static var briefed := ""           # brifingi gosterilen son bolum (yeniden baslatinca tekrar gosterme)
 
 var level_path := "res://levels/bolum1.json"
 
@@ -30,6 +33,7 @@ var touches := {}
 var last_pinch := 0.0
 
 var hud
+var mission
 
 
 func _ready() -> void:
@@ -64,6 +68,21 @@ func _ready() -> void:
 	commando.position = level.start
 	world.add_child(commando)
 
+	mission = Mission.new()
+	mission.main = self
+	mission.setup(level.data)
+	add_child(mission)
+	for nd in level.data.get("npcs", []):
+		var n = Npc.new()
+		n.main = self
+		n.id = nd["id"]
+		n.outfit = nd.get("outfit", "pilot")
+		n.display_name = nd.get("name", "")
+		n.position = Vector2(nd["pos"][0], nd["pos"][1])
+		n.facing = deg_to_rad(nd.get("facing", 90.0))
+		world.add_child(n)
+		mission.npcs[n.id] = n
+
 	cam = Camera2D.new()
 	cam.position = commando.position
 	add_child(cam)
@@ -74,23 +93,29 @@ func _ready() -> void:
 	add_child(hud)
 	if level_choice == "":
 		hud.show_menu(LEVELS)
+	elif briefed != level_path:
+		briefed = level_path
+		hud.show_briefing(level.data, mission.objectives)
 
 
 func choose_level(path: String) -> void:
 	level_choice = path
+	briefed = ""
+	get_tree().paused = false
 	get_tree().reload_current_scene()
 
 
 # ---------------- Oyun akisi ----------------
-func _process(_delta: float) -> void:
-	if game_over or commando == null:
+func win() -> void:
+	var t: float = mission.elapsed
+	_end("GÖREV TAMAMLANDI\nSüre %d:%02d" % [int(t) / 60, int(t) % 60], Color(0.5, 1, 0.5))
+
+
+func lose(text: String) -> void:
+	if game_over:
 		return
-	if not level.document_taken and commando.global_position.distance_to(level.document_pos) < 26:
-		level.document_taken = true
-		level.queue_redraw()
-		hud.on_document()
-	if level.document_taken and level.exit_rect.has_point(commando.global_position):
-		_end("GÖREV TAMAMLANDI", Color(0.5, 1, 0.5))
+	commando.alive = false
+	_end(text, Color(1, 0.35, 0.3))
 
 
 func caught(_by) -> void:

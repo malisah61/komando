@@ -2,6 +2,7 @@ extends SceneTree
 var main; var f := 0; var t0 := 0
 func _initialize():
 	load("res://scripts/main.gd").level_choice = OS.get_environment("LVL")
+	load("res://scripts/main.gd").briefed = load("res://scripts/main.gd").level_choice
 	main = load("res://scenes/main.tscn").instantiate(); root.add_child(main)
 func _process(_d):
 	f += 1

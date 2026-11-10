@@ -54,8 +54,13 @@ var _redraw_t := 0.0
 
 # --- Blender'da render edilmis harita (levels/<bolum>_art/) ---
 var art := false
-var ground_tex: Texture2D
+var ground_tex: Texture2D        # eski tek parca zemin (geriye uyum)
+var ground_tiles: Array = []      # [Texture2D, Rect2] - parcali zemin
+var art_scale := 1.0
 var _areas: Array = []            # bina indeksi -> Roof alani
+var scorches: Array = []         # [konum, yaricap] - patlama izi
+var broken_bridges: Array = []    # Rect2
+var _region: NavigationRegion2D
 var occluders: Array = []         # [ekran dikdortgeni, taban y, dugum] - silüet icin
 
 
@@ -70,7 +75,7 @@ func load_level(path: String, world: Node2D, roofs: Node2D) -> bool:
 		return false
 	data = parsed
 	var art_dir := path.get_basename() + "_art/"
-	art = ResourceLoader.exists(art_dir + "ground.jpg") and FileAccess.file_exists(art_dir + "manifest.json")
+	art = FileAccess.file_exists(art_dir + "manifest.json")
 	size = _v(data["size"])
 	start = _v(data["start"])
 	var e: Array = data["exit"]
@@ -203,23 +208,44 @@ func _build_building(b: Dictionary, world: Node2D, roofs: Node2D) -> void:
 
 
 func _build_art(dir: String, world: Node2D, roofs: Node2D) -> void:
-	## Blender ciktisi: zemin resmi + her nesne icin Y-Sort'a giren ayri sprite
-	ground_tex = load(dir + "ground.jpg")
+	## Blender ciktisi: zemin karolari + her nesne icin Y-Sort'a giren ayri sprite
 	var man = JSON.parse_string(FileAccess.get_file_as_string(dir + "manifest.json"))
-	var obj_tex: Texture2D = load(dir + "objects.png")
-	var roof_tex: Texture2D = load(dir + "roofs.png")
+	art_scale = float(man.get("scale", 1.0))
+	if man.has("ground"):
+		for g in man["ground"]:
+			var r: Array = g["rect"]
+			ground_tiles.append([load(dir + g["file"]), Rect2(r[0], r[1], r[2], r[3])])
+	else:
+		ground_tex = load(dir + "ground.jpg")
+	var obj_pages := _pages(dir, man, "objects")
+	var roof_pages := _pages(dir, man, "roofs")
 	for e in man.get("objects", []):
-		var spr := _art_sprite(obj_tex, e)
+		var spr := _art_sprite(obj_pages[int(e.get("page", 0))], e)
 		world.add_child(spr)
-		occluders.append([Rect2(e["rect"][0], e["rect"][1], e["rect"][2], e["rect"][3]), float(e["base"][3]), spr])
+		occluders.append([_world_rect(e), float(e["base"][3]), spr])
 		if e["kind"] == "wall":
 			var a = _areas[int(e["building"])]
 			a.wall_nodes.append(spr)
 	for e in man.get("roofs", []):
-		var spr := _art_sprite(roof_tex, e)
+		var spr := _art_sprite(roof_pages[int(e.get("page", 0))], e)
 		roofs.add_child(spr)
-		occluders.append([Rect2(e["rect"][0], e["rect"][1], e["rect"][2], e["rect"][3]), INF, spr])
+		occluders.append([_world_rect(e), INF, spr])
 		_areas[int(e["building"])].roof_node = spr
+
+
+func _pages(dir: String, man: Dictionary, key: String) -> Array:
+	var out: Array = []
+	if man.has(key + "_pages"):
+		for f in man[key + "_pages"]:
+			out.append(load(dir + f))
+	else:
+		out.append(load(dir + key + ".png"))
+	return out
+
+
+func _world_rect(e: Dictionary) -> Rect2:
+	var r: Array = e["rect"]
+	return Rect2(r[0] / art_scale, r[1] / art_scale, r[2] / art_scale, r[3] / art_scale)
 
 
 func _art_sprite(tex: Texture2D, e: Dictionary) -> Sprite2D:
@@ -231,9 +257,11 @@ func _art_sprite(tex: Texture2D, e: Dictionary) -> Sprite2D:
 	var spr := Sprite2D.new()
 	spr.texture = at
 	spr.centered = false
+	spr.scale = Vector2.ONE / art_scale
 	var base: Array = e["base"]
 	spr.position = Vector2((float(base[0]) + float(base[2])) * 0.5, float(base[3]))
-	spr.offset = Vector2(r[0], r[1]) - spr.position
+	# offset yerel (olceklenmemis) birimde
+	spr.offset = Vector2(r[0], r[1]) - spr.position * art_scale
 	return spr
 
 
@@ -279,9 +307,26 @@ func _build_navigation() -> void:
 	for p in move_polys:
 		src.add_obstruction_outline(p)
 	NavigationServer2D.bake_from_source_geometry_data(navpoly, src)
-	var region := NavigationRegion2D.new()
-	region.navigation_polygon = navpoly
-	add_child(region)
+	if _region == null:
+		_region = NavigationRegion2D.new()
+		add_child(_region)
+	_region.navigation_polygon = navpoly
+
+
+func destroy_bridge(i: int) -> void:
+	## kopru yikildi: artik suyun ustunden gecilemez (navigasyon yeniden hesaplanir)
+	if i < 0 or i >= bridges.size():
+		return
+	var r: Rect2 = bridges[i]
+	broken_bridges.append(r)
+	_add_solid(_rect_poly(r.grow_individual(-30, 6, -30, 6)), true, false)
+	_build_navigation()
+	queue_redraw()
+
+
+func add_scorch(p: Vector2, r: float) -> void:
+	scorches.append([p, r])
+	queue_redraw()
 
 
 # ---------------- Gorus hatti ----------------
@@ -368,7 +413,10 @@ func _process(delta: float) -> void:
 # ---------------- Zemin cizimi ----------------
 func _draw() -> void:
 	var font := ThemeDB.fallback_font
-	if ground_tex != null:
+	if not ground_tiles.is_empty():
+		for t in ground_tiles:
+			draw_texture_rect(t[0], t[1], false)
+	elif ground_tex != null:
 		draw_texture(ground_tex, Vector2.ZERO)
 	else:
 		_draw_plain_ground()
@@ -403,6 +451,19 @@ func _draw_plain_ground() -> void:
 
 
 func _draw_overlays(font: Font) -> void:
+	for sc in scorches:
+		draw_circle(sc[0], sc[1], Color(0.08, 0.07, 0.06, 0.55))
+		draw_circle(sc[0], sc[1] * 0.6, Color(0.05, 0.04, 0.03, 0.5))
+	for br in broken_bridges:
+		var mid := Rect2(br.position.x + 30, br.position.y - 4, br.size.x - 60, br.size.y + 8)
+		draw_rect(mid, Color(0.15, 0.3, 0.38))
+		var rng := RandomNumberGenerator.new()
+		rng.seed = int(br.position.x)
+		for k in 18:
+			var pp := Vector2(rng.randf_range(mid.position.x, mid.end.x), rng.randf_range(mid.position.y, mid.end.y))
+			draw_set_transform(pp, rng.randf_range(-0.6, 0.6), Vector2.ONE)
+			draw_rect(Rect2(-14, -3, 28, 6), Color(0.22, 0.15, 0.08))
+		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 	for fp in footprints:
 		var a: float = 1.0 - float(fp["age"]) / FOOTPRINT_LIFE
 		draw_set_transform(fp["pos"], fp["rot"], Vector2.ONE)

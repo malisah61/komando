@@ -158,10 +158,15 @@ func can_see(p: Vector2) -> bool:
 
 func _watch(delta: float) -> void:
 	var c = main.commando
-	if c.alive and can_see(c.global_position):
-		var close := global_position.distance_to(c.global_position) < 110.0
+	var spotted = null
+	for u in get_tree().get_nodes_in_group("player"):
+		if u.alive and can_see(u.global_position):
+			spotted = u
+			break
+	if spotted != null:
+		var close := global_position.distance_to(spotted.global_position) < 110.0
 		suspicion += delta * (2.6 if close else 1.0) * (1.5 if main.alert_level > 0 else 1.0)
-		investigate_pos = c.global_position
+		investigate_pos = spotted.global_position
 		if state != &"suspicious":
 			state = &"suspicious"
 			velocity = Vector2.ZERO

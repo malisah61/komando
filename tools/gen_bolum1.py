@@ -13,7 +13,14 @@ rnd = random.Random(1944)
 
 lvl = {
     "name": "Bölüm 1 – Nehir Operasyonu",
-    "brief": "Kuzeydoğudaki karargâhtan saldırı PLANLARINI çal, güneybatıdaki sahile (botlara) dön.",
+    "brief": "Direnişle buluş, pilotu kurtar, planları çal, köprüyü uçur, botlara dön.",
+    "story": ("Normandiya, Haziran 1944. Müttefik çıkarmasına günler kala, Binbaşı Klaus Richter komutasındaki "
+              "Alman birlikleri Orne nehri üzerindeki köprüyü tank takviyesi için kullanmaya hazırlanıyor.\n\n"
+              "Çavuş Tom 'Bıçak' Reilly, gece yarısı sahile bir botla çıkarıldı. Görevi: çiftlikte saklanan direniş "
+              "temsilcisi Pierre Lemaire'den patlayıcıları almak, köydeki belediye binasında tutulan RAF pilotu "
+              "Yüzbaşı James Carter'ı kurtarmak, Richter'in karargâhından saldırı planlarını çalmak ve kuzey köprüsünü "
+              "havaya uçurmak.\n\nKöprü yıkıldıktan sonra nehri yalnızca güneydeki dar yaya köprüsünden geçebilirsin. "
+              "Şafak sökmeden pilotla birlikte botlara dön. Unutma: tek bir alarm, bütün vadiyi üstüne çeker."),
     "size": [W, H],
     "start": [230, 2400],
     "exit": [60, 2280, 260, 250],
@@ -208,6 +215,33 @@ guard([[3460, 700], [3460, 1100], [2780, 1100]])                   # dis cevre d
 # depo
 guard([[2650, 2000], [2650, 2450], [3400, 2450]])
 guard([[3000, 2280]], 0)
+
+# ------------------------------------------------------------ GOREVLER VE KARAKTERLER
+guard([[2470, 1625]], 180)                                         # belediye kapisi nobetcisi
+guard([[2600, 1572]], 90)                                          # belediye ici
+lvl["npcs"] = [
+    {"id": "pierre", "outfit": "direnisci", "name": "Pierre", "pos": [1300, 1430], "facing": 180},
+    {"id": "carter", "outfit": "pilot", "name": "Yzb. Carter", "pos": [2700, 1665], "facing": 180},
+]
+lvl["objectives"] = [
+    {"id": "temas", "type": "reach", "text": "Çiftlikteki ambarda direnişçi Pierre ile buluş",
+     "pos": [1300, 1430], "radius": 70, "gives": {"patlayici": 2},
+     "say": [["Pierre Lemaire", "Sonunda geldiniz! Almanlar kuzey köprüsünü yarın sabah tank takviyesi için kullanacak."],
+             ["Pierre Lemaire", "İşte iki patlayıcı. Biri köprü için. Diğeri... güneydoğudaki yakıt deposu da güzel yanar."],
+             ["Pierre Lemaire", "Bir şey daha: dün düşen İngiliz pilotu köydeki belediye binasında tutuyorlar. Onu geride bırakmayın."]]},
+    {"id": "pilot", "type": "rescue", "npc": "carter", "text": "Belediye binasında tutulan pilot Carter'ı kurtar",
+     "say": [["Yzb. James Carter", "Tanrıya şükür! Richter'in haritalarını gördüm, kuzeydoğudaki duvarlı karargâhta duruyorlar."],
+             ["Çvş. Reilly", "Arkamda kal, çalılıklardan ayrılma. Seni görürlerse ikimiz de biteriz."]]},
+    {"id": "planlar", "type": "take", "item": "planlar", "text": "Richter'in karargâhından saldırı planlarını çal",
+     "pos": lvl["document"],
+     "done_say": [["Çvş. Reilly", "Richter'in saldırı planları... Londra bunları görmeli."]]},
+    {"id": "kopru", "type": "destroy", "text": "Kuzey köprüsüne patlayıcı kur ve havaya uçur",
+     "pos": [round(nb_x), 745], "radius": 95, "bridge": 0,
+     "done_say": [["Çvş. Reilly", "Köprü gitti. Takviye artık nehri geçemez. Dönüş için güneydeki yaya köprüsünü kullanmalıyım."]]},
+    {"id": "depo", "type": "destroy", "optional": True, "text": "Yakıt deposunu havaya uçur",
+     "pos": [3045, 2130], "radius": 95},
+    {"id": "kacis", "type": "exit", "text": "Pilot Carter ile birlikte sahildeki botlara dön"},
+]
 
 # ------------------------------------------------------------ AGACLAR / CALILAR
 def free(x, y, r):
