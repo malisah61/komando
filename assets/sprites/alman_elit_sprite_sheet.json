@@ -1,0 +1,63 @@
+{
+ "frame": 128,
+ "cols": 16,
+ "slot": 8,
+ "slots_per_row": 2,
+ "directions": 8,
+ "filter": "linear",
+ "display_px": 160,
+ "anims": {
+  "idle": {
+   "slot": 0,
+   "frames": 6,
+   "fps": 6,
+   "loop": true
+  },
+  "walk": {
+   "slot": 8,
+   "frames": 8,
+   "fps": 10,
+   "loop": true
+  },
+  "run": {
+   "slot": 16,
+   "frames": 8,
+   "fps": 14,
+   "loop": true
+  },
+  "crouch": {
+   "slot": 24,
+   "frames": 8,
+   "fps": 9,
+   "loop": true
+  },
+  "action": {
+   "slot": 32,
+   "frames": 6,
+   "fps": 14,
+   "loop": false
+  },
+  "plant": {
+   "slot": 40,
+   "frames": 8,
+   "fps": 8,
+   "loop": true
+  },
+  "shoot": {
+   "slot": 48,
+   "frames": 5,
+   "fps": 14,
+   "loop": false
+  },
+  "death": {
+   "slot": 56,
+   "frames": 8,
+   "fps": 10,
+   "loop": false
+  }
+ },
+ "pivot": [
+  64.0,
+  79.7
+ ]
+}

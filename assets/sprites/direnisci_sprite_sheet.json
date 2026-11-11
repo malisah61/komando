@@ -9,8 +9,8 @@
  "anims": {
   "idle": {
    "slot": 0,
-   "frames": 4,
-   "fps": 4,
+   "frames": 6,
+   "fps": 6,
    "loop": true
   },
   "walk": {
@@ -25,15 +25,33 @@
    "fps": 14,
    "loop": true
   },
-  "action": {
+  "crouch": {
    "slot": 24,
+   "frames": 8,
+   "fps": 9,
+   "loop": true
+  },
+  "action": {
+   "slot": 32,
    "frames": 6,
    "fps": 14,
    "loop": false
   },
+  "plant": {
+   "slot": 40,
+   "frames": 8,
+   "fps": 8,
+   "loop": true
+  },
+  "shoot": {
+   "slot": 48,
+   "frames": 5,
+   "fps": 14,
+   "loop": false
+  },
   "death": {
-   "slot": 32,
-   "frames": 6,
+   "slot": 56,
+   "frames": 8,
    "fps": 10,
    "loop": false
   }
