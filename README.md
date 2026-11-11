@@ -12,6 +12,12 @@ Commandos 2: Men of Courage'dan esinlenen, 2. Dünya Savaşı'nda geçen gerçek
 ## Senaryo
 Kampanya, karakterler ve bölüm planı: [docs/SENARYO.md](docs/SENARYO.md)
 
+## Bina içleri ve harita
+- Binaya dokun: komando kapıya yürür ve içeri girer. Bina içi ayrı bir haritadır (2 kat büyük, binaya özel eşyalar).
+- İçeride "Kapıdan Bak" ile anahtar deliğinden dışarıdaki askerleri izle. "Dışarı Çık" ile çık.
+- Askerler de kapıları kullanır: binaya kaçarsan peşinden gelirler.
+- Mini haritaya dokun: büyük harita açılır (binalar, kışlalar, görevler, eşyalar, çıkış).
+
 ## Görev sistemi
 Bölüm dosyasındaki `objectives` listesi: `reach` (buluş/konuş, eşya ver), `take` (çal), `rescue` (esiri kurtar, seni izler),
 `destroy` (patlayıcı kur: 2 sn kurulum + 8 sn fitil; `bridge` verilirse köprü yıkılır ve yollar değişir), `exit` (kaçış).

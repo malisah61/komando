@@ -27,6 +27,9 @@ var alarm_t := 0.0
 var barracks: Array = []      # [konum, kalan asker, tur, gecikme]
 var _pending: Array = []      # [sure, kisla, adet, hedef]
 var stats := {"kills": 0, "alarms": 0, "shots": 0}
+var cur_interior := -1        # komando hangi bina icinde (-1: dis harita)
+var pending_enter := -1       # kapiya yuruyup girilecek bina
+var peeking := false          # kapidan disari bakiyor
 
 # kamera / girdi
 var cam: Camera2D
@@ -219,12 +222,78 @@ func _spawn_reinforcements(bk: Array, n: int, target: Vector2) -> void:
 	hud.toast("Takviye birlik geldi: %d asker" % n)
 
 
+func enter_building(i: int) -> void:
+	var it: Dictionary = level.interiors[i]
+	_move_party(it["int_door"])
+	cur_interior = i
+	pending_enter = -1
+	cam.position = commando.global_position
+	_clamp_cam()
+	hud.set_place("Bina içi: " + it["name"])
+	hud.toast(it["name"] + " – içeri girdin")
+
+
+func exit_building() -> void:
+	if cur_interior < 0:
+		return
+	var it: Dictionary = level.interiors[cur_interior]
+	cur_interior = -1
+	peeking = false
+	hud.show_peek(false)
+	_move_party(it["ext_door"] + it["out"] * 6.0)
+	cam.position = commando.global_position
+	_clamp_cam()
+	hud.set_place("")
+
+
+func _move_party(p: Vector2) -> void:
+	## komando + onu izleyen karakterler + tasinan ceset birlikte gecer
+	var c = commando
+	for id in mission.npcs:
+		var n = mission.npcs[id]
+		if n.following and n.alive and n.global_position.distance_to(c.global_position) < 180.0:
+			n.global_position = p + Vector2(24, 10)
+			n.navigation_agent.target_position = n.global_position
+	c.global_position = p
+	c.move_to(p)
+	c._carry_follow()
+
+
+func toggle_peek() -> void:
+	## kapidan / anahtar deliginden disari bak (Commandos 2)
+	if cur_interior < 0:
+		return
+	peeking = not peeking
+	var it: Dictionary = level.interiors[cur_interior]
+	if peeking:
+		cam.position = it["ext_door"] + it["out"] * 150.0
+	else:
+		cam.position = commando.global_position
+	_clamp_cam()
+	hud.show_peek(peeking)
+
+
 func _update_action() -> void:
-	## baglama gore tek aksiyon dugmesi: patlayici kur / cesedi tasi / birak
+	## baglama gore tek aksiyon dugmesi: patlayici kur / cesedi tasi / birak / gir / cik
 	var c = commando
 	if not c.alive:
 		hud.set_action("", false)
 		return
+	# kapi gecisleri
+	if pending_enter >= 0 and c.global_position.distance_to(level.interiors[pending_enter]["ext_door"]) < 24.0:
+		enter_building(pending_enter)
+		return
+	if cur_interior >= 0:
+		var it: Dictionary = level.interiors[cur_interior]
+		if c.global_position.distance_to(it["int_door"]) < 60.0:
+			hud.set_action("Dışarı Çık", true, func(): exit_building(), "Kapıdan Bak", func(): toggle_peek())
+			return
+	else:
+		for i in level.interiors.size():
+			if c.global_position.distance_to(level.interiors[i]["ext_door"]) < 46.0:
+				var ii: int = i
+				hud.set_action("Gir: " + level.interiors[i]["name"], true, func(): enter_building(ii))
+				return
 	if c.carrying != null:
 		hud.set_action("Cesedi Bırak", true, func(): c.drop_body())
 		return
@@ -292,21 +361,32 @@ func _zoom(f: float) -> void:
 
 func _clamp_cam() -> void:
 	# gorus alani harita disina tasmasin (harita ekrandan kucukse ortala)
+	var area := Rect2(Vector2.ZERO, level.size)
+	if cur_interior >= 0 and not peeking:
+		area = level.interiors[cur_interior]["irect"].grow(90)
 	var half: Vector2 = get_viewport_rect().size / cam.zoom * 0.5
-	var lo: Vector2 = half
-	var hi: Vector2 = level.size - half
+	var lo: Vector2 = area.position + half
+	var hi: Vector2 = area.end - half
 	if hi.x < lo.x:
-		lo.x = level.size.x * 0.5
+		lo.x = area.get_center().x
 		hi.x = lo.x
 	if hi.y < lo.y:
-		lo.y = level.size.y * 0.5
+		lo.y = area.get_center().y
 		hi.y = lo.y
 	cam.position = cam.position.clamp(lo, hi)
 
 
 func _tap(p: Vector2) -> void:
-	if game_over:
+	if game_over or peeking:
 		return
+	# dis haritada bir binaya dokunuldu: kapiya yuru ve gir
+	if cur_interior < 0:
+		var bi: int = level.interior_of_ext(p)
+		if bi >= 0:
+			pending_enter = bi
+			commando.move_to(level.interiors[bi]["ext_door"])
+			return
+	pending_enter = -1
 	# secili silahla askere saldir (secim kalici; yere dokunmak sadece yurutur)
 	for g in get_tree().get_nodes_in_group("guards"):
 		# govde ayaklarin ustunde cizildigi icin oraya da bak

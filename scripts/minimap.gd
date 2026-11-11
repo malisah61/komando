@@ -21,15 +21,10 @@ func _process(delta: float) -> void:
 
 
 func _gui_input(e: InputEvent) -> void:
-	var down := false
+	# mini haritaya dokun: buyuk harita acilsin
 	if e is InputEventMouseButton and e.button_index == MOUSE_BUTTON_LEFT and e.pressed:
-		down = true
-	elif e is InputEventMouseMotion and (e.button_mask & MOUSE_BUTTON_MASK_LEFT) != 0:
-		down = true
-	if down:
-		main.cam.position = e.position / _scale()
-		main._clamp_cam()
 		accept_event()
+		main.hud.show_big_map()
 
 
 func _scale() -> float:
@@ -71,7 +66,10 @@ func _draw() -> void:
 			col = Color(1, 0.85, 0.2)
 		draw_circle(g.global_position * k, 3.0, col)
 	if main.commando:
-		draw_circle(main.commando.global_position * k, 4.0, Color(0.4, 1, 0.4))
+		var cp: Vector2 = main.commando.global_position
+		if main.cur_interior >= 0:
+			cp = main.level.interiors[main.cur_interior]["rect"].get_center()
+		draw_circle(cp * k, 4.0, Color(0.4, 1, 0.4))
 	# kamera gorus alani
 	var vp: Vector2 = get_viewport_rect().size / main.cam.zoom
 	var r := Rect2((main.cam.position - vp / 2) * k, vp * k)

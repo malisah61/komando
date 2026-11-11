@@ -23,8 +23,7 @@ func check(cond: bool, msg: String) -> void:
 
 
 func _reach(map: RID, a: Vector2, b: Vector2) -> bool:
-	var p := NavigationServer2D.map_get_path(map, a, b, true)
-	return p.size() > 1 and p[p.size() - 1].distance_to(b) < 14.0
+	return main.level.reach(map, a, b)
 
 
 func _physics_process(_delta: float) -> bool:
@@ -46,6 +45,12 @@ func _physics_process(_delta: float) -> bool:
 				if not _reach(map, lvl.start, v):
 					print("    devriye noktasina yol yok: asker ", gi, " ", v)
 					bad += 1
+			var areas := {}
+			for p in gd["path"]:
+				areas[lvl.interior_at(Vector2(p[0], p[1]))] = true
+			if areas.size() > 1:
+				print("    devriye ic/dis karisik: asker ", gi)
+				bad += 1
 			gi += 1
 		check(bad == 0, "tum devriye noktalari gecerli (%d asker)" % gi)
 		# kamerayi en kalabalik yere (koy) al

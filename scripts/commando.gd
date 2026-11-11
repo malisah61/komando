@@ -25,6 +25,7 @@ var _step := 0.0
 var sprite: AnimatedSprite2D      # sprite sheet varsa dolu, yoksa sekillerle cizilir
 var run := false                  # HUD'daki Kos dugmesi
 var crouch := false               # HUD'daki Comel dugmesi
+const KNIFE_FRONT_DMG := 35.0
 var weapon := "knife"             # "knife" / "pistol" - secim kalicidir
 var ammo := 12
 var medkits := 1
@@ -157,7 +158,14 @@ func _attack_step(delta: float) -> void:
 	var d := global_position.distance_to(g.global_position)
 	if weapon == "knife":
 		if d < 30.0:
-			g.kill()
+			# onden ve tetikteyken tek darbede olmez: yaralar, catisma baslar
+			var to_me: Vector2 = global_position - g.global_position
+			var facing_me: bool = absf(wrapf(to_me.angle() - g.facing, -PI, PI)) < 1.2
+			if g.state == &"combat" and facing_me:
+				g.take_damage(KNIFE_FRONT_DMG, global_position)
+				_cool = 0.6
+			else:
+				g.kill()
 			target_guard = null
 			_play(&"action", true)
 			navigation_agent.target_position = global_position

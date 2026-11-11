@@ -17,6 +17,7 @@ jobs:
     if: ${{ github.event_name == 'workflow_dispatch' || !contains(github.event.head_commit.message, '[render-yok]') }}
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         outfit: [komando, alman_er, alman_subay, alman_kis, alman_elit, pilot, direnisci]
     steps:
@@ -34,7 +35,11 @@ jobs:
           wget -q https://download.blender.org/release/Blender4.2/blender-4.2.3-linux-x64.tar.xz
           tar -xf blender-4.2.3-linux-x64.tar.xz && rm blender-4.2.3-linux-x64.tar.xz
       - name: Render
-        run: ~/blender/blender-4.2.3-linux-x64/blender -b --python tools/blender/asker2.py -- --out out --outfits ${{ matrix.outfit }}
+        run: |
+          # gecici hatalara karsi bir kez daha dene
+          ~/blender/blender-4.2.3-linux-x64/blender -b --python tools/blender/asker2.py -- --out out --outfits ${{ matrix.outfit }} \
+            || ~/blender/blender-4.2.3-linux-x64/blender -b --python tools/blender/asker2.py -- --out out --outfits ${{ matrix.outfit }}
+          ls out/*.png
       - uses: actions/upload-artifact@v4
         with:
           name: sprite-${{ matrix.outfit }}
@@ -42,6 +47,7 @@ jobs:
 
   yaz:
     needs: render
+    if: ${{ always() }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -52,7 +58,7 @@ jobs:
           merge-multiple: true
       - name: Repoya yaz
         run: |
-          cp indirilen/* assets/sprites/
+          cp indirilen/* assets/sprites/ || true
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add assets/sprites

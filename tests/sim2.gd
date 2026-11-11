@@ -47,14 +47,33 @@ func _process(_d: float) -> bool:
 			if f > 5:
 				for g in main.get_tree().get_nodes_in_group("guards"):
 					g.set_physics_process(false)
-				_tp(Vector2(1290, 1430))
+				# bina ici: gir / kapidan bak / cik
+				var bi := -1
+				for i in main.level.interiors.size():
+					if main.level.interiors[i]["name"] == "Karargâh":
+						bi = i
+				if bi < 0:
+					bi = 0
+				var it: Dictionary = main.level.interiors[bi]
+				main.enter_building(bi)
+				check(main.cur_interior == bi and it["irect"].has_point(main.commando.global_position), "binaya girildi: %s (ayri ic harita)" % it["name"])
+				check(not Rect2(Vector2.ZERO, main.level.size).has_point(main.cam.position), "kamera ic haritada (dis harita gorunmuyor)")
+				main.toggle_peek()
+				check(main.peeking and main.cam.position.distance_to(it["ext_door"]) < 400.0 and main.hud.peek_rect.visible, "kapidan bakis disariyi gosteriyor")
+				main.toggle_peek()
+				main.exit_building()
+				check(main.cur_interior < 0 and main.commando.global_position.distance_to(it["ext_door"]) < 20.0, "binadan cikildi")
+				main.hud.show_big_map()
+				check(main.hud._bigmap != null and main.get_tree().paused, "buyuk harita acildi")
+				main.hud.close_big_map()
+				_tp(m.npcs["pierre"].global_position + Vector2(24, 0))
 				step = 1
 				wait = 0.17
 		1:
 			check(main.hud.dialog_panel.visible, "Pierre ile konusma acildi (oyun durdu: %s)" % main.get_tree().paused)
 			_skip_dialog()
 			check(m.items.get("patlayici", 0) == 2, "2 patlayici alindi")
-			_tp(Vector2(2690, 1660))
+			_tp(m.npcs["carter"].global_position + Vector2(24, 0))
 			step = 2
 			wait = 0.17
 		2:

@@ -12,6 +12,25 @@ const ACCENT := Color(0.85, 0.75, 0.45)
 
 var main
 var _action_cb: Callable
+var _action_cb2: Callable
+var action_btn2: Button
+var place_label: Label
+var peek_rect: ColorRect
+var peek_btn: Button
+var _bigmap: Control
+
+const KEYHOLE := """
+shader_type canvas_item;
+void fragment() {
+	vec2 px = 1.0 / SCREEN_PIXEL_SIZE;
+	vec2 d = (SCREEN_UV - vec2(0.5, 0.48)) * vec2(px.x / px.y, 1.0);
+	float circle = length(d - vec2(0.0, -0.06)) - 0.17;
+	float slot = max(abs(d.x) - (0.06 + max(d.y, 0.0) * 0.32), max(-d.y - 0.02, d.y - 0.3));
+	float inside = min(circle, slot);
+	float a = smoothstep(-0.01, 0.01, inside);
+	COLOR = vec4(0.02, 0.015, 0.01, a * 0.97);
+}
+"""
 var _toast_t := 0.0
 var toast_label: Label
 var hp_bar: ProgressBar
@@ -179,6 +198,33 @@ func _ready() -> void:
 		slots.append(slot)
 	slots[0].text = "BIÇAK"
 	_build_dialog(root)
+	place_label = _label("", 18, Color(0.85, 0.9, 1.0))
+	place_label.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	place_label.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	place_label.position.y = 150
+	place_label.visible = false
+	root.add_child(place_label)
+	peek_rect = ColorRect.new()
+	peek_rect.set_anchors_preset(Control.PRESET_FULL_RECT)
+	peek_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var psh := Shader.new()
+	psh.code = KEYHOLE
+	var pm := ShaderMaterial.new()
+	pm.shader = psh
+	peek_rect.material = pm
+	peek_rect.visible = false
+	root.add_child(peek_rect)
+	peek_btn = _button("Kapıdan Çekil", false)
+	peek_btn.custom_minimum_size = Vector2(220, 60)
+	peek_btn.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+	peek_btn.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	peek_btn.offset_left = -120
+	peek_btn.offset_right = 120
+	peek_btn.offset_top = -96
+	peek_btn.offset_bottom = -36
+	peek_btn.visible = false
+	peek_btn.pressed.connect(func(): main.toggle_peek())
+	root.add_child(peek_btn)
 	refresh_objectives()
 	action_btn = _button("", false)
 	action_btn.custom_minimum_size = Vector2(BTN * 4 + 12, 60)
@@ -187,7 +233,18 @@ func _ready() -> void:
 	action_btn.pressed.connect(func():
 		if _action_cb.is_valid():
 			_action_cb.call())
-	br_box.add_child(action_btn)
+	var arow := HBoxContainer.new()
+	br_box.add_child(arow)
+	action_btn.custom_minimum_size = Vector2(BTN * 2 + 4, 60)
+	arow.add_child(action_btn)
+	action_btn2 = _button("", false)
+	action_btn2.custom_minimum_size = Vector2(BTN * 2 + 4, 60)
+	action_btn2.add_theme_font_size_override("font_size", 20)
+	action_btn2.visible = false
+	action_btn2.pressed.connect(func():
+		if _action_cb2.is_valid():
+			_action_cb2.call())
+	arow.add_child(action_btn2)
 	br_box.add_child(_label("SİLAH  (seçim kalıcı - askere dokun: saldır)", 13, ACCENT))
 	var weap := HBoxContainer.new()
 	br_box.add_child(weap)
@@ -369,11 +426,65 @@ func refresh_items() -> void:
 		i += 1
 
 
-func set_action(text: String, enabled: bool, cb := Callable()) -> void:
+func set_action(text: String, enabled: bool, cb := Callable(), text2 := "", cb2 := Callable()) -> void:
 	action_btn.visible = text != ""
 	action_btn.text = text
 	action_btn.disabled = not enabled
+	action_btn.custom_minimum_size.x = (BTN * 2 + 4) if text2 != "" else (BTN * 4 + 12)
 	_action_cb = cb
+	action_btn2.visible = text2 != ""
+	action_btn2.text = text2
+	_action_cb2 = cb2
+
+
+func set_place(text: String) -> void:
+	place_label.text = text
+	place_label.visible = text != ""
+
+
+func show_peek(on: bool) -> void:
+	## anahtar deligi gorunumu: disaridaki askerleri izle
+	peek_rect.visible = on
+	peek_btn.visible = on
+
+
+# ---------------- Buyuk harita ----------------
+func show_big_map() -> void:
+	if _bigmap != null:
+		return
+	get_tree().paused = true
+	var shade := ColorRect.new()
+	shade.color = Color(0.05, 0.05, 0.04, 0.93)
+	shade.set_anchors_preset(Control.PRESET_FULL_RECT)
+	shade.mouse_filter = Control.MOUSE_FILTER_STOP
+	add_child(shade)
+	_bigmap = shade
+	var bm = load("res://scripts/bigmap.gd").new()
+	bm.main = main
+	bm.hud = self
+	bm.set_anchors_preset(Control.PRESET_FULL_RECT)
+	bm.offset_left = 20
+	bm.offset_top = 50
+	bm.offset_right = -20
+	bm.offset_bottom = -20
+	shade.add_child(bm)
+	var title := _label("HARİTA – %s   (bir yere dokun: kamerayı oraya götür)" % main.level.data.get("name", ""), 18, ACCENT)
+	title.position = Vector2(24, 12)
+	shade.add_child(title)
+	var close := _button("Kapat", false)
+	close.custom_minimum_size = Vector2(120, 50)
+	close.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	close.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	close.position = Vector2(-16, 8)
+	close.pressed.connect(close_big_map)
+	shade.add_child(close)
+
+
+func close_big_map() -> void:
+	if _bigmap != null:
+		_bigmap.queue_free()
+		_bigmap = null
+	get_tree().paused = false
 
 
 func toast(text: String) -> void:

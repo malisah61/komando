@@ -27,10 +27,8 @@ func _physics_process(_delta: float) -> bool:
 	if frame == 5:
 		var lvl = main.level
 		var map: RID = main.commando.navigation_agent.get_navigation_map()
-		var path := NavigationServer2D.map_get_path(map, lvl.start, lvl.document_pos, true)
-		check(path.size() > 1 and path[path.size() - 1].distance_to(lvl.document_pos) < 6, "baslangictan belgeye yol var (%d nokta)" % path.size())
-		var p2 := NavigationServer2D.map_get_path(map, lvl.document_pos, lvl.exit_rect.get_center(), true)
-		check(p2.size() > 1, "belgeden cikisa yol var")
+		check(lvl.reach(map, lvl.start, lvl.document_pos), "baslangictan belgeye yol var (kapilardan)")
+		check(lvl.reach(map, lvl.document_pos, lvl.exit_rect.get_center()), "belgeden cikisa yol var")
 		check(not lvl.has_los(Vector2(1000, 500), Vector2(1000, 700)), "Ev B duvari gorusu kesiyor")
 		check(lvl.has_los(Vector2(970, 860), Vector2(970, 960)), "kum torbasi gorusu kesmiyor")
 		check(lvl.is_inside_view_blocker(Vector2(500, 985)), "calilik gizliyor")

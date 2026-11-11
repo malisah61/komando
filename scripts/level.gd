@@ -64,6 +64,15 @@ var broken_bridges: Array = []    # Rect2
 var _region: NavigationRegion2D
 var occluders: Array = []         # [ekran dikdortgeni, taban y, dugum] - silüet icin
 
+# --- Bina ici haritalar (Commandos 2 gibi): her bina ayri, buyutulmus bir ic mekan ---
+const ISCALE := 2.0
+const IWALL := 16.0
+const IWALL_H := 64.0
+const IDOOR := 76.0
+var interiors: Array = []         # {name, rect, irect, side, ext_door, int_door, out}
+var soft_from := 0                # view_segments icinde calilik (yumusak) kenarlarin isareti
+
+
 
 func load_level(path: String, world: Node2D, roofs: Node2D) -> bool:
 	level_path = path
@@ -76,6 +85,9 @@ func load_level(path: String, world: Node2D, roofs: Node2D) -> bool:
 		push_error("Bolum dosyasi bozuk: " + path)
 		return false
 	data = parsed
+	size = _v(data["size"])
+	_plan_interiors()
+	_map_data()
 	var art_dir := path.get_basename() + "_art/"
 	art = FileAccess.file_exists(art_dir + "manifest.json")
 	size = _v(data["size"])
@@ -105,6 +117,8 @@ func load_level(path: String, world: Node2D, roofs: Node2D) -> bool:
 		_build_obstacle(o, world)
 	if art:
 		_build_art(art_dir, world, roofs)
+	for i in interiors.size():
+		_build_interior(i, world)
 
 	_build_navigation()
 	_build_grid()
@@ -149,7 +163,7 @@ func _build_building(b: Dictionary, world: Node2D, roofs: Node2D) -> void:
 	var y0 := rect.position.y
 	var x1 := rect.end.x
 	var y1 := rect.end.y
-	var cx := rect.get_center().x
+	var cx: float = rect.get_center().x
 	var cy := rect.get_center().y
 	var hd := DOOR * 0.5
 	var walls: Array[Rect2] = []
@@ -189,6 +203,9 @@ func _build_building(b: Dictionary, world: Node2D, roofs: Node2D) -> void:
 		world.add_child(p)
 		wall_props.append(p)
 
+	# bina disaridan kapali: icine kapidan girilir ve ayri ic haritaya gecilir
+	_add_solid(_rect_poly(rect.grow(-WALL + 2)), true, false)
+
 	# cati + icerisi icin seffaflasan alan
 	var roof = null
 	if not art:
@@ -209,6 +226,244 @@ func _build_building(b: Dictionary, world: Node2D, roofs: Node2D) -> void:
 	area.add_child(shape)
 	add_child(area)
 	_areas.append(area)
+
+
+# ---------------- Bina ici ----------------
+func _plan_interiors() -> void:
+	var x := 300.0
+	var y := size.y + 700.0
+	var row_h := 0.0
+	for bd in data.get("buildings", []):
+		var r: Array = bd["rect"]
+		var rect := Rect2(r[0], r[1], r[2], r[3])
+		var isz := rect.size * ISCALE
+		if x + isz.x > maxf(size.x, 2400.0):
+			x = 300.0
+			y += row_h + 500.0
+			row_h = 0.0
+		var ir := Rect2(x, y, isz.x, isz.y)
+		x += isz.x + 500.0
+		row_h = maxf(row_h, isz.y)
+		var side: String = bd.get("door", "S")
+		var out: Vector2 = {"N": Vector2.UP, "S": Vector2.DOWN, "W": Vector2.LEFT, "E": Vector2.RIGHT}[side]
+		var c := rect.get_center()
+		var ic := ir.get_center()
+		var edge := c + Vector2(out.x * rect.size.x / 2, out.y * rect.size.y / 2)
+		var iedge := ic + Vector2(out.x * ir.size.x / 2, out.y * ir.size.y / 2)
+		interiors.append({"name": bd.get("name", "Bina"), "rect": rect, "irect": ir, "side": side, "out": out,
+			"ext_door": edge + out * 26.0, "int_door": iedge - out * 40.0, "specials": []})
+
+
+func interior_of_ext(p: Vector2) -> int:
+	## dis haritada bu nokta hangi binanin icinde? (yoksa -1)
+	for i in interiors.size():
+		if interiors[i]["rect"].has_point(p):
+			return i
+	return -1
+
+
+func interior_at(p: Vector2) -> int:
+	## bu nokta hangi ic haritada? (yoksa -1)
+	for i in interiors.size():
+		if interiors[i]["irect"].grow(40).has_point(p):
+			return i
+	return -1
+
+
+func map_point(p: Vector2) -> Vector2:
+	var i := interior_of_ext(p)
+	if i < 0:
+		return p
+	var it: Dictionary = interiors[i]
+	var q: Vector2 = it["irect"].position + (p - it["rect"].position) * ISCALE
+	var inner: Rect2 = it["irect"].grow(-IWALL - 20.0)
+	q = q.clamp(inner.position, inner.end)
+	it["specials"].append(q)
+	return q
+
+
+func _seg_ok(map: RID, a: Vector2, b: Vector2) -> bool:
+	if a.distance_to(b) < 4.0:
+		return true
+	var p := NavigationServer2D.map_get_path(map, a, b, true)
+	return p.size() > 1 and p[p.size() - 1].distance_to(b) < 14.0
+
+
+func reach(map: RID, a: Vector2, b: Vector2) -> bool:
+	## kapilardan gecerek a -> b ulasilabilir mi (ic haritalar dis haritadan ayri)
+	var ia := interior_at(a)
+	var ib := interior_at(b)
+	if ia == ib:
+		return _seg_ok(map, a, b)
+	var pa := a
+	if ia >= 0:
+		if not _seg_ok(map, a, interiors[ia]["int_door"]):
+			return false
+		pa = interiors[ia]["ext_door"]
+	if ib >= 0:
+		return _seg_ok(map, pa, interiors[ib]["ext_door"]) and _seg_ok(map, interiors[ib]["int_door"], b)
+	return _seg_ok(map, pa, b)
+
+
+func _map_arr(a: Array) -> Array:
+	var q := map_point(Vector2(a[0], a[1]))
+	return [q.x, q.y]
+
+
+func _map_data() -> void:
+	## bina icindeki her sey (asker, karakter, belge, esya, gorev noktasi) ic haritaya tasinir
+	for g in data.get("guards", []):
+		var np: Array = []
+		for p in g["path"]:
+			np.append(_map_arr(p))
+		g["path"] = np
+	for n in data.get("npcs", []):
+		n["pos"] = _map_arr(n["pos"])
+	for pk in data.get("pickups", []):
+		pk["pos"] = _map_arr(pk["pos"])
+	data["document"] = _map_arr(data["document"])
+	for o in data.get("objectives", []):
+		if o.has("pos") and not o.has("bridge"):
+			o["pos"] = _map_arr(o["pos"])
+
+
+const FURN := {
+	# ad: [genislik, derinlik, yukseklik, ust renk, yan renk, gorusu keser]
+	"masa":   [64, 40, 22, Color(0.52, 0.36, 0.2), Color(0.36, 0.24, 0.12), false],
+	"dolap":  [80, 26, 60, Color(0.36, 0.24, 0.14), Color(0.25, 0.16, 0.09), true],
+	"yatak":  [48, 84, 18, Color(0.88, 0.86, 0.8), Color(0.55, 0.42, 0.3), false],
+	"sandik": [36, 36, 30, Color(0.6, 0.45, 0.25), Color(0.42, 0.3, 0.16), false],
+	"soba":   [36, 36, 40, Color(0.2, 0.2, 0.22), Color(0.12, 0.12, 0.13), false],
+	"harita": [96, 56, 22, Color(0.25, 0.4, 0.28), Color(0.3, 0.2, 0.12), false],
+	"saman":  [74, 48, 34, Color(0.82, 0.7, 0.36), Color(0.62, 0.5, 0.22), true],
+	"sira":   [130, 26, 20, Color(0.45, 0.3, 0.18), Color(0.32, 0.2, 0.1), false],
+	"raf":    [90, 24, 58, Color(0.4, 0.28, 0.16), Color(0.28, 0.18, 0.1), true],
+}
+
+
+func _build_interior(i: int, world: Node2D) -> void:
+	var it: Dictionary = interiors[i]
+	var ir: Rect2 = it["irect"]
+	var name: String = it["name"]
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 1000 + i * 77
+	# duvarlar (kapi boslugu dis kapiyla ayni tarafta)
+	var x0 := ir.position.x
+	var y0 := ir.position.y
+	var x1 := ir.end.x
+	var y1 := ir.end.y
+	var c := ir.get_center()
+	var hd := IDOOR / 2.0
+	var side: String = it["side"]
+	var walls: Array = []
+	if side == "N":
+		walls += [Rect2(x0, y0, c.x - hd - x0, IWALL), Rect2(c.x + hd, y0, x1 - c.x - hd, IWALL)]
+	else:
+		walls.append(Rect2(x0, y0, ir.size.x, IWALL))
+	if side == "S":
+		walls += [Rect2(x0, y1 - IWALL, c.x - hd - x0, IWALL), Rect2(c.x + hd, y1 - IWALL, x1 - c.x - hd, IWALL)]
+	else:
+		walls.append(Rect2(x0, y1 - IWALL, ir.size.x, IWALL))
+	if side == "W":
+		walls += [Rect2(x0, y0, IWALL, c.y - hd - y0), Rect2(x0, c.y + hd, IWALL, y1 - c.y - hd)]
+	else:
+		walls.append(Rect2(x0, y0, IWALL, ir.size.y))
+	if side == "E":
+		walls += [Rect2(x1 - IWALL, y0, IWALL, c.y - hd - y0), Rect2(x1 - IWALL, c.y + hd, IWALL, y1 - c.y - hd)]
+	else:
+		walls.append(Rect2(x1 - IWALL, y0, IWALL, ir.size.y))
+	# kapi esigi disari kapali: ic harita kapidan sonra biter
+	var out: Vector2 = it["out"]
+	var sill := Rect2(c + Vector2(out.x * ir.size.x / 2, out.y * ir.size.y / 2) - Vector2(hd + 4, hd + 4), Vector2(IDOOR + 8, IDOOR + 8))
+	sill.position += out * (hd + 10)
+	_add_solid(_rect_poly(sill), true, true)
+	var specials: Array = it["specials"]
+	var door_in: Vector2 = it["int_door"]
+	# genis binalarda ara duvar (iki oda)
+	if ir.size.x >= 460.0 and name != "Kilise" and name != "Ambar" and side != "E" and side != "W":
+		var px := x0 + ir.size.x * 0.58
+		var ok := true
+		for sp in specials:
+			if absf(sp.x - px) < 50.0:
+				ok = false
+		if ok:
+			var gy := y0 + ir.size.y * 0.5
+			walls.append(Rect2(px, y0, IWALL, gy - 45 - y0))
+			walls.append(Rect2(px, gy + 45, IWALL, y1 - gy - 45))
+	for w in walls:
+		if w.size.x <= 1.0 or w.size.y <= 1.0:
+			continue
+		var pts := _rect_poly(w)
+		_add_solid(pts, true, true)
+		var pr = Prop.new()
+		pr.setup(pts, IWALL_H, Color(0.32, 0.27, 0.22), Color(0.72, 0.66, 0.56))
+		world.add_child(pr)
+	# mobilya: duvar boyunca, kapi onu ve onemli noktalar bos kalir
+	var kinds: Array
+	match name:
+		"Karargâh":
+			kinds = ["harita", "masa", "dolap", "raf", "sandik", "masa"]
+		"Ambar":
+			kinds = ["saman", "saman", "sandik", "sandik", "saman", "raf"]
+		"Belediye":
+			kinds = ["masa", "masa", "dolap", "raf", "sandik"]
+		"Depo":
+			kinds = ["sandik", "sandik", "raf", "raf", "sandik", "sandik"]
+		"Kilise":
+			kinds = []
+		_:
+			kinds = ["yatak", "masa", "dolap", "soba", "sandik"]
+	var placed: Array = []
+	if name == "Kilise":
+		# sira sira oturaklar, ortada koridor
+		var yy := y0 + 80.0
+		while yy < y1 - 110.0:
+			for sx in [-1, 1]:
+				var cx: float = c.x + sx * 85.0
+				placed.append(_furn("sira", Vector2(cx, yy), world))
+			yy += 60.0
+		return
+	var tries := 0
+	var ki := 0
+	while ki < kinds.size() and tries < 80:
+		tries += 1
+		var k: String = kinds[ki]
+		var f: Array = FURN[k]
+		var wall_side := rng.randi_range(0, 3)
+		var along := rng.randf_range(0.15, 0.85)
+		var pos: Vector2
+		var horiz := wall_side < 2
+		var fw: float = f[0] if horiz else f[1]
+		var fh: float = f[1] if horiz else f[0]
+		match wall_side:
+			0: pos = Vector2(x0 + ir.size.x * along, y0 + IWALL + fh / 2 + 4)
+			1: pos = Vector2(x0 + ir.size.x * along, y1 - IWALL - fh / 2 - 4)
+			2: pos = Vector2(x0 + IWALL + fw / 2 + 4, y0 + ir.size.y * along)
+			_: pos = Vector2(x1 - IWALL - fw / 2 - 4, y0 + ir.size.y * along)
+		var rr := Rect2(pos - Vector2(fw, fh) / 2, Vector2(fw, fh))
+		var bad := rr.grow(70).has_point(door_in)
+		for sp in specials:
+			if rr.grow(34).has_point(sp):
+				bad = true
+		for o in placed:
+			if o.grow(20).intersects(rr):
+				bad = true
+		if bad:
+			continue
+		placed.append(_furn(k, pos, world, not horiz))
+		ki += 1
+
+
+func _furn(k: String, center: Vector2, world: Node2D, rotated := false) -> Rect2:
+	var f: Array = FURN[k]
+	var sz := Vector2(f[1], f[0]) if rotated else Vector2(f[0], f[1])
+	var r := Rect2(center - sz / 2, sz)
+	var pts := _rect_poly(r)
+	_add_solid(pts, true, f[5])
+	var pr = Prop.new()
+	pr.setup(pts, f[2], f[3], f[4])
+	world.add_child(pr)
+	return r
 
 
 func _build_art(dir: String, world: Node2D, roofs: Node2D) -> void:
@@ -283,7 +538,7 @@ func is_occluded(p: Vector2) -> bool:
 
 func _add_solid(pts: PackedVector2Array, blocks_move: bool, blocks_view: bool) -> void:
 	if blocks_view:
-		_add_view_poly(pts)
+		_add_view_poly(pts, not blocks_move)     # calilik: yakindan gorulebilir
 	if blocks_move:
 		move_polys.append(pts)
 		var body := StaticBody2D.new()
@@ -295,12 +550,12 @@ func _add_solid(pts: PackedVector2Array, blocks_move: bool, blocks_view: bool) -
 		add_child(body)
 
 
-func _add_view_poly(pts: PackedVector2Array) -> void:
+func _add_view_poly(pts: PackedVector2Array, soft := false) -> void:
 	for i in pts.size():
 		var a: Vector2 = pts[i]
 		var b: Vector2 = pts[(i + 1) % pts.size()]
 		var bb := Rect2(a, Vector2.ZERO).expand(b)
-		view_segments.append([a, b, bb])
+		view_segments.append([a, b, bb, soft])
 
 
 static var _nav_cache := {}       # bolum yolu -> hazir navigasyon (yeniden baslatmada tekrar pisirme)
@@ -318,6 +573,8 @@ func _build_navigation(use_cache := true) -> void:
 	navpoly.agent_radius = 11.0
 	var src := NavigationMeshSourceGeometryData2D.new()
 	src.add_traversable_outline(PackedVector2Array([Vector2.ZERO, Vector2(size.x, 0), size, Vector2(0, size.y)]))
+	for it in interiors:
+		src.add_traversable_outline(_rect_poly(it["irect"].grow(-IWALL - 1.0)))
 	for p in move_polys:
 		src.add_obstruction_outline(p)
 	NavigationServer2D.bake_from_source_geometry_data(navpoly, src)
@@ -360,7 +617,7 @@ func _build_grid() -> void:
 				_grid[key].append(i)
 
 
-func ray_end(from: Vector2, to: Vector2) -> Vector2:
+func ray_end(from: Vector2, to: Vector2, ignore_soft := false) -> Vector2:
 	var best := to
 	var best_d := from.distance_to(to)
 	var ray_bb := Rect2(from, Vector2.ZERO).expand(to).grow(1.0)
@@ -375,6 +632,8 @@ func ray_end(from: Vector2, to: Vector2) -> Vector2:
 					continue
 				_stamp[i] = _query
 				var s: Array = view_segments[i]
+				if ignore_soft and s[3]:
+					continue
 				if not ray_bb.intersects(s[2], true):
 					continue
 				var hit = Geometry2D.segment_intersects_segment(from, to, s[0], s[1])
@@ -386,8 +645,8 @@ func ray_end(from: Vector2, to: Vector2) -> Vector2:
 	return best
 
 
-func has_los(a: Vector2, b: Vector2) -> bool:
-	return ray_end(a, b).distance_to(b) < 1.0
+func has_los(a: Vector2, b: Vector2, ignore_soft := false) -> bool:
+	return ray_end(a, b, ignore_soft).distance_to(b) < 1.0
 
 
 func is_inside_view_blocker(p: Vector2) -> bool:
@@ -429,6 +688,23 @@ func _process(delta: float) -> void:
 # ---------------- Zemin cizimi ----------------
 func _draw() -> void:
 	var font := ThemeDB.fallback_font
+	for it in interiors:
+		var ir: Rect2 = it["irect"]
+		draw_rect(ir, Color(0.44, 0.32, 0.2))
+		var yy: float = ir.position.y + 18.0
+		var k := 0
+		while yy < ir.end.y:
+			draw_line(Vector2(ir.position.x, yy), Vector2(ir.end.x, yy), Color(0.36, 0.25, 0.15), 2.0)
+			var xx: float = ir.position.x + fmod(k * 53.0, 120.0)
+			while xx < ir.end.x:
+				draw_line(Vector2(xx, yy - 18), Vector2(xx, yy), Color(0.38, 0.27, 0.17), 1.0)
+				xx += 120.0
+			yy += 18.0
+			k += 1
+		var rug := Rect2(ir.get_center() - ir.size * 0.18, ir.size * 0.36)
+		draw_rect(rug, Color(0.45, 0.14, 0.12, 0.85))
+		draw_rect(rug.grow(-8), Color(0.62, 0.48, 0.2, 0.6), false, 3.0)
+		draw_string(ThemeDB.fallback_font, ir.position + Vector2(24, -14), it["name"], HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color(0.85, 0.8, 0.6))
 	if not ground_tiles.is_empty():
 		for t in ground_tiles:
 			draw_texture_rect(t[0], t[1], false)

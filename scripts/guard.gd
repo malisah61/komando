@@ -13,14 +13,15 @@ const VIEW_RANGE := 230.0
 const VIEW_HALF := 0.56          # ~32 derece
 const RAYS := 30
 const NEAR_FRAC := 0.55          # koninin yakin kismi: comelen burada gorulur (Desperados III)
+const BUSH_SEE := 105.0          # caliya saklanani bu mesafeden yakin gorur (comelikse x0.7)
 const PERIPHERAL := 46.0         # arkasindan bile hissettigi mesafe (comelmeyen ve hareket eden)
 
 # rutbe -> [can, gorus carpani, tespit hizi, atis araligi (sn), hasar, isabet]
 const RANKS := {
-	"er":    [60.0,  1.0,  1.0,  1.5,  7.0,  0.75],
-	"kis":   [60.0,  1.0,  1.0,  1.5,  7.0,  0.75],
-	"elit":  [90.0,  1.15, 1.25, 1.2,  9.0,  0.82],
-	"subay": [80.0,  1.1,  1.35, 1.2,  9.0,  0.80],
+	"er":    [60.0,  1.0,  1.0,  1.35, 11.0, 0.74],
+	"kis":   [60.0,  1.0,  1.0,  1.35, 11.0, 0.74],
+	"elit":  [110.0, 1.15, 1.25, 1.05, 14.0, 0.82],
+	"subay": [80.0,  1.1,  1.35, 1.1,  13.0, 0.80],
 }
 
 var main
@@ -180,7 +181,8 @@ func _combat(delta: float) -> void:
 	else:
 		# gorus kaybedildi: son gorulen yere kos, bulamazsa ara
 		_lost_t += delta
-		if navigation_agent.target_position.distance_to(investigate_pos) > 8.0:
+		if _dest().distance_to(investigate_pos) > 8.0:
+			_goal = null
 			navigation_agent.target_position = investigate_pos
 		if _walk(delta, 1.7) or _lost_t > 6.0:
 			target = null
@@ -215,9 +217,43 @@ func _start_search() -> void:
 	navigation_agent.target_position = global_position
 
 
+var _goal = null                   # kapidan gecerken asil hedef
+
+
+func _dest() -> Vector2:
+	return _goal if _goal != null else navigation_agent.target_position
+
+
+func _door_hop() -> void:
+	## hedef baska bir alanda (bina ici / disi): once kapiya git, kapidan gec
+	var lvl = main.level
+	var goal: Vector2 = _dest()
+	var here: int = lvl.interior_at(global_position)
+	var there: int = lvl.interior_at(goal)
+	if here == there:
+		if _goal != null:
+			navigation_agent.target_position = _goal
+			_goal = null
+		return
+	var door: Vector2 = lvl.interiors[here]["int_door"] if here >= 0 else lvl.interiors[there]["ext_door"]
+	if global_position.distance_to(door) < 30.0:
+		# kapidan gec
+		global_position = lvl.interiors[here]["ext_door"] if here >= 0 else lvl.interiors[there]["int_door"]
+		navigation_agent.target_position = goal
+		_goal = null
+		return
+	if _goal == null:
+		_goal = goal
+	if navigation_agent.target_position.distance_to(door) > 2.0:
+		navigation_agent.target_position = door
+
+
 func _walk(delta: float, speed_mul: float) -> bool:
 	## hedefe yuru; vardiysa true dondur
+	if _goal != null or main.level.interiors.size() > 0:
+		_door_hop()
 	if navigation_agent.is_navigation_finished():
+		_goal = null      # kapiya ulasilamadi: vazgec
 		velocity = Vector2.ZERO
 		return true
 	var next: Vector2 = navigation_agent.get_next_path_position()
@@ -230,6 +266,7 @@ func _walk(delta: float, speed_mul: float) -> bool:
 
 
 func _go_patrol() -> void:
+	_goal = null
 	state = &"patrol"
 	if reinforcement and waypoints.is_empty():
 		waypoints = [investigate_pos]
@@ -238,6 +275,7 @@ func _go_patrol() -> void:
 
 
 func _set_investigate(p: Vector2) -> void:
+	_goal = null
 	investigate_pos = p
 	state = &"investigate"
 	navigation_agent.target_position = p
@@ -302,7 +340,11 @@ func can_see(p: Vector2, crouched := false) -> bool:
 		return false
 	if absf(wrapf(d.angle() - facing, -PI, PI)) > VIEW_HALF:
 		return false
-	return main.level.has_los(global_position, p)
+	if main.level.has_los(global_position, p):
+		return true
+	# cali gorusu engeller ama yakindan delip gecer
+	var bush_r := BUSH_SEE * (0.7 if crouched else 1.0) * _stat(1)
+	return d.length() < bush_r and main.level.has_los(global_position, p, true)
 
 
 func _watch(delta: float) -> void:
