@@ -24,6 +24,7 @@ var _repath := 0.0
 var _step := 0.0
 var sprite: AnimatedSprite2D      # sprite sheet varsa dolu, yoksa sekillerle cizilir
 var run := false                  # HUD'daki Kos dugmesi
+var run_once := false             # cift dokunus: bu hareket icin kos
 var crouch := false               # HUD'daki Comel dugmesi
 const KNIFE_FRONT_DMG := 35.0
 var weapon := "knife"             # "knife" / "pistol" - secim kalicidir
@@ -85,11 +86,12 @@ func nav_ready() -> bool:
 
 
 func is_crouching() -> bool:
-	return crouch
+	return crouch and not run_once
 
 
 func move_to(p: Vector2) -> void:
 	target_guard = null
+	run_once = false
 	navigation_agent.target_position = p
 
 
@@ -105,7 +107,9 @@ func attack(g) -> void:
 
 func cur_speed() -> float:
 	var s := speed
-	if crouch:
+	if run_once:
+		s *= 1.6
+	elif crouch:
 		s *= 0.55
 	elif run:
 		s *= 1.6
@@ -126,6 +130,7 @@ func _physics_process(delta: float) -> void:
 
 	if navigation_agent.is_navigation_finished():
 		velocity = Vector2.ZERO
+		run_once = false
 		_play(&"idle")
 		_carry_follow()
 		queue_redraw()
@@ -266,11 +271,13 @@ func _play(anim: StringName, force := false) -> void:
 	if not force and (cur == "action" or cur == "shoot") and sprite.is_playing():
 		return
 	if anim == &"walk":
-		if crouch and sprite.sprite_frames.has_animation(&"crouch_0"):
+		if run_once:
+			anim = &"run"
+		elif crouch and sprite.sprite_frames.has_animation(&"crouch_0"):
 			anim = &"crouch"
 		elif run:
 			anim = &"run"
-	elif anim == &"idle" and crouch and sprite.sprite_frames.has_animation(&"crouch_0"):
+	elif anim == &"idle" and is_crouching() and sprite.sprite_frames.has_animation(&"crouch_0"):
 		anim = &"crouch"
 		SpriteSheet.play(sprite, anim, facing, force)
 		sprite.pause()
@@ -306,11 +313,11 @@ func _draw() -> void:
 	if alive and weapon == "pistol" and target_guard != null:
 		draw_arc(Vector2.ZERO, PISTOL_RANGE, 0, TAU, 64, Color(1, 0.8, 0.3, 0.25), 1.5)
 	# golge + secim halkasi
-	draw_set_transform(Vector2.ZERO, 0.0, Vector2(1, 0.5))
+	draw_set_transform(Vector2.ZERO, SpriteSheet.view_rot, Vector2(1, 0.5))
 	if sprite == null:
 		draw_circle(Vector2.ZERO, 12, Color(0, 0, 0, 0.35))
 	draw_arc(Vector2.ZERO, 18, 0, TAU, 28, Color(0.4, 1, 0.4, 0.9), 2.5)
-	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	draw_set_transform(Vector2.ZERO, SpriteSheet.view_rot, Vector2.ONE)
 	# can cubugu (hasar aldiysa)
 	if alive and hp < max_hp:
 		draw_rect(Rect2(-16, -62, 32, 4), Color(0, 0, 0, 0.6))

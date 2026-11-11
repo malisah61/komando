@@ -23,6 +23,7 @@ const DEFAULT_LAYOUT := {
 # Ayni sheet'ten olusturulan SpriteFrames tum karakterlerce paylasilir.
 # (Her asker icin yeniden kurmak ~100 ms suruyordu: yeniden baslatmadaki takilmanin ana sebebi.)
 static var _cache := {}
+static var view_rot := 0.0         # 4 yonlu bakis: kamera donusu (sprite dik kalir, yon kaydirilir)
 
 
 static func load_layout(path: String) -> Dictionary:
@@ -145,6 +146,8 @@ static func play(spr: AnimatedSprite2D, anim: StringName, facing: float, force :
 	if spr == null:
 		return
 	var dirs: int = spr.get_meta("directions", 1)
+	spr.rotation = view_rot
+	facing -= view_rot
 	var name := anim
 	if dirs > 1:
 		name = StringName("%s_%d" % [anim, dir_index(facing, dirs)])

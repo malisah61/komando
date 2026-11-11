@@ -72,3 +72,30 @@ Oyuncu Bölüm 1'i bıçakla 6:50'de bitirdi. Çalıdan yaptığı bıçak sald�
 - `tests/sim4.gd`: Asker kapıdan girip takip ediyor. Uzaktaki asker çalıdakini görmüyor, yakındaki görüyor.
 - `tests/sim2.gd`: Gir, kapıdan bak, çık ve büyük harita adımları eklendi.
 - `Level.reach()`: Kapılardan geçerek erişilebilirlik kontrolü. Bütün devriye noktaları ve görev zinciri bununla doğrulanıyor.
+
+## Tur 1c – Oyuncu geri bildirimi (12 Kasım 2026, 00:00)
+
+### İstenenler
+1. **Alarmda çalı daha tehlikeli:** Çalıdakini görme mesafesi sarı alarmda ×1,35, kırmızı alarmda ×1,75 (ayakta: 105 → 142 → 184 px). Arayan ya da araştıran asker ayrıca ×1,15.
+2. **Çift dokunuş = koş:** Aynı yere 0,35 sn içinde iki kez dokununca komando o hareket için koşar. "Koş" seçili olmasa da, çömelikken bile.
+3. **4 yönlü bakış (Commandos 2):** Sağ üstteki "Çevir" düğmesi (PC'de Q/E) haritayı 90° çevirir.
+   - Her açı Blender'da ayrı render ediliyor (`harita.py --view 0..3`). Binaların öbür cepheleri görünür, güneş dünyaya sabit kalır, gölgeler her açıda tutarlıdır.
+   - Oyunda kamera döner, karakterler dik kalır ve yön kareleri açıya göre kayar.
+   - Döndürülmüş açıda Y-Sort yerine z sırası kullanılıyor (Godot Y-Sort yerel y'ye göre sıralar).
+   - `harita.yml` artık bölüm × 4 açı paralel render alıyor.
+4. **Kırmızı alarmda ateş refleksi:**
+   - İlk atış gecikmesi: habersiz 1,0 sn, sarı 0,7 sn, kırmızı 0,45 sn. SS askerleri %15 daha hızlı.
+   - Kırmızıda atış aralığı ×0,85, isabet +%5.
+   - Asker namluyu hedefe çevirmeden (±17°) ateş etmez, arkadan yakalanınca dönme süresi kazanırsın.
+5. **Bot oyuncu + analiz:**
+   - `tests/bot.gd` her bölümü 3 tarzda oynar: gizli, saldırı ve tam (isteğe bağlı görevler dahil).
+     - Gizli tarz çömelir; ilerideki noktayı gören devriye varsa bekler, şüphelenirse geri çekilir; arkadan bıçaklar; çatışmada tabanca kullanır.
+   - Ölçtükleri: süre, tespit sayısı ve yerleri, hasar, bıçak/tabanca öldürmeleri, takviye, bekleme, takılma, ölüm yeri.
+   - `tools/bot/rapor.py` sonuçları toplar ve `docs/BOT_RAPORU.md`'ye otomatik bulgu ve öneri yazar. `bot.yml` her push'ta CI'da çalışır.
+   - Oyun `--fixed-fps 60` ile hızlandırılmış simüle edilir (yaklaşık 10 kat hızlı).
+
+### Bot raporundan ilk bulgular
+- Bölüm 0: bot 0:33'te kazanıyor, çok kısa.
+- Bölüm 1: gizli bot 2:31'de kazanıyor, saldırı tarzı 30 sn'de ölüyor.
+- Kazanan oyunlarda askerlerin çoğu öldürülüyor; gizlilik yeterince ödüllendirilmiyor.
+- Gece geliştirmesi bu bulgulardan başlayacak.

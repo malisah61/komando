@@ -43,15 +43,17 @@ func _physics_process(_delta: float) -> bool:
 			if g.waypoints.size() > 1:
 				check(g.global_position.distance_to(g_start[g]) > 20, "devriye yuruyor: " + str(g.waypoints[0]))
 		check(main.level.footprints.size() > 5, "ayak izleri olustu (%d)" % main.level.footprints.size())
-		# komandoyu Ev A'nin icine isinla: cati seffaflasmali
-		main.commando.global_position = Vector2(410, 210)
+		# bina ici artik ayri harita: Ev A'ya kapidan gir
+		var bi: int = main.level.interior_of_ext(Vector2(410, 210))
+		check(bi >= 0, "Ev A'nin ic haritasi var")
+		if bi >= 0:
+			main.enter_building(bi)
 	if frame == 300:
-		var roofs = main.get_child(3)
-		var faded := false
-		for r in roofs.get_children():
-			if r.modulate.a < 0.5:
-				faded = true
-		check(faded, "bina icindeyken cati seffaflasti")
+		check(main.cur_interior >= 0 and main.level.interiors[main.cur_interior]["irect"].has_point(main.commando.global_position), "Ev A'nin icindeyiz (ayri ekran)")
+		# 4 yonlu bakis: aci yoksa cevirme reddedilir, varsa doner
+		var had: bool = main.level.has_view(1)
+		main.rotate_view(1)
+		check(main.level.view == (1 if had else 0), "bakis acisi cevirme (%s)" % ("render var" if had else "render yok, reddedildi"))
 		print("game_over=", main.game_over, " alert=", main.alert_level)
 		print("SONUC: ", "BASARILI" if fails == 0 else "%d HATA" % fails)
 		quit(1 if fails > 0 else 0)

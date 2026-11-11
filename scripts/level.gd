@@ -7,6 +7,7 @@ extends Node2D
 
 const Prop = preload("res://scripts/prop.gd")
 const Roof = preload("res://scripts/roof.gd")
+const SpriteSheet = preload("res://scripts/sprite_sheet.gd")
 
 const WALL := 12.0
 const DOOR := 60.0
@@ -64,6 +65,14 @@ var broken_bridges: Array = []    # Rect2
 var _region: NavigationRegion2D
 var occluders: Array = []         # [ekran dikdortgeni, taban y, dugum] - silüet icin
 
+# --- 4 yonlu bakis (Commandos 2): her aci Blender'da ayri render edilir (<bolum>_art/v1..v3) ---
+static var view := 0              # 0..3, her biri 90 derece
+static var view_rot := 0.0        # kamera donusu (radyan)
+var art_dir := ""
+var _views := {}                  # aci -> {ground, objects, roofs, occ, walls, roof_nodes}
+var _world: Node2D
+var _roofs: Node2D
+
 # --- Bina ici haritalar (Commandos 2 gibi): her bina ayri, buyutulmus bir ic mekan ---
 const ISCALE := 2.0
 const IWALL := 16.0
@@ -88,8 +97,13 @@ func load_level(path: String, world: Node2D, roofs: Node2D) -> bool:
 	size = _v(data["size"])
 	_plan_interiors()
 	_map_data()
-	var art_dir := path.get_basename() + "_art/"
+	art_dir = path.get_basename() + "_art/"
 	art = FileAccess.file_exists(art_dir + "manifest.json")
+	_world = world
+	_roofs = roofs
+	view = 0
+	view_rot = 0.0
+	SpriteSheet.view_rot = 0.0
 	size = _v(data["size"])
 	start = _v(data["start"])
 	var e: Array = data["exit"]
@@ -149,7 +163,7 @@ func _build_obstacle(o: Dictionary, world: Node2D) -> void:
 		return
 	if art:
 		return                # gorunum render edilmis atlastan gelir
-	var p = Prop.new()
+	var p = _mkprop()
 	p.setup(pts, t[2], t[3], t[4])
 	world.add_child(p)
 
@@ -198,7 +212,7 @@ func _build_building(b: Dictionary, world: Node2D, roofs: Node2D) -> void:
 		_add_solid(pts, true, true)
 		if art:
 			continue
-		var p = Prop.new()
+		var p = _mkprop()
 		p.setup(pts, WALL_H, Color(0.78, 0.72, 0.6), Color(0.6, 0.53, 0.42))
 		world.add_child(p)
 		wall_props.append(p)
@@ -211,7 +225,7 @@ func _build_building(b: Dictionary, world: Node2D, roofs: Node2D) -> void:
 	if not art:
 		var rc: Array = b.get("roof", [0.58, 0.3, 0.24])
 		var roof_col := Color(rc[0], rc[1], rc[2])
-		roof = Prop.new()
+		roof = _mkprop()
 		roof.setup(_rect_poly(rect.grow(6)), WALL_H + 8.0, roof_col, roof_col.darkened(0.3))
 		roof.ridge = true
 		roofs.add_child(roof)
@@ -395,7 +409,7 @@ func _build_interior(i: int, world: Node2D) -> void:
 			continue
 		var pts := _rect_poly(w)
 		_add_solid(pts, true, true)
-		var pr = Prop.new()
+		var pr = _mkprop()
 		pr.setup(pts, IWALL_H, Color(0.32, 0.27, 0.22), Color(0.72, 0.66, 0.56))
 		world.add_child(pr)
 	# mobilya: duvar boyunca, kapi onu ve onemli noktalar bos kalir
@@ -460,7 +474,7 @@ func _furn(k: String, center: Vector2, world: Node2D, rotated := false) -> Rect2
 	var r := Rect2(center - sz / 2, sz)
 	var pts := _rect_poly(r)
 	_add_solid(pts, true, f[5])
-	var pr = Prop.new()
+	var pr = _mkprop()
 	pr.setup(pts, f[2], f[3], f[4])
 	world.add_child(pr)
 	return r
@@ -478,18 +492,145 @@ func _build_art(dir: String, world: Node2D, roofs: Node2D) -> void:
 		ground_tex = load(dir + "ground.jpg")
 	var obj_pages := _pages(dir, man, "objects")
 	var roof_pages := _pages(dir, man, "roofs")
+	var vs := {"ground": ground_tiles, "nodes": [], "occ": occluders, "walls": {}, "roof_nodes": {}}
 	for e in man.get("objects", []):
 		var spr := _art_sprite(obj_pages[int(e.get("page", 0))], e)
+		spr.set_meta("static_z", true)
 		world.add_child(spr)
+		vs["nodes"].append(spr)
 		occluders.append([_world_rect(e), float(e["base"][3]), spr])
 		if e["kind"] == "wall":
 			var a = _areas[int(e["building"])]
 			a.wall_nodes.append(spr)
+			if not vs["walls"].has(int(e["building"])):
+				vs["walls"][int(e["building"])] = []
+			vs["walls"][int(e["building"])].append(spr)
 	for e in man.get("roofs", []):
 		var spr := _art_sprite(roof_pages[int(e.get("page", 0))], e)
 		roofs.add_child(spr)
+		vs["nodes"].append(spr)
 		occluders.append([_world_rect(e), INF, spr])
 		_areas[int(e["building"])].roof_node = spr
+		vs["roof_nodes"][int(e["building"])] = spr
+	_views[0] = vs
+
+
+# ---------------- 4 yonlu bakis ----------------
+func to_view(p: Vector2, k := -1) -> Vector2:
+	## dunya -> k. acinin ekran koordinati (Blender'daki view_xy ile ayni)
+	if k < 0:
+		k = view
+	var c := size * 0.5
+	var c2 := Vector2(size.y, size.x) * 0.5 if k % 2 == 1 else c
+	return (p - c).rotated(-k * PI / 2.0) + c2
+
+
+func from_view(v: Vector2, k := -1) -> Vector2:
+	if k < 0:
+		k = view
+	var c := size * 0.5
+	var c2 := Vector2(size.y, size.x) * 0.5 if k % 2 == 1 else c
+	return (v - c2).rotated(k * PI / 2.0) + c
+
+
+func has_view(k: int) -> bool:
+	if not art:
+		return k == 0
+	return k == 0 or FileAccess.file_exists(art_dir + "v%d/manifest.json" % k)
+
+
+static func zkey(view_y: float) -> int:
+	## Y-Sort yerine z sirasi (donuk acilarda): -3000..3000
+	return clampi(int(view_y * 0.4) - 1500, -3000, 3000)
+
+
+func _load_view(k: int) -> Dictionary:
+	var dir := art_dir + "v%d/" % k
+	var man = JSON.parse_string(FileAccess.get_file_as_string(dir + "manifest.json"))
+	var vs := {"ground": [], "nodes": [], "occ": [], "walls": {}, "roof_nodes": {}}
+	var rot := k * PI / 2.0
+	var old_scale := art_scale
+	art_scale = float(man.get("scale", 1.0))
+	for g in man.get("ground", []):
+		var r: Array = g["rect"]
+		vs["ground"].append([load(dir + g["file"]), Rect2(r[0], r[1], r[2], r[3])])
+	var obj_pages := _pages(dir, man, "objects")
+	var roof_pages := _pages(dir, man, "roofs")
+	for e in man.get("objects", []):
+		var spr := _art_sprite(obj_pages[int(e.get("page", 0))], e)
+		spr.position = from_view(spr.position, k)
+		spr.rotation = rot
+		spr.z_index = zkey(float(e["base"][3]))
+		spr.set_meta("static_z", true)
+		spr.visible = false
+		_world.add_child(spr)
+		vs["nodes"].append(spr)
+		vs["occ"].append([_world_rect(e), float(e["base"][3]), spr])
+		if e["kind"] == "wall":
+			var bi := int(e["building"])
+			if not vs["walls"].has(bi):
+				vs["walls"][bi] = []
+			vs["walls"][bi].append(spr)
+	for e in man.get("roofs", []):
+		var spr := _art_sprite(roof_pages[int(e.get("page", 0))], e)
+		spr.position = from_view(spr.position, k)
+		spr.rotation = rot
+		spr.visible = false
+		_roofs.add_child(spr)
+		vs["nodes"].append(spr)
+		vs["occ"].append([_world_rect(e), INF, spr])
+		vs["roof_nodes"][int(e["building"])] = spr
+	art_scale = old_scale
+	return vs
+
+
+func set_view(k: int) -> bool:
+	if not has_view(k):
+		return false
+	if not _views.has(k):
+		_views[k] = _load_view(k)
+	for kk in _views:
+		for n in _views[kk]["nodes"]:
+			n.visible = kk == k
+	var vs: Dictionary = _views[k]
+	view = k
+	view_rot = k * PI / 2.0
+	SpriteSheet.view_rot = view_rot
+	ground_tiles = vs["ground"]
+	occluders = vs["occ"]
+	for bi in _areas.size():
+		var a = _areas[bi]
+		a.roof_node = vs["roof_nodes"].get(bi)
+		a.wall_nodes = vs["walls"].get(bi, [])
+	# donuk acida Y-Sort calismaz (yerel y'ye gore siralar): z sirasi kullan
+	_world.y_sort_enabled = k == 0
+	z_index = 0 if k == 0 else -4000
+	_roofs.z_index = 10 if k == 0 else 3500
+	for ch in _world.get_children():
+		if ch.has_method("view_changed"):
+			ch.view_changed()
+		if k == 0 and not ch.has_meta("static_z"):
+			ch.z_index = 0
+	update_z()
+	queue_redraw()
+	return true
+
+
+func update_z() -> void:
+	## donuk acida hareket eden her seyin z sirasi (her kare)
+	if view == 0:
+		return
+	for ch in _world.get_children():
+		if ch.has_meta("static_z"):
+			continue
+		if ch.has_method("view_base"):
+			ch.z_index = zkey(ch.view_base())
+		else:
+			ch.z_index = zkey(to_view(ch.position).y)
+
+
+func ground_tiles0() -> Array:
+	return _views[0]["ground"] if _views.has(0) else ground_tiles
 
 
 func _pages(dir: String, man: Dictionary, key: String) -> Array:
@@ -526,12 +667,12 @@ func _art_sprite(tex: Texture2D, e: Dictionary) -> Sprite2D:
 
 func is_occluded(p: Vector2) -> bool:
 	## karakter bir nesnenin/catinin arkasinda mi? (Commandos'taki silüet icin)
-	var head := p + Vector2(0, -22)
+	var head := to_view(p) + Vector2(0, -22)
 	for o in occluders:
 		var rect: Rect2 = o[0]
 		if not rect.has_point(head):
 			continue
-		if o[1] > p.y and o[2].modulate.a > 0.5:
+		if o[1] > head.y + 22.0 and o[2].modulate.a > 0.5:
 			return true
 	return false
 
@@ -706,8 +847,14 @@ func _draw() -> void:
 		draw_rect(rug.grow(-8), Color(0.62, 0.48, 0.2, 0.6), false, 3.0)
 		draw_string(ThemeDB.fallback_font, ir.position + Vector2(24, -14), it["name"], HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color(0.85, 0.8, 0.6))
 	if not ground_tiles.is_empty():
+		if view != 0:
+			# acinin zemini kendi (donuk) koordinatinda: dunyaya cevir
+			var c := size * 0.5
+			var c2 := Vector2(size.y, size.x) * 0.5 if view % 2 == 1 else c
+			draw_set_transform(c - c2.rotated(view_rot), view_rot)
 		for t in ground_tiles:
 			draw_texture_rect(t[0], t[1], false)
+		draw_set_transform(Vector2.ZERO, 0.0)
 	elif ground_tex != null:
 		draw_texture(ground_tex, Vector2.ZERO)
 	else:
@@ -802,3 +949,9 @@ func _circle(c: Vector2, r: float, n: int) -> PackedVector2Array:
 	for i in n:
 		out.append(c + Vector2.from_angle(TAU * i / n) * r)
 	return out
+
+
+func _mkprop():
+	var p = Prop.new()
+	p.lvl = self
+	return p

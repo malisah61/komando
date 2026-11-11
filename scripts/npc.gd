@@ -92,6 +92,7 @@ func _physics_process(delta: float) -> void:
 
 
 func _draw() -> void:
+	draw_set_transform(Vector2.ZERO, SpriteSheet.view_rot, Vector2.ONE)
 	if sprite == null:
 		draw_circle(Vector2(0, -12), 9.5, Color(0.4, 0.3, 0.2))
 	if alive and hp < max_hp:
@@ -101,6 +102,6 @@ func _draw() -> void:
 		var col := Color(0.7, 0.9, 1.0) if following else Color(1, 1, 0.7)
 		draw_string(ThemeDB.fallback_font, Vector2(-40, -58), display_name, HORIZONTAL_ALIGNMENT_CENTER, 80, 13, col)
 	if following:
-		draw_set_transform(Vector2.ZERO, 0.0, Vector2(1, 0.5))
+		draw_set_transform(Vector2.ZERO, SpriteSheet.view_rot, Vector2(1, 0.5))
 		draw_arc(Vector2.ZERO, 15, 0, TAU, 24, Color(0.5, 0.8, 1.0, 0.8), 2.0)
-		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+		draw_set_transform(Vector2.ZERO, SpriteSheet.view_rot, Vector2.ONE)

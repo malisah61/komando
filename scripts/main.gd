@@ -41,6 +41,10 @@ var last_pinch := 0.0
 
 var hud
 var mission
+var cones
+var roofs_node: Node2D
+var _last_tap_t := -10.0
+var _last_tap_p := Vector2.ZERO
 
 
 func _ready() -> void:
@@ -48,7 +52,7 @@ func _ready() -> void:
 		level_path = level_choice
 	level = Level.new()
 	add_child(level)
-	var cones = ConeLayer.new()
+	cones = ConeLayer.new()
 	add_child(cones)
 	world = Node2D.new()
 	world.y_sort_enabled = true      # asagidaki (Y'si buyuk) onde gorunur
@@ -56,6 +60,7 @@ func _ready() -> void:
 	var roofs := Node2D.new()
 	roofs.z_index = 10
 	add_child(roofs)
+	roofs_node = roofs
 
 	if not level.load_level(level_path, world, roofs):
 		return
@@ -93,6 +98,7 @@ func _ready() -> void:
 		mission.npcs[n.id] = n
 
 	cam = Camera2D.new()
+	cam.ignore_rotation = false        # 4 yonlu bakis: kamera doner
 	cam.position = commando.position
 	add_child(cam)
 	cam.make_current()
@@ -182,6 +188,7 @@ func body_found(p: Vector2) -> void:
 
 
 func _process(delta: float) -> void:
+	level.update_z()
 	if game_over:
 		return
 	# alarm sayaci: catisma surdukce kirmizi kalir, sonra sariya duser
@@ -309,13 +316,22 @@ func _update_action() -> void:
 	hud.set_action("", false)
 
 
+var end_text := ""
+
+
 func _end(text: String, col: Color) -> void:
 	game_over = true
+	end_text = text
 	hud.show_end(text, col)
 
 
 # ---------------- Girdi ----------------
 func _unhandled_input(e: InputEvent) -> void:
+	if e is InputEventKey and e.pressed and not e.echo:
+		if e.keycode == KEY_Q:
+			rotate_view(-1)
+		elif e.keycode == KEY_E:
+			rotate_view(1)
 	if e is InputEventScreenTouch:
 		if e.pressed:
 			touches[e.index] = e.position
@@ -349,8 +365,24 @@ func _unhandled_input(e: InputEvent) -> void:
 		if e.position.distance_to(press_pos) > 14:
 			dragging = true
 		if dragging and touches.size() < 2:
-			cam.position -= e.relative / cam.zoom
+			cam.position -= e.relative.rotated(cam.rotation) / cam.zoom
 			_clamp_cam()
+
+
+func rotate_view(step := 1) -> void:
+	## Commandos 2 gibi haritayi 90 derece cevir (her aci Blender'da ayri render)
+	var k := posmod(level.view + step, 4)
+	var tries := 0
+	while not level.has_view(k) and tries < 3:
+		k = posmod(k + step, 4)
+		tries += 1
+	if k == level.view or not level.set_view(k):
+		hud.toast("Bu bölümün diğer açıları henüz render edilmedi")
+		return
+	cam.rotation = level.view_rot
+	cones.z_index = 0 if k == 0 else -3900
+	_clamp_cam()
+	hud.toast("Bakış açısı: %s" % ["Kuzey", "Doğu", "Güney", "Batı"][k])
 
 
 func _zoom(f: float) -> void:
@@ -365,6 +397,8 @@ func _clamp_cam() -> void:
 	if cur_interior >= 0 and not peeking:
 		area = level.interiors[cur_interior]["irect"].grow(90)
 	var half: Vector2 = get_viewport_rect().size / cam.zoom * 0.5
+	if level.view % 2 == 1:
+		half = Vector2(half.y, half.x)
 	var lo: Vector2 = area.position + half
 	var hi: Vector2 = area.end - half
 	if hi.x < lo.x:
@@ -387,6 +421,11 @@ func _tap(p: Vector2) -> void:
 			commando.move_to(level.interiors[bi]["ext_door"])
 			return
 	pending_enter = -1
+	# cift dokunus: kos (Kos secili olmasa da bu hareket icin)
+	var now := Time.get_ticks_msec() / 1000.0
+	var dbl := now - _last_tap_t < 0.35 and p.distance_to(_last_tap_p) < 60.0
+	_last_tap_t = now
+	_last_tap_p = p
 	# secili silahla askere saldir (secim kalici; yere dokunmak sadece yurutur)
 	for g in get_tree().get_nodes_in_group("guards"):
 		# govde ayaklarin ustunde cizildigi icin oraya da bak
@@ -394,3 +433,6 @@ func _tap(p: Vector2) -> void:
 			commando.attack(g)
 			return
 	commando.move_to(p)
+	commando.run_once = dbl
+	if dbl:
+		_last_tap_t = -10.0

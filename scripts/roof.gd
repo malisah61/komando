@@ -8,6 +8,8 @@ var _tween: Tween
 
 
 func _ready() -> void:
+	# binalar artik ayri ic haritada (kapidan girilir): dis binada cati seffaflasmaz
+	monitoring = false
 	collision_layer = 0
 	collision_mask = 2          # karakterler
 	body_entered.connect(_on_body_entered)

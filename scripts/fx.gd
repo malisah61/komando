@@ -15,7 +15,7 @@ static func tracer(parent: Node, from: Vector2, to: Vector2) -> void:
 	f.a = from
 	f.b = to
 	f.life = 0.12
-	f.z_index = 13
+	_z(f)
 	parent.add_child(f)
 
 
@@ -24,7 +24,7 @@ static func blood(parent: Node, at: Vector2) -> void:
 	f.kind = "blood"
 	f.a = at
 	f.life = 0.45
-	f.z_index = 13
+	_z(f)
 	parent.add_child(f)
 
 
@@ -33,8 +33,13 @@ static func heal(parent: Node, at: Vector2) -> void:
 	f.kind = "heal"
 	f.a = at
 	f.life = 0.8
-	f.z_index = 13
+	_z(f)
 	parent.add_child(f)
+
+
+static func _z(f: Node2D) -> void:
+	f.set_meta("static_z", true)
+	f.z_index = 13 if load("res://scripts/sprite_sheet.gd").view_rot == 0.0 else 3400
 
 
 func _process(delta: float) -> void:

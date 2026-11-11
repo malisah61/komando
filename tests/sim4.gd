@@ -66,6 +66,19 @@ func _process(d: float) -> bool:
 				check(not g.can_see(bush, true), "uzaktan calidaki komando gorunmez")
 				g.global_position = bush + Vector2(60, 0)
 				check(g.can_see(bush, false), "yakindan calidaki komando gorulur")
+				g.global_position = bush + Vector2(160, 0)
+				main.alert_level = 0
+				check(not g.can_see(bush, false), "alarmsiz 160 px: calidaki gorunmez")
+				main.alert_level = 2
+				check(g.can_see(bush, false), "kirmizi alarmda 160 px: calidaki gorulur")
+				main.alert_level = 0
+			# cift dokunus: kos
+			main.exit_building()
+			var p0: Vector2 = main.commando.global_position + Vector2(80, 0)
+			main._tap(p0)
+			check(not main.commando.run_once, "tek dokunus: yuru")
+			main._tap(p0)
+			check(main.commando.run_once and main.commando.cur_speed() > main.commando.speed * 1.5, "cift dokunus: kos")
 			print("SONUC: ", "BASARILI" if fails == 0 else "%d HATA" % fails)
 			quit(1 if fails > 0 else 0)
 	return false

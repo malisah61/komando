@@ -7,15 +7,38 @@ on:
     branches: [main]
     paths: ["tools/blender/harita.py", "levels/*.json"]
   workflow_dispatch:
+    inputs:
+      bolum:
+        description: "Sadece bu bolum(ler) (bos = hepsi), or. bolum1"
+        required: false
+        default: ""
 
 permissions:
   contents: write
 
 jobs:
-  render:
+  liste:
     if: ${{ github.event_name == 'workflow_dispatch' || !contains(github.event.head_commit.message, '[render-yok]') }}
     runs-on: ubuntu-latest
+    outputs:
+      bolumler: ${{ steps.l.outputs.bolumler }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: l
+        run: |
+          if [ -n "${{ inputs.bolum }}" ]; then L="${{ inputs.bolum }}"; else L=$(ls levels/*.json | xargs -n1 basename | sed 's/\.json$//'); fi
+          echo "bolumler=$(printf '%s\n' $L | python3 -c 'import sys,json;print(json.dumps([l.strip() for l in sys.stdin if l.strip()]))')" >> $GITHUB_OUTPUT
+
+  render:
+    # her bolum x 4 bakis acisi paralel render (Commandos 2 gibi 4 yonlu kamera)
+    needs: liste
+    runs-on: ubuntu-latest
     timeout-minutes: 340
+    strategy:
+      fail-fast: false
+      matrix:
+        bolum: ${{ fromJson(needs.liste.outputs.bolumler) }}
+        aci: [0, 1, 2, 3]
     steps:
       - uses: actions/checkout@v4
 
@@ -33,17 +56,42 @@ jobs:
           wget -q https://download.blender.org/release/Blender4.2/blender-4.2.3-linux-x64.tar.xz
           tar -xf blender-4.2.3-linux-x64.tar.xz && rm blender-4.2.3-linux-x64.tar.xz
 
-      - name: Haritaları render et
+      - name: Render
         run: |
-          for f in levels/*.json; do
-            ~/blender/blender-4.2.3-linux-x64/blender -b --python tools/blender/harita.py -- "$f" --samples 24
-          done
+          ~/blender/blender-4.2.3-linux-x64/blender -b --python tools/blender/harita.py -- levels/${{ matrix.bolum }}.json --samples 24 --view ${{ matrix.aci }}
+          A=levels/${{ matrix.bolum }}_art
+          if [ "${{ matrix.aci }}" = "0" ]; then
+            mkdir -p out/${{ matrix.bolum }}_art
+            cp $A/*.jpg $A/*.png $A/manifest.json out/${{ matrix.bolum }}_art/
+          else
+            mkdir -p out/${{ matrix.bolum }}_art
+            cp -r $A/v${{ matrix.aci }} out/${{ matrix.bolum }}_art/
+          fi
+          find out -type f | head -50
 
+      - uses: actions/upload-artifact@v4
+        with:
+          name: harita-${{ matrix.bolum }}-${{ matrix.aci }}
+          path: out/
+
+  yaz:
+    needs: render
+    if: ${{ always() && needs.render.result != 'skipped' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: harita-*
+          path: out
+          merge-multiple: true
       - name: Repoya yaz
         run: |
+          ls -R out | head -80
+          cp -r out/* levels/ || true
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add levels
-          git diff --cached --quiet || git commit -m "Haritalar yeniden render edildi [render-yok]"
+          git diff --cached --quiet || git commit -m "Haritalar 4 açıdan render edildi [render-yok]"
           git pull --rebase
           git push

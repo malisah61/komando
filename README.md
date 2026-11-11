@@ -12,6 +12,11 @@ Commandos 2: Men of Courage'dan esinlenen, 2. Dünya Savaşı'nda geçen gerçek
 ## Senaryo
 Kampanya, karakterler ve bölüm planı: [docs/SENARYO.md](docs/SENARYO.md)
 
+## Kontroller (ek)
+- Aynı yere iki kez hızlı dokun: koşarak git.
+- Sağ üstteki "Çevir" (PC: Q / E): haritayı 90° çevir, binaların öbür yüzünü gör (4 açı Blender'da ayrı render).
+- Bot testi: `GODOT=godot python3 tools/bot/rapor.py` → `docs/BOT_RAPORU.md`.
+
 ## Bina içleri ve harita
 - Binaya dokun: komando kapıya yürür ve içeri girer. Bina içi ayrı bir haritadır (2 kat büyük, binaya özel eşyalar).
 - İçeride "Kapıdan Bak" ile anahtar deliğinden dışarıdaki askerleri izle. "Dışarı Çık" ile çık.

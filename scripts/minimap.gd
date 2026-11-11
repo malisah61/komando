@@ -37,8 +37,8 @@ func _draw() -> void:
 		return
 	var lvl = main.level
 	var k := _scale()
-	if not lvl.ground_tiles.is_empty():
-		for t in lvl.ground_tiles:
+	if not lvl.ground_tiles0().is_empty():
+		for t in lvl.ground_tiles0():
 			var tr: Rect2 = t[1]
 			draw_texture_rect(t[0], Rect2(tr.position * k, tr.size * k), false)
 	elif lvl.ground_tex != null:

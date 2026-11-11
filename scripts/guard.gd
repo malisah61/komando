@@ -173,10 +173,15 @@ func _combat(delta: float) -> void:
 		_lost_t = 0.0
 		investigate_pos = tp
 		velocity = Vector2.ZERO
-		facing = lerp_angle(facing, (tp - global_position).angle(), minf(1.0, delta * 10.0))
+		var want := (tp - global_position).angle()
+		facing = lerp_angle(facing, want, minf(1.0, delta * 10.0))
 		_fire_t -= delta
-		if _fire_t <= 0.0:
-			_fire_t = _stat(3) * randf_range(0.85, 1.2)
+		# once namluyu hedefe cevir, sonra ates (refleks: alarm seviyesine bagli)
+		if _fire_t <= 0.0 and absf(wrapf(want - facing, -PI, PI)) < 0.3:
+			var iv := _stat(3) * randf_range(0.85, 1.2)
+			if main.alert_level >= 2:
+				iv *= 0.85
+			_fire_t = iv
 			_shoot(target, d)
 	else:
 		# gorus kaybedildi: son gorulen yere kos, bulamazsa ara
@@ -190,7 +195,7 @@ func _combat(delta: float) -> void:
 
 
 func _shoot(tgt, dist: float) -> void:
-	var acc := clampf(_stat(5) - dist / 700.0, 0.2, 0.9)
+	var acc := clampf(_stat(5) - dist / 700.0 + (0.05 if main.alert_level >= 2 else 0.0), 0.2, 0.92)
 	if tgt.has_method("is_crouching") and tgt.is_crouching():
 		acc *= 0.7
 	if tgt.has_method("is_hidden") and tgt.is_hidden():
@@ -290,7 +295,8 @@ func enter_combat(tgt) -> void:
 	suspicion = 1.0
 	investigate_pos = tgt.global_position
 	if not was:
-		_fire_t = 1.0      # tepki suresi: ilk atistan once oyuncuya kacma sansi
+		# tepki suresi (refleks): habersiz 1.0 sn, sari alarm 0.7 sn, kirmizi alarm 0.45 sn; SS %15 daha hizli
+		_fire_t = [1.0, 0.7, 0.45][clampi(main.alert_level, 0, 2)] * (0.85 if kind == "elit" else 1.0)
 		main.raise_alarm(tgt.global_position, self)
 		# yakindakilere seslen (duvar arkasi dahil, ama sadece yakindakiler)
 		for g in get_tree().get_nodes_in_group("guards"):
@@ -344,6 +350,10 @@ func can_see(p: Vector2, crouched := false) -> bool:
 		return true
 	# cali gorusu engeller ama yakindan delip gecer
 	var bush_r := BUSH_SEE * (0.7 if crouched else 1.0) * _stat(1)
+	# alarmda askerler calilari dikkatle tarar: sari x1.35, kirmizi x1.75
+	bush_r *= [1.0, 1.35, 1.75][clampi(main.alert_level, 0, 2)]
+	if state == &"search" or state == &"investigate":
+		bush_r *= 1.15
 	return d.length() < bush_r and main.level.has_los(global_position, p, true)
 
 
@@ -465,15 +475,15 @@ func _draw() -> void:
 		draw_rect(Rect2(-14, -7, 28, 14), Color(0.32, 0.34, 0.3))
 		draw_circle(Vector2(13, 0), 6, Color(0.25, 0.27, 0.23))
 		draw_rect(Rect2(-18, -9, 4, 18), Color(0.4, 0.1, 0.1, 0.7))
-		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+		draw_set_transform(Vector2.ZERO, SpriteSheet.view_rot, Vector2.ONE)
 		return
 	var body := Vector2(0, -12)
 	if sprite != null:
 		_draw_alert(Vector2(0, -44))
 		return
-	draw_set_transform(Vector2.ZERO, 0.0, Vector2(1, 0.5))
+	draw_set_transform(Vector2.ZERO, SpriteSheet.view_rot, Vector2(1, 0.5))
 	draw_circle(Vector2.ZERO, 12, Color(0, 0, 0, 0.35))
-	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	draw_set_transform(Vector2.ZERO, SpriteSheet.view_rot, Vector2.ONE)
 	draw_circle(body, 11, Color(0.12, 0.13, 0.1))
 	draw_circle(body, 9.5, Color(0.45, 0.48, 0.4))                                     # feldgrau
 	draw_circle(body + Vector2.from_angle(facing) * 3 + Vector2(0, -3), 6.5, Color(0.3, 0.33, 0.28))  # kask
@@ -482,6 +492,7 @@ func _draw() -> void:
 
 
 func _draw_alert(body: Vector2) -> void:
+	draw_set_transform(Vector2.ZERO, SpriteSheet.view_rot, Vector2.ONE)
 	var font := ThemeDB.fallback_font
 	if hp < max_hp:
 		var w := 30.0

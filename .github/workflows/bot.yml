@@ -1,0 +1,56 @@
+name: Bot oyun testi
+
+# Bot her bolumu birkac tarzda oynar; sonuc tablosu + otomatik bulgular is ozetine ve
+# "bot-raporu" artefaktina yazilir. Gece gelistirmesi bu rapora gore karar verir.
+on:
+  push:
+    branches: [main]
+    paths: ["scripts/**", "levels/*.json", "tests/bot.gd", "tools/bot/**"]
+  workflow_dispatch:
+    inputs:
+      tohum:
+        description: "Her tarz icin kac oyun"
+        default: "3"
+
+env:
+  GODOT_VERSION: "4.3"
+
+jobs:
+  bot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - name: Godot önbellek
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/godot
+            ~/.local/share/godot/export_templates
+          key: godot-${{ env.GODOT_VERSION }}-stable
+      - name: Godot indir
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p ~/godot ~/.local/share/godot/export_templates/${GODOT_VERSION}.stable
+          cd ~/godot
+          wget -q https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip
+          unzip -q Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip
+          mv Godot_v${GODOT_VERSION}-stable_linux.x86_64 godot
+          rm Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip
+          wget -q https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_export_templates.tpz
+          unzip -q Godot_v${GODOT_VERSION}-stable_export_templates.tpz
+          mv templates/* ~/.local/share/godot/export_templates/${GODOT_VERSION}.stable/
+          rm -rf templates Godot_v${GODOT_VERSION}-stable_export_templates.tpz
+      - name: İçe aktar
+        run: |
+          chmod +x ~/godot/godot
+          ~/godot/godot --headless --import || true
+      - name: Botu oynat
+        run: |
+          GODOT=~/godot/godot python3 tools/bot/rapor.py --seeds ${{ inputs.tohum || '3' }} --out build/bot/BOT_RAPORU.md
+          cat build/bot/BOT_RAPORU.md >> $GITHUB_STEP_SUMMARY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bot-raporu
+          path: build/bot/

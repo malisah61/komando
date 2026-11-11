@@ -40,8 +40,8 @@ func _draw() -> void:
 	var lvl = main.level
 	var k := _k
 	var o := _off
-	if not lvl.ground_tiles.is_empty():
-		for t in lvl.ground_tiles:
+	if not lvl.ground_tiles0().is_empty():
+		for t in lvl.ground_tiles0():
 			var tr: Rect2 = t[1]
 			draw_texture_rect(t[0], Rect2(o + tr.position * k, tr.size * k), false)
 	else:

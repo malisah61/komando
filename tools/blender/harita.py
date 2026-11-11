@@ -33,6 +33,39 @@ TILE = 2048          # zemin resmi bu boyutta parcalara bolunur (telefon doku si
 PAGE = 4096          # atlas sayfasi en buyuk boyutu
 TEX_DIR = "assets/textures"
 PAINT = True         # Kuwahara "yagli boya" efekti
+VIEW = 0             # bakis acisi: 0..3 (her biri 90 derece; Commandos 2'deki 4 yonlu kamera)
+
+
+# ================================================================ bakis acisi
+def view_xy(gx, gy, W, H, k):
+    """oyun (dunya) koordinati -> k. bakis acisindaki ekran koordinati.
+    Oyun tarafiyla ayni formul: v = (g - c).rotated(-k*90) + c'"""
+    x, y = gx - W / 2.0, gy - H / 2.0
+    a = -k * math.pi / 2.0
+    ca, sa = round(math.cos(a)), round(math.sin(a))
+    rx, ry = x * ca - y * sa, x * sa + y * ca
+    W2, H2 = (H, W) if k % 2 else (W, H)
+    return rx + W2 / 2.0, ry + H2 / 2.0
+
+
+def view_bbox(bb, W, H, k):
+    xs, ys = [], []
+    for (x, y) in ((bb[0], bb[1]), (bb[2], bb[1]), (bb[2], bb[3]), (bb[0], bb[3])):
+        vx, vy = view_xy(x, y, W, H, k)
+        xs.append(vx); ys.append(vy)
+    return [min(xs), min(ys), max(xs), max(ys)]
+
+
+def rotate_scene(W, H, k):
+    """tum sahneyi (egik projeksiyondan once) bakis acisina dondur"""
+    for ob in bpy.data.objects:
+        if ob.type != "MESH":
+            continue
+        me = ob.data
+        for v in me.vertices:
+            vx, vy = view_xy(v.co.x, -v.co.y, W, H, k)
+            v.co.x, v.co.y = vx, -vy
+        me.update()
 
 
 # ================================================================ yardimcilar
@@ -688,7 +721,12 @@ def build(level, quick=False):
             objs.append(prism("nesne", pts, 28, M["wood"], o_coll))
         add(objs, {"kind": "obstacle", "index": oi, "base": list(bb)})
 
-    # ------------------------------------------------ egik projeksiyon: z yuksekligi ekranda yukari kayar
+    # ------------------------------------------------ bakis acisi + egik projeksiyon (z ekranda yukari kayar)
+    if VIEW:
+        rotate_scene(W, H, VIEW)
+        for ob, info in items:
+            if "base" in info:
+                info["base"] = view_bbox(info["base"], W, H, VIEW)
     for ob in list(g_coll.objects) + list(o_coll.objects) + list(r_coll.objects):
         me = ob.data
         for v in me.vertices:
@@ -724,6 +762,12 @@ def setup_render(W, H, samples):
     sun_d.color = (1.0, 0.95, 0.86)
     sun = bpy.data.objects.new("gunes", sun_d)
     d = Vector((0.55, -0.75, -0.95)).normalized()      # sol usten (kuzeybatidan) gelen isik
+    if VIEW:
+        # gunes dunyaya sabit: sahneyle birlikte doner (golgeler her acida tutarli)
+        a = -VIEW * math.pi / 2.0
+        gx, gy = d.x, -d.y
+        rx, ry = gx * math.cos(a) - gy * math.sin(a), gx * math.sin(a) + gy * math.cos(a)
+        d = Vector((rx, -ry, d.z)).normalized()
     sun.rotation_euler = d.to_track_quat("-Z", "Y").to_euler()
     sc.collection.objects.link(sun)
 
@@ -961,15 +1005,18 @@ def main():
     quick = "--quick" in argv
     if "--samples" in argv:
         samples = int(argv[argv.index("--samples") + 1])
-    global SCALE, PAINT
+    global SCALE, PAINT, VIEW
+    if "--view" in argv:
+        VIEW = int(argv[argv.index("--view") + 1]) % 4
     if "--scale" in argv:
         SCALE = int(argv[argv.index("--scale") + 1])
     if "--no-paint" in argv:
         PAINT = False
     with open(path) as f:
         level = json.load(f)
-    W, H = level["size"]
-    out_dir = os.path.splitext(path)[0] + "_art"
+    W0, H0 = level["size"]
+    W, H = (H0, W0) if VIEW % 2 else (W0, H0)       # bu acidaki ekran boyutu
+    out_dir = os.path.splitext(path)[0] + "_art" + ("/v%d" % VIEW if VIEW else "")
     os.makedirs(out_dir, exist_ok=True)
     tmp = os.path.join(out_dir, "_tmp")
     os.makedirs(tmp, exist_ok=True)
@@ -990,7 +1037,7 @@ def main():
         ob.visible_shadow = False      # bina ici karanlik kalmasin (cati seffaflasinca gorunur)
     RW, RH = W * SCALE, H * SCALE
     ground = render_to_array(os.path.join(tmp, "ground.png"), RW, RH)
-    manifest = {"size": [W, H], "shear": SHEAR, "wall_h": WALL_H, "scale": SCALE, "ground": []}
+    manifest = {"size": [W, H], "world_size": [W0, H0], "view": VIEW, "shear": SHEAR, "wall_h": WALL_H, "scale": SCALE, "ground": []}
     for f in os.listdir(out_dir):        # eski ciktilari temizle
         if f.endswith((".jpg", ".png")) or f.endswith(".import"):
             os.remove(os.path.join(out_dir, f))

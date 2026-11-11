@@ -295,10 +295,21 @@ func _ready() -> void:
 	var menu_btn := _button("Menü", false)
 	menu_btn.custom_minimum_size = Vector2(84, 52)
 	menu_btn.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-	menu_btn.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-	menu_btn.position = Vector2(-10, 10)
+	menu_btn.offset_left = -94
+	menu_btn.offset_right = -10
+	menu_btn.offset_top = 10
+	menu_btn.offset_bottom = 62
 	menu_btn.pressed.connect(func(): show_menu(main.LEVELS))
 	root.add_child(menu_btn)
+	# 4 yonlu bakis: haritayi 90 derece cevir (PC: Q / E)
+	var rot_btn := _button("Çevir", false)
+	rot_btn.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	rot_btn.offset_left = -194
+	rot_btn.offset_right = -104
+	rot_btn.offset_top = 10
+	rot_btn.offset_bottom = 62
+	rot_btn.pressed.connect(func(): main.rotate_view(1))
+	root.add_child(rot_btn)
 
 	# --- orta: sonuc ---
 	var mid := VBoxContainer.new()
