@@ -11,7 +11,7 @@ const Npc = preload("res://scripts/npc.gd")
 
 const LEVELS := [
 	["res://levels/bolum0.json", "Bölüm 0 – Normandiya Köyü", "Eğitim: küçük köy, 6 asker"],
-	["res://levels/bolum1.json", "Bölüm 1 – Nehir Operasyonu", "Geniş harita: nehir, köprüler, köy, karargâh, 23 asker"],
+	["res://levels/bolum1.json", "Bölüm 1 – Nehir Operasyonu", "Geniş harita: nehir, köprüler, köy, karargâh, kışlalar"],
 ]
 static var level_choice := ""      # sahne yeniden yuklenince de hatirlanir
 static var briefed := ""           # brifingi gosterilen son bolum (yeniden baslatinca tekrar gosterme)
@@ -22,7 +22,11 @@ var level
 var world: Node2D
 var commando
 var game_over := false
-var alert_level := 0
+var alert_level := 0          # 0 sakin, 1 dikkat (sari), 2 alarm (kirmizi)
+var alarm_t := 0.0
+var barracks: Array = []      # [konum, kalan asker, tur, gecikme]
+var _pending: Array = []      # [sure, kisla, adet, hedef]
+var stats := {"kills": 0, "alarms": 0, "shots": 0}
 
 # kamera / girdi
 var cam: Camera2D
@@ -68,6 +72,8 @@ func _ready() -> void:
 	commando.position = level.start
 	world.add_child(commando)
 
+	for bk in level.data.get("barracks", []):
+		barracks.append([Vector2(bk["pos"][0], bk["pos"][1]), int(bk.get("count", 6)), bk.get("type", "er"), float(bk.get("delay", 6.0))])
 	mission = Mission.new()
 	mission.main = self
 	mission.setup(level.data)
@@ -118,17 +124,120 @@ func lose(text: String) -> void:
 	_end(text, Color(1, 0.35, 0.3))
 
 
-func caught(_by) -> void:
-	if game_over:
-		return
-	commando.alive = false
-	_end("ALARM! Yakalandın", Color(1, 0.35, 0.3))
+func nearest_player(p: Vector2):
+	var best = null
+	var bd := INF
+	for u in get_tree().get_nodes_in_group("player"):
+		if u.alive and u.global_position.distance_to(p) < bd:
+			bd = u.global_position.distance_to(p)
+			best = u
+	return best
+
+
+func make_noise(p: Vector2, radius: float, src) -> void:
+	## silah sesi: sadece yaricap icindeki askerler duyar (hepsi birden kosmaz)
+	for g in get_tree().get_nodes_in_group("guards"):
+		if g != src and g.alive and g.global_position.distance_to(p) < radius:
+			g.hear_noise(p)
+	if alert_level == 0:
+		set_alert_level(1)
+
+
+func raise_alarm(p: Vector2, _by) -> void:
+	## kirmizi alarm: kislalardan takviye birlik cikar, alarm noktasina kosar
+	alarm_t = maxf(alarm_t, 35.0)
+	if alert_level < 2:
+		stats["alarms"] += 1
+		set_alert_level(2)
+		var sent := 0
+		var order := barracks.duplicate()
+		order.sort_custom(func(a, b): return a[0].distance_to(p) < b[0].distance_to(p))
+		for bk in order:
+			if sent >= 2 or bk[1] <= 0:
+				continue
+			var n: int = mini(3, bk[1])
+			bk[1] -= n
+			_pending.append([bk[3], bk, n, p])
+			sent += 1
+
+
+func set_alert_level(l: int) -> void:
+	alert_level = l
+	if l == 2:
+		hud.set_alarm(2, "ALARM! Takviye birlikler kışladan çıkıyor")
+	elif l == 1:
+		hud.set_alarm(1, "DİKKAT: Askerler tetikte")
+	else:
+		hud.set_alarm(0, "")
 
 
 func body_found(p: Vector2) -> void:
-	alert_level = 1
-	hud.set_alert("ALARM: Ceset bulundu! Askerler daha dikkatli.")
-	get_tree().call_group("guards", "hear_alarm", p)
+	if alert_level < 1:
+		set_alert_level(1)
+	hud.toast("Bir asker ceset buldu!")
+	make_noise(p, 350.0, null)
+
+
+func _process(delta: float) -> void:
+	if game_over:
+		return
+	# alarm sayaci: catisma surdukce kirmizi kalir, sonra sariya duser
+	if alert_level == 2:
+		var fighting := false
+		for g in get_tree().get_nodes_in_group("guards"):
+			if g.alive and g.state == &"combat":
+				fighting = true
+				break
+		alarm_t -= delta * (0.25 if fighting else 1.0)
+		if alarm_t <= 0.0:
+			set_alert_level(1)
+		elif not fighting:
+			hud.set_alarm(2, "ALARM: Askerler arıyor (%d sn)" % ceili(alarm_t))
+	# takviye cikislari
+	var i := _pending.size() - 1
+	while i >= 0:
+		_pending[i][0] -= delta
+		if _pending[i][0] <= 0.0:
+			var pd: Array = _pending[i]
+			_spawn_reinforcements(pd[1], pd[2], pd[3])
+			_pending.remove_at(i)
+		i -= 1
+	_update_action()
+
+
+func _spawn_reinforcements(bk: Array, n: int, target: Vector2) -> void:
+	for k in n:
+		var g = Guard.new()
+		g.main = self
+		g.kind = bk[2]
+		g.reinforcement = true
+		g.position = bk[0] + Vector2((k - 1) * 22, (k % 2) * 16)
+		g.state = &"investigate"
+		g.investigate_pos = target + Vector2(randf_range(-60, 60), randf_range(-60, 60))
+		world.add_child(g)
+		g.navigation_agent.target_position = g.investigate_pos
+	hud.toast("Takviye birlik geldi: %d asker" % n)
+
+
+func _update_action() -> void:
+	## baglama gore tek aksiyon dugmesi: patlayici kur / cesedi tasi / birak
+	var c = commando
+	if not c.alive:
+		hud.set_action("", false)
+		return
+	if c.carrying != null:
+		hud.set_action("Cesedi Bırak", true, func(): c.drop_body())
+		return
+	if mission.plant_target != null:
+		var planting: bool = mission.planting >= 0.0
+		hud.set_action(("Kuruluyor... %d%%" % int(mission.planting / mission.PLANT_TIME * 100.0)) if planting else "Patlayıcı Kur",
+				not planting, func(): mission.start_planting())
+		return
+	var b = c.body_nearby()
+	if b != null:
+		hud.set_action("Cesedi Taşı", true, func(): c.pick_body(b))
+		return
+	hud.set_action("", false)
 
 
 func _end(text: String, col: Color) -> void:
@@ -198,12 +307,10 @@ func _clamp_cam() -> void:
 func _tap(p: Vector2) -> void:
 	if game_over:
 		return
-	# Bicak yetenegi secili ise askere dokununca saldir (Commandos'taki gibi)
-	if hud.knife_mode:
-		for g in get_tree().get_nodes_in_group("guards"):
-			# govde ayaklarin ustunde cizildigi icin oraya da bak
-			if g.alive and (p.distance_to(g.global_position) < 28 or p.distance_to(g.global_position + Vector2(0, -16)) < 24):
-				commando.attack(g)
-				hud.used_knife()
-				return
+	# secili silahla askere saldir (secim kalici; yere dokunmak sadece yurutur)
+	for g in get_tree().get_nodes_in_group("guards"):
+		# govde ayaklarin ustunde cizildigi icin oraya da bak
+		if g.alive and (p.distance_to(g.global_position) < 28 or p.distance_to(g.global_position + Vector2(0, -20)) < 26):
+			commando.attack(g)
+			return
 	commando.move_to(p)

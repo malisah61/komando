@@ -11,7 +11,16 @@ const PANEL_BG := Color(0.1, 0.11, 0.08, 0.82)
 const ACCENT := Color(0.85, 0.75, 0.45)
 
 var main
-var knife_mode := false
+var _action_cb: Callable
+var _toast_t := 0.0
+var toast_label: Label
+var hp_bar: ProgressBar
+var pistol_btn: Button
+var med_btn: Button
+var crouch_btn: Button
+var alarm_label: Label
+var _edges: Array = []
+var _pulse := 0.0
 var show_cones := true
 
 var goal_label: Label
@@ -39,6 +48,19 @@ func _ready() -> void:
 	root.set_anchors_preset(Control.PRESET_FULL_RECT)
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(root)
+
+	# --- alarm kenar parlamasi (kirmizi alarmda nabiz gibi atar) ---
+	for i in 4:
+		var e := ColorRect.new()
+		e.color = Color(1, 0.1, 0.05, 0.0)
+		e.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		match i:
+			0: e.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE); e.offset_bottom = 10
+			1: e.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE); e.offset_top = -10
+			2: e.set_anchors_and_offsets_preset(Control.PRESET_LEFT_WIDE); e.offset_right = 10
+			3: e.set_anchors_and_offsets_preset(Control.PRESET_RIGHT_WIDE); e.offset_left = -10
+		root.add_child(e)
+		_edges.append(e)
 
 	# --- sol ust: mini harita ---
 	var mm_panel := _panel()
@@ -71,6 +93,14 @@ func _ready() -> void:
 	alert_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	alert_label.visible = false
 	top.add_child(alert_label)
+	alarm_label = _label("", 20, Color(1, 0.3, 0.25))
+	alarm_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	alarm_label.visible = false
+	top.add_child(alarm_label)
+	toast_label = _label("", 18, Color(1, 1, 0.8))
+	toast_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	toast_label.visible = false
+	top.add_child(toast_label)
 	timer_label = _label("", 30, Color(1, 0.4, 0.25))
 	timer_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	top.add_child(timer_label)
@@ -108,6 +138,19 @@ func _ready() -> void:
 	por_txt.add_child(_label("Yeşil Bere", 18, ACCENT))
 	status_label = _label("Görünür", 15)
 	por_txt.add_child(status_label)
+	hp_bar = ProgressBar.new()
+	hp_bar.custom_minimum_size = Vector2(130, 12)
+	hp_bar.show_percentage = false
+	hp_bar.max_value = 100
+	hp_bar.value = 100
+	var fill := StyleBoxFlat.new()
+	fill.bg_color = Color(0.35, 0.85, 0.35)
+	hp_bar.add_theme_stylebox_override("fill", fill)
+	var bgs := StyleBoxFlat.new()
+	bgs.bg_color = Color(0.15, 0.05, 0.05)
+	hp_bar.add_theme_stylebox_override("background", bgs)
+	hp_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	por_txt.add_child(hp_bar)
 
 	# --- sag alt: envanter + yetenekler ---
 	var br := _panel()
@@ -141,16 +184,45 @@ func _ready() -> void:
 	action_btn.custom_minimum_size = Vector2(BTN * 4 + 12, 60)
 	action_btn.add_theme_font_size_override("font_size", 22)
 	action_btn.visible = false
-	action_btn.pressed.connect(func(): main.mission.start_planting())
+	action_btn.pressed.connect(func():
+		if _action_cb.is_valid():
+			_action_cb.call())
 	br_box.add_child(action_btn)
-	br_box.add_child(_label("YETENEKLER", 13, ACCENT))
+	br_box.add_child(_label("SİLAH  (seçim kalıcı - askere dokun: saldır)", 13, ACCENT))
+	var weap := HBoxContainer.new()
+	br_box.add_child(weap)
+	var group := ButtonGroup.new()
+	knife_btn = _button("Bıçak", true)
+	knife_btn.button_group = group
+	knife_btn.button_pressed = true
+	knife_btn.toggled.connect(func(on):
+		if on:
+			main.commando.weapon = "knife")
+	weap.add_child(knife_btn)
+	pistol_btn = _button("Tabanca", true)
+	pistol_btn.button_group = group
+	pistol_btn.custom_minimum_size.x = BTN * 2 + 4
+	pistol_btn.toggled.connect(func(on):
+		if on:
+			main.commando.weapon = "pistol")
+	weap.add_child(pistol_btn)
+	med_btn = _button("Sağlık", false)
+	med_btn.pressed.connect(func(): main.commando.use_medkit())
+	weap.add_child(med_btn)
+	br_box.add_child(_label("HAREKET", 13, ACCENT))
 	var abil := HBoxContainer.new()
 	br_box.add_child(abil)
-	knife_btn = _button("Bıçak", true)
-	knife_btn.toggled.connect(func(on): knife_mode = on)
-	abil.add_child(knife_btn)
+	crouch_btn = _button("Çömel", true)
+	crouch_btn.toggled.connect(func(on):
+		main.commando.crouch = on
+		if on:
+			run_btn.button_pressed = false)
+	abil.add_child(crouch_btn)
 	run_btn = _button("Koş", true)
-	run_btn.toggled.connect(func(on): main.commando.run = on)
+	run_btn.toggled.connect(func(on):
+		main.commando.run = on
+		if on:
+			crouch_btn.button_pressed = false)
 	abil.add_child(run_btn)
 	cone_btn = _button("Koni", true)
 	cone_btn.button_pressed = true
@@ -229,12 +301,24 @@ func show_menu(levels: Array) -> void:
 		box.add_child(back)
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
 	var c = main.commando
 	if c == null:
 		return
+	if _toast_t > 0.0:
+		_toast_t -= delta
+		if _toast_t <= 0.0:
+			toast_label.visible = false
+	hp_bar.value = c.hp * 100.0 / c.max_hp
+	_pulse += delta * 4.0
+	var ea := (0.25 + 0.2 * sin(_pulse)) if main.alert_level >= 2 else 0.0
+	for e in _edges:
+		e.color.a = ea
+	pistol_btn.text = "Tabanca (%d)" % c.ammo
+	med_btn.text = "Sağlık x%d" % c.medkits
+	med_btn.disabled = c.medkits <= 0
 	if not c.alive:
-		status_label.text = "Yakalandı"
+		status_label.text = "Vuruldu"
 		status_label.add_theme_color_override("font_color", Color(1, 0.4, 0.3))
 	elif c.is_hidden():
 		status_label.text = "Gizli (çalılıkta)"
@@ -285,10 +369,23 @@ func refresh_items() -> void:
 		i += 1
 
 
-func set_action(text: String, enabled: bool) -> void:
+func set_action(text: String, enabled: bool, cb := Callable()) -> void:
 	action_btn.visible = text != ""
 	action_btn.text = text
 	action_btn.disabled = not enabled
+	_action_cb = cb
+
+
+func toast(text: String) -> void:
+	toast_label.text = text
+	toast_label.visible = true
+	_toast_t = 2.5
+
+
+func set_alarm(level: int, text: String) -> void:
+	alarm_label.visible = level > 0
+	alarm_label.text = text
+	alarm_label.add_theme_color_override("font_color", Color(1, 0.85, 0.3) if level == 1 else Color(1, 0.3, 0.25))
 
 
 func set_timer_text(t: String) -> void:
@@ -391,7 +488,7 @@ func show_end(text: String, col: Color) -> void:
 
 
 func used_knife() -> void:
-	knife_btn.button_pressed = false
+	pass   # silah secimi artik kalici
 
 
 # ---------------- Yardimcilar ----------------

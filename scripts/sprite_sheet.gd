@@ -20,6 +20,11 @@ const DEFAULT_LAYOUT := {
 }
 
 
+# Ayni sheet'ten olusturulan SpriteFrames tum karakterlerce paylasilir.
+# (Her asker icin yeniden kurmak ~100 ms suruyordu: yeniden baslatmadaki takilmanin ana sebebi.)
+static var _cache := {}
+
+
 static func load_layout(path: String) -> Dictionary:
 	var layout := DEFAULT_LAYOUT.duplicate(true)
 	var json_path := path.get_basename() + ".json"
@@ -99,10 +104,17 @@ static func _is_empty(tex: Texture2D, region: Rect2) -> bool:
 
 static func attach(owner: Node2D, path: String, display_px: float = 44.0) -> AnimatedSprite2D:
 	## Karaktere AnimatedSprite2D ekler; ayaklar karakterin orijininde durur.
-	var layout := load_layout(path)
-	var frames := build_frames(path, layout)
-	if frames == null:
-		return null
+	var layout: Dictionary
+	var frames: SpriteFrames
+	if _cache.has(path):
+		layout = _cache[path][0]
+		frames = _cache[path][1]
+	else:
+		layout = load_layout(path)
+		frames = build_frames(path, layout)
+		if frames == null:
+			return null
+		_cache[path] = [layout, frames]
 	var spr := AnimatedSprite2D.new()
 	spr.sprite_frames = frames
 	var fs := float(layout["frame"])

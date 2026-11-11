@@ -70,6 +70,16 @@ jobs:
           full_commit_message: "Web yayini ${{ github.sha }}"
         continue-on-error: true
 
+      - name: PC derlemesi (Windows + Linux)
+        continue-on-error: true
+        run: |
+          mkdir -p build/windows build/linux build/dist
+          ~/godot/godot --headless --export-release "Windows" build/windows/Komando.exe
+          ~/godot/godot --headless --export-release "Linux" build/linux/Komando.x86_64
+          cd build/windows && zip -q -r ../dist/Komando-Windows.zip . && cd ../..
+          cd build/linux && chmod +x Komando.x86_64 && zip -q -r ../dist/Komando-Linux.zip . && cd ../..
+          ls -la build/dist
+
       - name: Android ayarları
         uses: actions/setup-java@v4
         with:
@@ -102,5 +112,8 @@ jobs:
           tag_name: son-surum
           name: Komando - son sürüm
           body: "Otomatik derleme: ${{ github.sha }}"
-          files: build/android/komando.apk
+          files: |
+            build/android/komando.apk
+            build/dist/Komando-Windows.zip
+            build/dist/Komando-Linux.zip
           make_latest: true

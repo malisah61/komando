@@ -5,6 +5,9 @@ Commandos 2: Men of Courage'dan esinlenen, 2. Dünya Savaşı'nda geçen gerçek
 - **Motor:** Godot 4.3 · **Dil:** GDScript
 - **Tarayıcıda oyna:** https://malisah61.github.io/komando/
 - **APK indir:** https://github.com/malisah61/komando/releases/latest/download/komando.apk
+- **Windows:** https://github.com/malisah61/komando/releases/latest/download/Komando-Windows.zip
+- **Linux:** https://github.com/malisah61/komando/releases/latest/download/Komando-Linux.zip
+- **Geliştirme günlüğü:** [docs/GELISTIRME.md](docs/GELISTIRME.md) (her tur: 5 yeni + 5 iyileştirilmiş özellik)
 
 ## Senaryo
 Kampanya, karakterler ve bölüm planı: [docs/SENARYO.md](docs/SENARYO.md)

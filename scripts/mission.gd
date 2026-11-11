@@ -63,6 +63,17 @@ func _process(delta: float) -> void:
 	elapsed += delta
 	var c = main.commando
 	var cp: Vector2 = c.global_position
+	# yerdeki esyalar: saglik cantasi, mermi
+	for pk in main.level.pickups:
+		if not pk["taken"] and cp.distance_to(pk["pos"]) < 26.0:
+			pk["taken"] = true
+			if pk["type"] == "medkit":
+				c.medkits += 1
+				main.hud.toast("Sağlık çantası alındı")
+			else:
+				c.ammo += 8
+				main.hud.toast("Mermi alındı (+8)")
+			main.level.queue_redraw()
 	var action_text := ""
 	plant_target = null
 	for o in objectives:
@@ -100,9 +111,8 @@ func _process(delta: float) -> void:
 					if b[2] == o:
 						planted = true
 				if not planted and cp.distance_to(tp) < float(o.get("radius", 80)):
-					if items.get("patlayici", 0) > 0:
+					if items.get("patlayici", 0) > 0 and c.carrying == null:
 						plant_target = o
-						action_text = "Patlayıcı Kur"
 			"exit":
 				if required_left() == 0 and main.level.exit_rect.has_point(cp):
 					var ok := true
@@ -120,13 +130,11 @@ func _process(delta: float) -> void:
 			planting = -1.0
 		else:
 			planting += delta
-			action_text = "Kuruluyor... %d%%" % int(planting / PLANT_TIME * 100.0)
 			if planting >= PLANT_TIME:
 				planting = -1.0
 				items["patlayici"] = items["patlayici"] - 1
 				main.hud.refresh_items()
 				bombs.append([_v(plant_target["pos"]), FUSE_TIME, plant_target])
-	main.hud.set_action(action_text, plant_target != null and planting < 0.0)
 
 	# geri sayim
 	var i := bombs.size() - 1
@@ -165,9 +173,6 @@ func _explode(b: Array) -> void:
 		if u.alive and u.global_position.distance_to(pos) < BLAST_R:
 			u.alive = false
 			main.lose("Patlamada öldün!")
-	# ses: yakindaki askerler kosar, alarm
-	main.alert_level = 1
-	main.hud.set_alert("ALARM: Patlama! Askerler bölgeye koşuyor.")
-	for g in get_tree().get_nodes_in_group("guards"):
-		if g.alive and g.global_position.distance_to(pos) < 800.0:
-			g.hear_alarm(pos)
+	# patlama sesi: yakindaki askerler kosar, kirmizi alarm -> takviye
+	main.make_noise(pos, 800.0, null)
+	main.raise_alarm(pos, null)

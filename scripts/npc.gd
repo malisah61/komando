@@ -13,6 +13,8 @@ var alive := true
 var navigation_agent: NavigationAgent2D
 var sprite: AnimatedSprite2D
 var _repath := 0.0
+var hp := 60.0
+var max_hp := 60.0
 
 
 func _ready() -> void:
@@ -38,6 +40,21 @@ func start_following() -> void:
 	add_to_group("player")        # askerler artik onu da gorebilir
 
 
+func is_crouching() -> bool:
+	return following and main.commando.crouch
+
+
+func take_damage(amount: float, _from: Vector2) -> void:
+	if not alive:
+		return
+	hp -= amount
+	load("res://scripts/fx.gd").blood(main.world, global_position + Vector2(0, -16))
+	if hp <= 0.0:
+		alive = false
+		SpriteSheet.play(sprite, &"death", facing, true)
+		main.lose("%s öldü! Görev başarısız." % display_name)
+
+
 func is_hidden() -> bool:
 	return main.level.is_inside_view_blocker(global_position)
 
@@ -45,7 +62,8 @@ func is_hidden() -> bool:
 func _physics_process(delta: float) -> void:
 	if not alive or main.game_over or not following:
 		velocity = Vector2.ZERO
-		SpriteSheet.play(sprite, &"idle", facing)
+		if alive:
+			SpriteSheet.play(sprite, &"idle", facing)
 		queue_redraw()
 		return
 	var c = main.commando
@@ -60,17 +78,25 @@ func _physics_process(delta: float) -> void:
 	else:
 		var next := navigation_agent.get_next_path_position()
 		var dir := global_position.direction_to(next)
-		var spd: float = c.speed * (1.6 if c.run else 1.0) * (1.15 if dist > 120.0 else 1.0)
+		var spd: float = c.cur_speed() * (1.15 if dist > 120.0 else 1.0)
 		velocity = dir * spd
 		facing = lerp_angle(facing, dir.angle(), minf(1.0, delta * 10.0))
 		move_and_slide()
-		SpriteSheet.play(sprite, &"run" if c.run else &"walk", facing)
+		var anim := &"walk"
+		if c.crouch and sprite != null and sprite.sprite_frames.has_animation(&"crouch_0"):
+			anim = &"crouch"
+		elif c.run:
+			anim = &"run"
+		SpriteSheet.play(sprite, anim, facing)
 	queue_redraw()
 
 
 func _draw() -> void:
 	if sprite == null:
 		draw_circle(Vector2(0, -12), 9.5, Color(0.4, 0.3, 0.2))
+	if alive and hp < max_hp:
+		draw_rect(Rect2(-16, -64, 32, 4), Color(0, 0, 0, 0.6))
+		draw_rect(Rect2(-16, -64, 32 * hp / max_hp, 4), Color(0.3, 0.7, 1.0))
 	if display_name != "":
 		var col := Color(0.7, 0.9, 1.0) if following else Color(1, 1, 0.7)
 		draw_string(ThemeDB.fallback_font, Vector2(-40, -58), display_name, HORIZONTAL_ALIGNMENT_CENTER, 80, 13, col)

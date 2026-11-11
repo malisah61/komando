@@ -29,6 +29,7 @@ ANIMS = [
     ("crouch", "Crouch_Fwd_Loop_Rig",  8, 9,  True),
     ("action", "Punch_Jab_Rig",        6, 14, False),   # bicak darbesi
     ("plant",  "Fixing_Kneeling_Rig",  8, 8,  True),    # patlayici kurma
+    ("shoot",  "Pistol_Shoot_Rig",     5, 14, False),   # ates
     ("death",  "Death01_Rig",          8, 10, False),
 ]
 
@@ -204,7 +205,7 @@ def main():
     global YAW_FIX
     argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
     out = "/tmp/deneme"
-    names = ["alman_er"]
+    names = list(A.OUTFITS.keys())
     quick = "--quick" in argv
     if "--out" in argv:
         out = argv[argv.index("--out") + 1]

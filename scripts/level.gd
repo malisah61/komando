@@ -58,6 +58,7 @@ var ground_tex: Texture2D        # eski tek parca zemin (geriye uyum)
 var ground_tiles: Array = []      # [Texture2D, Rect2] - parcali zemin
 var art_scale := 1.0
 var _areas: Array = []            # bina indeksi -> Roof alani
+var pickups: Array = []          # {type, pos, taken} - saglik cantasi / mermi
 var scorches: Array = []         # [konum, yaricap] - patlama izi
 var broken_bridges: Array = []    # Rect2
 var _region: NavigationRegion2D
@@ -65,6 +66,7 @@ var occluders: Array = []         # [ekran dikdortgeni, taban y, dugum] - silüe
 
 
 func load_level(path: String, world: Node2D, roofs: Node2D) -> bool:
+	level_path = path
 	var f := FileAccess.open(path, FileAccess.READ)
 	if f == null:
 		push_error("Bolum dosyasi acilamadi: " + path)
@@ -83,6 +85,8 @@ func load_level(path: String, world: Node2D, roofs: Node2D) -> bool:
 	document_pos = _v(data["document"])
 	for r in data.get("roads", []):
 		roads.append(Rect2(r[0], r[1], r[2], r[3]))
+	for pk in data.get("pickups", []):
+		pickups.append({"type": pk.get("type", "medkit"), "pos": _v(pk["pos"]), "taken": false})
 	for r in data.get("bridges", []):
 		bridges.append(Rect2(r[0], r[1], r[2], r[3]))
 	for s in data.get("surfaces", []):
@@ -299,7 +303,17 @@ func _add_view_poly(pts: PackedVector2Array) -> void:
 		view_segments.append([a, b, bb])
 
 
-func _build_navigation() -> void:
+static var _nav_cache := {}       # bolum yolu -> hazir navigasyon (yeniden baslatmada tekrar pisirme)
+var level_path := ""
+
+
+func _build_navigation(use_cache := true) -> void:
+	if use_cache and _nav_cache.has(level_path):
+		if _region == null:
+			_region = NavigationRegion2D.new()
+			add_child(_region)
+		_region.navigation_polygon = _nav_cache[level_path]
+		return
 	var navpoly := NavigationPolygon.new()
 	navpoly.agent_radius = 11.0
 	var src := NavigationMeshSourceGeometryData2D.new()
@@ -311,6 +325,8 @@ func _build_navigation() -> void:
 		_region = NavigationRegion2D.new()
 		add_child(_region)
 	_region.navigation_polygon = navpoly
+	if use_cache:
+		_nav_cache[level_path] = navpoly
 
 
 func destroy_bridge(i: int) -> void:
@@ -320,7 +336,7 @@ func destroy_bridge(i: int) -> void:
 	var r: Rect2 = bridges[i]
 	broken_bridges.append(r)
 	_add_solid(_rect_poly(r.grow_individual(-30, 6, -30, 6)), true, false)
-	_build_navigation()
+	_build_navigation(false)
 	queue_redraw()
 
 
@@ -451,6 +467,17 @@ func _draw_plain_ground() -> void:
 
 
 func _draw_overlays(font: Font) -> void:
+	for pk in pickups:
+		if pk["taken"]:
+			continue
+		var pp: Vector2 = pk["pos"]
+		if pk["type"] == "medkit":
+			draw_rect(Rect2(pp - Vector2(9, 7), Vector2(18, 14)), Color(0.92, 0.92, 0.88))
+			draw_rect(Rect2(pp - Vector2(2, 5), Vector2(4, 10)), Color(0.8, 0.1, 0.1))
+			draw_rect(Rect2(pp - Vector2(5, 2), Vector2(10, 4)), Color(0.8, 0.1, 0.1))
+		else:
+			draw_rect(Rect2(pp - Vector2(9, 6), Vector2(18, 12)), Color(0.35, 0.38, 0.22))
+			draw_rect(Rect2(pp - Vector2(9, 6), Vector2(18, 12)), Color(0.85, 0.75, 0.3), false, 1.5)
 	for sc in scorches:
 		draw_circle(sc[0], sc[1], Color(0.08, 0.07, 0.06, 0.55))
 		draw_circle(sc[0], sc[1] * 0.6, Color(0.05, 0.04, 0.03, 0.5))

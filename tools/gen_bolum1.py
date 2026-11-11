@@ -208,8 +208,8 @@ guard([[2000, 1960]], 180)                                         # guney kopru
 # karargah
 guard([[gate0 - 20, cy1 + 70]], 90)                                # kapi
 guard([[gate1 + 20, cy1 + 70]], 90)                                # kapi
-guard([[2900, 560], [3420, 560]])                                  # avlu devriyesi
-guard([[3060, 250], [3060, 560]])                                  # avlu devriyesi 2
+guard([[2900, 560], [3420, 560]], None, "elit")                    # avlu devriyesi (SS)
+guard([[3060, 250], [3060, 560]], None, "elit")                    # avlu devriyesi 2 (SS)
 guard([[3200, 300]], 90, "subay")                                  # karargah ici
 guard([[3460, 700], [3460, 1100], [2780, 1100]])                   # dis cevre devriyesi
 # depo
@@ -241,6 +241,21 @@ lvl["objectives"] = [
     {"id": "depo", "type": "destroy", "optional": True, "text": "Yakıt deposunu havaya uçur",
      "pos": [3045, 2130], "radius": 95},
     {"id": "kacis", "type": "exit", "text": "Pilot Carter ile birlikte sahildeki botlara dön"},
+]
+
+# ------------------------------------------------------------ KISLALAR (kirmizi alarmda takviye) VE ESYALAR
+lvl["barracks"] = [
+    {"pos": [2950, 300], "count": 6, "type": "elit", "delay": 5},    # karargah avlusu
+    {"pos": [2900, 1470], "count": 6, "type": "er", "delay": 7},     # koy
+    {"pos": [2900, 2420], "count": 5, "type": "er", "delay": 8},     # depo
+]
+lvl["pickups"] = [
+    {"type": "medkit", "pos": [1240, 1500]},
+    {"type": "medkit", "pos": [600, 950]},
+    {"type": "medkit", "pos": [2660, 1690]},
+    {"type": "ammo", "pos": [1500, 960]},
+    {"type": "ammo", "pos": [2280, 1700]},
+    {"type": "ammo", "pos": [2960, 520]},
 ]
 
 # ------------------------------------------------------------ AGACLAR / CALILAR

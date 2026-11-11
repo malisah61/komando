@@ -2699,7 +2699,8 @@
      3420,
      560
     ]
-   ]
+   ],
+   "type": "elit"
   },
   {
    "path": [
@@ -2711,7 +2712,8 @@
      3060,
      560
     ]
-   ]
+   ],
+   "type": "elit"
   },
   {
    "path": [
@@ -2897,6 +2899,79 @@
    "id": "kacis",
    "type": "exit",
    "text": "Pilot Carter ile birlikte sahildeki botlara dön"
+  }
+ ],
+ "barracks": [
+  {
+   "pos": [
+    2950,
+    300
+   ],
+   "count": 6,
+   "type": "elit",
+   "delay": 5
+  },
+  {
+   "pos": [
+    2900,
+    1470
+   ],
+   "count": 6,
+   "type": "er",
+   "delay": 7
+  },
+  {
+   "pos": [
+    2900,
+    2420
+   ],
+   "count": 5,
+   "type": "er",
+   "delay": 8
+  }
+ ],
+ "pickups": [
+  {
+   "type": "medkit",
+   "pos": [
+    1240,
+    1500
+   ]
+  },
+  {
+   "type": "medkit",
+   "pos": [
+    600,
+    950
+   ]
+  },
+  {
+   "type": "medkit",
+   "pos": [
+    2660,
+    1690
+   ]
+  },
+  {
+   "type": "ammo",
+   "pos": [
+    1500,
+    960
+   ]
+  },
+  {
+   "type": "ammo",
+   "pos": [
+    2280,
+    1700
+   ]
+  },
+  {
+   "type": "ammo",
+   "pos": [
+    2960,
+    520
+   ]
   }
  ]
 }

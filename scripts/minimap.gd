@@ -9,8 +9,15 @@ func _ready() -> void:
 	clip_contents = true
 
 
-func _process(_delta: float) -> void:
-	queue_redraw()
+var _t := 0.0
+
+
+func _process(delta: float) -> void:
+	# 10 Hz yeterli: her karede 200+ cokgen cizmek gereksiz
+	_t -= delta
+	if _t <= 0.0:
+		_t = 0.1
+		queue_redraw()
 
 
 func _gui_input(e: InputEvent) -> void:
