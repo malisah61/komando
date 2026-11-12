@@ -17,6 +17,13 @@
     "bolum5": {"zemin": {"olcek": 0.75}}
   },
   "export_haric": "tests/*,tools/*,docs/*,kaynak/*,build/*,*.blend,*.glb,*.gltf,*/_tmp/*,*/_ham/*,*.md",
+  "export_haric_platform": {
+    "_aciklama": "Sprite paketi (tools/varlik/sprite_paketle.gd) varsa: kaynak PNG'nin .ctex'i yerine platformun kendi bicimi girer.",
+    "Android": "assets/sprites/*_sprite_sheet.png,assets/sprites/paket/*_s3tc.res",
+    "Windows Desktop": "assets/sprites/*_sprite_sheet.png,assets/sprites/paket/*_etc2.res",
+    "Linux": "assets/sprites/*_sprite_sheet.png,assets/sprites/paket/*_etc2.res",
+    "Web": "assets/sprites/*_sprite_sheet.png,assets/sprites/paket/*_etc2.res"
+  },
   "butce_mb": {
     "apk": 200,
     "pc_zip": 120,

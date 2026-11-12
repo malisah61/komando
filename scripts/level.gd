@@ -692,9 +692,9 @@ var view_loading := -1            # yuklenen aci (-1: yok)
 var _vl_man := {}
 var _vl_paths: Array = []
 var ground_mini: Texture2D        # mini harita / buyuk harita icin kucuk zemin (v0)
-const GROUND_NEED := 256.0        # ekranin bu kadar disina kadar zemin karosu yuklenir
+const GROUND_NEED := 320.0        # ekranin bu kadar disina kadar zemin karosu yuklenir
 const GROUND_KEEP := 520.0        # bundan uzaktaki karolar bellekten atilir (telefon doku bellegi)
-const GROUND_PER_TICK := 3        # 0.1 sn'de en fazla bu kadar yeni karo istenir (kasma olmasin)
+const GROUND_PER_TICK := 2        # 0.1 sn'de en fazla bu kadar yeni karo istenir (kasma olmasin)
 
 
 func request_view(k: int, sync := false) -> bool:

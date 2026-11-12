@@ -216,8 +216,9 @@ Varlık hattı tek yerde ve belgeli (kod: `tools/varlik/hat.py`, ayarlar: `tools
 1. **Render** – `tools/blender/harita.py <bölüm>.json --view K` → `levels/<bölüm>_art/vK/` (v0..v3 hep aynı düzen; kayıpsız PNG karolar ve atlaslar + `manifest.json`).
 2. **Sıkıştırma** – `python3 tools/varlik/hat.py sikistir levels/<bölüm>_art/vK` → zemin 1024 px WebP karolar (bölüme özel çözünürlük ölçeği), nesne/çatı atlasları saydamlığı koruyan kayıplı WebP (sağ/alt boş alan kırpılır), v0 için 2048 px zemin önizlemesi (`ground_mini.webp`: mini harita, büyük harita, açı yüklenirken yer tutucu).
 3. **Godot import** – `hat.py ayarla` ayarlardan `project.godot [importer_defaults]` ve `.import` dosyalarını yazar: harita = Lossy WebP (kalite 0,82, mipmap yok); karakter sprite'ları = VRAM (ETC2/S3TC; her an ekranda olduklarından telefonda 4 kat az bellek).
-4. **Export** – `export_presets.cfg`: `tests/ tools/ docs/ kaynak/ *.glb *.md` hariç; Android yalnız ETC2/ASTC, PC yalnız S3TC, Web yalnız masaüstü biçimi; Android release şablonu.
-5. **Bütçe** – `hat.py butce` her derlemede bölüm × açı MB'ını ve APK/zip boyutlarını yazar (Actions özeti + sürüm notu); bütçe aşılırsa `::warning::`.
+4. **Sprite paketi** – `godot -s res://tools/varlik/sprite_paketle.gd` (CI'da import'tan sonra): karakter sprite'ları platform biçimine (ETC2 telefon, S3TC PC/Web) sıkıştırılıp zstd'li `.res` olarak paketlenir. Godot APK'da `.ctex` dosyalarını sıkıştırmadan saklıyordu (sayfa başına 8,4 MB); paket 1,8 MB. Bellekte yine VRAM biçimi.
+5. **Export** – `export_presets.cfg`: `tests/ tools/ docs/ kaynak/ *.glb *.md` hariç; her platform yalnız kendi sprite biçimini alır (`export_haric_platform`); Android yalnız ETC2/ASTC ve yalnız arm64-v8a, PC yalnız S3TC, Web yalnız masaüstü biçimi; Android release şablonu; proje ikonu.
+6. **Bütçe** – `hat.py butce` her derlemede bölüm × açı MB'ını ve APK/zip boyutlarını yazar (Actions özeti + sürüm notu); bütçe aşılırsa `::warning::`.
 
 Hedefler: **APK ≤ 200 MB**, **PC zip ≤ 120 MB**, **yeni bölüm ≤ 15 MB** (4 açı toplamı), Web .pck ≤ 150 MB.
 
@@ -331,3 +332,12 @@ Geliştirme listesi bu bulgulardan: takipçiyi koruyan bot, Bölüm 0'a siren + 
 - Desperados III (nöbet yeri, dikkat dağıtma): https://www.gamepressure.com/desperados-iii/enemy-why-does-not-leave-the-post/z9d04a · https://www.player2.net.au/2020/06/14-darn-tootin-tips-for-desperados-iii/
 - Godot görüntü içe aktarma (Lossy / VRAM / Basis): https://docs.godotengine.org/en/4.3/tutorials/assets_pipeline/importing_images.html
 - Godot web/mobil sanat hattı: https://forum.godotengine.org/t/godot-4-web-export-stutters-on-mobile-its-probably-your-art-pipeline-not-your-code-31fps-to-60fps-benchmarks-inside/143268
+
+### Tur 3b – Elle başlatılan tur (12 Kasım 10:01): ADIM 0 ikinci geçiş
+Öncelik yine boyut, kasma, düzen.
+- **APK içeriği doğrulandı:** release APK'da yalnız `.etc2.ctex` var, S3TC yok; test/araç/belge/kaynak dosyası yok. En büyük kalemler Godot kütüphanesi (iki mimari 125 MB açık) ve sıkıştırmasız saklanan 7 sprite sayfası (59 MB) idi.
+- **Sprite paketi:** zstd'li `.res` (ETC2 12,8 MB / S3TC 13,5 MB). APK 156 MB → **111 MB** (yerel export, aynı içerik).
+- **Yalnız arm64-v8a:** 32 bit (armeabi-v7a) kütüphanesi çıkarıldı (~21 MB sıkıştırılmış). 2017 öncesi 32 bit telefonlarda çalışmaz; bu bölümlerin bellek ihtiyacı zaten bu cihazların üstünde. Beklenen APK ≈ 90 MB.
+- **Proje ikonu** eklendi (export uyarısı gitti).
+- **Zemin akışı:** 0,1 sn'de en fazla 2 karo, karolar ekrandan 320 px önce istenir (kaydırmada GPU yüklemesi dağılır).
+- Ölçüm (llvmpipe): sabit kamerada en yavaş kare 64,8 ms (önce 75,8), açı değişiminde en yavaş kare 91,6 ms; bölüm açılışı ~1,1 sn (paketten sprite açma +~0,3 sn; zstd), doku belleği aynı (264 / 352 MB).

@@ -107,7 +107,7 @@ func _ready() -> void:
 	navigation_agent.radius = 10.0
 	add_child(navigation_agent)
 	for path in [SHEET_FMT % kind, SHEET_FMT % "er", SHEET_FALLBACK]:
-		if ResourceLoader.exists(path):
+		if SpriteSheet.sheet_exists(path):
 			sprite = SpriteSheet.attach(self, path)
 			break
 	base_facing = facing

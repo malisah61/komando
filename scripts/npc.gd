@@ -33,7 +33,7 @@ func _ready() -> void:
 	navigation_agent.radius = 10.0
 	add_child(navigation_agent)
 	var path := "res://assets/sprites/%s_sprite_sheet.png" % outfit
-	if ResourceLoader.exists(path):
+	if SpriteSheet.sheet_exists(path):
 		sprite = SpriteSheet.attach(self, path)
 
 

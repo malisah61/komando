@@ -57,6 +57,11 @@ jobs:
           # varlik hatti: import ayarlari tek yerden (tools/varlik_ayarlari.json)
           python3 tools/varlik/hat.py ayarla
           ~/godot/godot --headless --import || true
+          # karakter sprite'lari: platform bicimi (ETC2 telefon / S3TC PC-Web) zstd sikistirilmis .res
+          # (APK .ctex'i sikistirmadan saklar; 59 MB -> 13 MB). Paket varsa ayarla export filtrelerini ayirir.
+          ~/godot/godot --headless -s res://tools/varlik/sprite_paketle.gd
+          python3 tools/varlik/hat.py ayarla
+          grep -n "exclude_filter" export_presets.cfg
 
       - name: Web derlemesi
         run: |

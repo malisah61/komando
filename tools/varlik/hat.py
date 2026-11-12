@@ -228,9 +228,21 @@ def ayarla():
     ep = os.path.join(KOK, "export_presets.cfg")
     with open(ep, encoding="utf-8") as f:
         s = f.read()
-    s = re.sub(r'^exclude_filter=".*"$', 'exclude_filter="%s"' % A["export_haric"], s, flags=re.M)
+    paket = os.path.isdir(os.path.join(KOK, "assets", "sprites", "paket")) and any(
+        f.endswith(".res") for f in os.listdir(os.path.join(KOK, "assets", "sprites", "paket")))
+    ozel = A.get("export_haric_platform", {})
+    bolumler = re.split(r"(?m)^(?=\[preset\.\d+\]$)", s)
+    for i, b in enumerate(bolumler):
+        m = re.search(r'^platform="(.*)"$', b, re.M)
+        filt = A["export_haric"]
+        if m and paket and ozel.get(m.group(1)):
+            filt += "," + ozel[m.group(1)]
+        bolumler[i] = re.sub(r'^exclude_filter=".*"$', 'exclude_filter="%s"' % filt, b, flags=re.M)
+    s = "".join(bolumler)
     with open(ep, "w", encoding="utf-8") as f:
         f.write(s)
+    if paket:
+        print("sprite paketi var: platform bicimleri ayri export edilir")
     print("ayarlandi: project.godot, %d .import, export_presets.cfg" % n)
 
 
@@ -282,10 +294,18 @@ def butce(build="build", md=None):
             uyari.append("%s haritasi %.1f MB (bolum butcesi %d MB)" % (art[:-4], tt, B["yeni_bolum"]))
     spr = 0
     sd = os.path.join(KOK, "assets", "sprites")
-    for fn in os.listdir(sd):
-        if fn.endswith(".png"):
-            spr += _ctex_boyutu(os.path.join(sd, fn))
-    satirlar.append("| (karakter sprite'lari) | | | | | %.1f |" % _mb(spr))
+    pk = os.path.join(sd, "paket")
+    if os.path.isdir(pk) and any(f.endswith("_etc2.res") for f in os.listdir(pk)):
+        for fn in os.listdir(pk):
+            if fn.endswith("_etc2.res"):
+                spr += os.path.getsize(os.path.join(pk, fn))
+        etiket = "(karakter sprite'lari, paket ETC2)"
+    else:
+        for fn in os.listdir(sd):
+            if fn.endswith(".png"):
+                spr += _ctex_boyutu(os.path.join(sd, fn))
+        etiket = "(karakter sprite'lari)"
+    satirlar.append("| %s | | | | | %.1f |" % (etiket, _mb(spr)))
     satirlar.append("| **Toplam varlik** | | | | | **%.1f** |" % (toplam_harita + _mb(spr)))
     paket = [("APK", os.path.join(build, "android", "komando.apk"), B["apk"]),
              ("Windows zip", os.path.join(build, "dist", "Komando-Windows.zip"), B["pc_zip"]),

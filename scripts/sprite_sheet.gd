@@ -38,10 +38,32 @@ static func load_layout(path: String) -> Dictionary:
 	return layout
 
 
+static func packed_path(path: String) -> String:
+	## Tur 3: CI'da tools/varlik/sprite_paketle.gd uretir: platformun VRAM bicimi, zstd sikistirilmis .res
+	## (APK .ctex'i sikistirmadan saklar: 8,4 MB -> 1,8 MB). Telefon ETC2, PC/Web S3TC.
+	var base := path.get_base_dir() + "/paket/" + path.get_file().get_basename()
+	var fmts := ["s3tc", "etc2"] if OS.has_feature("s3tc") else ["etc2", "s3tc"]
+	for f in fmts:
+		if ResourceLoader.exists(base + "_" + f + ".res"):
+			return base + "_" + f + ".res"
+	return ""
+
+
+static func sheet_exists(path: String) -> bool:
+	return packed_path(path) != "" or ResourceLoader.exists(path)
+
+
+static func load_sheet(path: String) -> Texture2D:
+	var pp := packed_path(path)
+	if pp != "":
+		return load(pp)
+	if ResourceLoader.exists(path):
+		return load(path)
+	return null
+
+
 static func build_frames(path: String, layout: Dictionary) -> SpriteFrames:
-	if not ResourceLoader.exists(path):
-		return null
-	var tex: Texture2D = load(path)
+	var tex: Texture2D = load_sheet(path)
 	if tex == null:
 		return null
 	var fs: int = int(layout["frame"])

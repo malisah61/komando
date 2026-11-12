@@ -72,7 +72,7 @@ func _ready() -> void:
 	navigation_agent.radius = 10.0
 	add_child(navigation_agent)
 	for path in SHEETS:
-		if ResourceLoader.exists(path):
+		if SpriteSheet.sheet_exists(path):
 			sprite = SpriteSheet.attach(self, path)
 			break
 	if sprite != null:
@@ -290,14 +290,14 @@ func blow_disguise() -> void:
 		return
 	disguise = ""
 	for path in SHEETS:
-		if ResourceLoader.exists(path):
+		if SpriteSheet.sheet_exists(path):
 			_set_outfit(path)
 			break
 	main.hud.toast("Kılığın açığa çıktı!")
 
 
 func _set_outfit(path: String) -> void:
-	if sprite == null or not ResourceLoader.exists(path):
+	if sprite == null or not SpriteSheet.sheet_exists(path):
 		return
 	var tmp: AnimatedSprite2D = SpriteSheet.attach(self, path)
 	if tmp == null:
