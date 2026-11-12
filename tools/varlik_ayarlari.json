@@ -1,20 +1,59 @@
 {
   "_aciklama": "Varlik hatti ayarlari (tek yer). render (tools/blender/harita.py) -> sikistirma (tools/varlik/hat.py sikistir) -> Godot import (hat.py ayarla bu dosyadan project.godot ve .import dosyalarini yazar) -> export (export_presets.cfg). Belge: docs/GELISTIRME.md 'Varlik ve boyut butcesi'.",
   "harita": {
-    "zemin": {"bicim": "webp", "kalite": 90, "karo_px": 1024, "olcek": 1.0},
-    "nesne": {"bicim": "webp", "kalite": 92, "alfa_kalite": 95, "kirp": true},
-    "cati":  {"bicim": "webp", "kalite": 92, "alfa_kalite": 95, "kirp": true},
-    "mini":  {"bicim": "webp", "kalite": 85, "genislik_px": 2048}
+    "zemin": {
+      "bicim": "webp",
+      "kalite": 90,
+      "karo_px": 1024,
+      "olcek": 1.0
+    },
+    "nesne": {
+      "bicim": "webp",
+      "kalite": 92,
+      "alfa_kalite": 95,
+      "kirp": true
+    },
+    "cati": {
+      "bicim": "webp",
+      "kalite": 92,
+      "alfa_kalite": 95,
+      "kirp": true
+    },
+    "mini": {
+      "bicim": "webp",
+      "kalite": 85,
+      "genislik_px": 2048
+    }
   },
   "godot_import": {
-    "harita": {"compress/mode": 1, "compress/lossy_quality": 0.82, "mipmaps/generate": false, "process/fix_alpha_border": true},
-    "sprite": {"compress/mode": 2, "compress/lossy_quality": 0.9, "mipmaps/generate": false, "process/fix_alpha_border": true},
+    "harita": {
+      "compress/mode": 1,
+      "compress/lossy_quality": 0.82,
+      "mipmaps/generate": false,
+      "process/fix_alpha_border": true
+    },
+    "sprite": {
+      "compress/mode": 2,
+      "compress/lossy_quality": 0.9,
+      "mipmaps/generate": false,
+      "process/fix_alpha_border": true
+    },
     "_sprite_neden": "Karakter sprite'lari her an ekranda ve bellekte: VRAM sikistirma (ETC2/S3TC) telefonda 4 kat az doku bellegi kullanir. Harita atlaslari ve zemin ise kayipli WebP (indirme boyutu 10 kat kucuk), zemin kamera yakininda akisla yuklenir."
   },
   "bolum_ozel": {
-    "_aciklama": "Bolume ozel ayar (harita bolumunu ezer). Buyuk yeni bolumlerde zemin 1.5 px/birim (telefon ekranindaki 1:1 yakinlastirmaya esit), nesne ve catilar 2 px/birim kalir.",
-    "bolum4": {"zemin": {"olcek": 0.75}},
-    "bolum5": {"zemin": {"olcek": 0.75}}
+    "_aciklama": "Bolume ozel ayar (harita bolumunu ezer). Buyuk yeni bolumlerde zemin 1.5 px/birim (telefon ekranindaki 1:1 yakinlastirmaya esit), nesne ve catilar 2 px/birim kalir. godot_zemin_kalite: o bolumun zemin karolari icin Godot kayipli kalite (gece/dokulu zeminde bant olusmadan bütçe icin).",
+    "bolum4": {
+      "zemin": {
+        "olcek": 0.75
+      },
+      "godot_zemin_kalite": 0.62
+    },
+    "bolum5": {
+      "zemin": {
+        "olcek": 0.75
+      },
+      "godot_zemin_kalite": 0.62
+    }
   },
   "export_haric": "tests/*,tools/*,docs/*,kaynak/*,build/*,*.blend,*.glb,*.gltf,*/_tmp/*,*/_ham/*,*.md",
   "export_haric_platform": {

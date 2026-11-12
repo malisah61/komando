@@ -228,7 +228,8 @@ Hedefler: **APK ≤ 200 MB**, **PC zip ≤ 120 MB**, **yeni bölüm ≤ 15 MB** 
 | bolum1 | 3,3 | 3,0 | 3,1 | 3,1 | 12,5 |
 | bolum2 | 3,0 | 2,9 | 3,0 | 2,8 | 11,7 |
 | bolum3 | 5,5 | 5,2 | 5,4 | 5,4 | 21,6 (zemin 3,9 MB/açı; eski bölüm, bütçe öncesi) |
-| bolum4, bolum5 | | | | | render sonrası CI'da ölçülür (zemin ölçeği 0,75) |
+| bolum4 | 3,8 | 3,6 | 3,6 | 3,6 | **14,6** ✔ (zemin 0,75 ölçek + Godot kalite 0,62, skyline atlas) |
+| bolum5 | | | | | render sürüyor (bellek düzeltmesiyle yeniden) |
 | karakter sprite'ları | | | | | 56,0 |
 
 Önce (Tur 2, açı başına bölüm 3'te ~27 MB) → sonra (5,4 MB). Bölüm 3'te zemin açı başına 2048² DXT1/ETC2 yerine 1024 px WebP.
@@ -349,3 +350,8 @@ Geliştirme listesi bu bulgulardan: takipçiyi koruyan bot, Bölüm 0'a siren + 
 2. **Geniş alan araması:** Alarmda olay yerine 900 px içindeki en yakın 8 asker gönderilir; her biri olay yerinin 80–320 px çevresinde rastgele bir noktaya koşar, sonra arar. Arama yarıçapı sarı alarmda ×1,6, kırmızıda ×2,6; nokta sayısı 3 → 4 → 6.
 3. **"Çevir" artık anında:** Bir sonraki açının atlasları arka planda önceden yükleniyor; zemin karoları beklenmiyor (önizleme görünür, karolar akışla gelir). Bölüm 3'te açı değişimi 689–820 ms → **72 ms** (tek kare). Bedeli: önceden yüklenen açı için ~85 MB doku belleği (en yüksek 291 → 379 MB).
 Bot (tohum 1): Bölüm 0 saldırı tarzı artık kaybediyor (önce 0:34'te kazanıyordu), gizli tarz yine 1:02'de kazanıyor; Bölüm 2 gizli bot daha erken yakalanıyor (4:30 → 2:51).
+
+### Tur 3d – Render kontrolü (11:40)
+- **Bölüm 4** render edildi (4 açı). Atlaslar skyline ile yeniden paketlendi (nesne 19,5 → 14,6 Mpx, çatı 5,9 → 3,0 Mpx). İlk ölçüm 19,9 MB idi (bütçe 15); bu bölümün zemini için Godot kalitesi 0,62'ye indirildi (`bolum_ozel.bolum4.godot_zemin_kalite`) → **14,6 MB** ✔. 2× yakınlaştırmada zemin biraz yumuşak ama bant/hale yok (gece ambiyansında fark edilmiyor).
+- 4 açı görüntüsü: `docs/ekran/tur3_bolum4_4aci.jpg`; dikenli tel, kule ve projektör ışığı: `docs/ekran/tur3_bolum4_tel_projektor.jpg` ("Tel makası gerekli" düğmesi görünür).
+- **Bölüm 5:** dört açının hepsi CI'da bellek yetmediğinden düşmüştü; `harita.py` bellek düzeltmesiyle 0 ve 1–3 açıları yeniden render ediliyor.

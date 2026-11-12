@@ -330,7 +330,14 @@ def ayarla():
         for dp, _, fs in os.walk(os.path.join(KOK, kok)):
             for fn in fs:
                 if fn.endswith(".import"):
-                    n += _import_yaz(os.path.join(dp, fn), gi[kat])
+                    params = dict(gi[kat])
+                    # bolume ozel zemin kalitesi (levels/<bolum>_art/vK/ground_*.webp)
+                    if kat == "harita" and fn.startswith("ground_") and "mini" not in fn:
+                        ad = os.path.basename(os.path.dirname(dp))[:-4]
+                        q = A.get("bolum_ozel", {}).get(ad, {}).get("godot_zemin_kalite")
+                        if q is not None:
+                            params["compress/lossy_quality"] = q
+                    n += _import_yaz(os.path.join(dp, fn), params)
     # export disi dosyalar
     ep = os.path.join(KOK, "export_presets.cfg")
     with open(ep, encoding="utf-8") as f:
