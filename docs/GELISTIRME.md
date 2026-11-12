@@ -405,7 +405,11 @@ Saldırı tarzı Bölüm 1–6'da 0/3 (pervasızlık cezalandırılıyor ✔). T
 - Testler: sim, sim1–4, sim_bolum (0–6, "merge edge" yok; Bölüm 0–1'de "yeterli asker" eşiği eski bölümler için önceden de başarısız), sim_kayit (0–6) geçti.
 - Ekran: `docs/ekran/tur4_kayit.jpg` (panel, ölüm ekranı, oyun), `docs/ekran/tur4_bolum3_4aci.jpg` (4 açı).
 
+- **CI (Derle, e4d32dc):** APK 108,8 MB ✔ · Windows zip 115,5 MB ✔ · Linux zip 109,7 MB ✔ · Web .pck 88,5 MB ✔. Gece sürümü: `gece-2026-11-12` etiketi (APK + 2 zip); `son-surum` güncel. Bölüm 3 haritası 16,1 MB (bütçe 15; eski bölüm, uyarı sürüyor).
+- **Risk:** Bölüm 6 render'ı (~15 MB) gelince Windows zip ~130 MB olur (bütçe 120). Render bitince Bölüm 6 / Bölüm 3 kalitesi düşürülmeli ya da PC paketinde açı başına zemin önizlemesi paylaşılmalı.
+
 ### 6. Sonraki tur
+0. Bölüm 6 render'ı sonrası PC zip bütçesi (yukarıdaki risk).
 1. Gizli bot Bölüm 1, 2, 4, 5, 6'yı kazanamıyor: ölüm noktalarına ikinci yol / çalı / siper; bot için taşla dikkat dağıtma ve üniforma.
 2. Zorluk seviyesi (Er/Çavuş/Komando) + ayarlar ekranı (Sistemler gecesi devamı).
 3. Bölüm 0 saldırı tarzı kazanıyor.

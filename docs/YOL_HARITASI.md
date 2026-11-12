@@ -12,6 +12,7 @@ Son güncelleme: Tur 4 (12 Kasım 2026, Perşembe – Sistemler).
 | Bonus görevler | 12 bölüm dolunca, gecede 1 |
 
 ## Öncelikler (bot ve oyuncu notlarından)
+0. **Boyut:** Bölüm 6 render'ı gelince Windows zip ~130 MB olacak (bütçe 120; şu an 115,5). Bölüm 6/3 zemin kalitesi ya da PC sprite paketi.
 1. **Denge – gizli bot Bölüm 1–6'yı kazanamıyor.** Kayıttan devamla bile (4 yükleme) ilerliyor ama bitiremiyor. Tur 4'te tetikte kalma çarpanları düşürüldü (fark etme ×1,25 → ×1,15, koni ×1,2 → ×1,12). Sıradaki: darboğazlara ikinci yol (Bölüm 1 "Ev 3 yakını"), bot için taş/ıslıkla dikkat dağıtma kullanımı, tanık mesafesi.
 2. **Bölüm 0 saldırı tarzı kazanıyor** (eğitim; 6 asker). Belgeyi kilitli dolaba koy ya da ilk takviyeyi erkene al.
 3. **Bot: iyi oyuncu davranışları** – sirene koşanı durdurma, takipçiyi koruma var; taşla dikkat dağıtma ve üniforma/ıslık kullanımı eksik. Kayıt/yükleme Tur 4'te eklendi.
