@@ -229,7 +229,7 @@ Hedefler: **APK ≤ 200 MB**, **PC zip ≤ 120 MB**, **yeni bölüm ≤ 15 MB** 
 | bolum2 | 3,0 | 2,9 | 3,0 | 2,8 | 11,7 |
 | bolum3 | 5,5 | 5,2 | 5,4 | 5,4 | 21,6 (zemin 3,9 MB/açı; eski bölüm, bütçe öncesi) |
 | bolum4 | 3,8 | 3,6 | 3,6 | 3,6 | **14,6** ✔ (zemin 0,75 ölçek + Godot kalite 0,62, skyline atlas) |
-| bolum5 | | | | | render sürüyor (bellek düzeltmesiyle yeniden) |
+| bolum5 | 3,9 | 3,6 | 3,7 | 3,7 | **14,9** ✔ (zemin 0,75 ölçek + kalite 0,55, nesne kalite 0,66, skyline atlas) |
 | karakter sprite'ları | | | | | 56,0 |
 
 Önce (Tur 2, açı başına bölüm 3'te ~27 MB) → sonra (5,4 MB). Bölüm 3'te zemin açı başına 2048² DXT1/ETC2 yerine 1024 px WebP.
@@ -355,3 +355,9 @@ Bot (tohum 1): Bölüm 0 saldırı tarzı artık kaybediyor (önce 0:34'te kazan
 - **Bölüm 4** render edildi (4 açı). Atlaslar skyline ile yeniden paketlendi (nesne 19,5 → 14,6 Mpx, çatı 5,9 → 3,0 Mpx). İlk ölçüm 19,9 MB idi (bütçe 15); bu bölümün zemini için Godot kalitesi 0,62'ye indirildi (`bolum_ozel.bolum4.godot_zemin_kalite`) → **14,6 MB** ✔. 2× yakınlaştırmada zemin biraz yumuşak ama bant/hale yok (gece ambiyansında fark edilmiyor).
 - 4 açı görüntüsü: `docs/ekran/tur3_bolum4_4aci.jpg`; dikenli tel, kule ve projektör ışığı: `docs/ekran/tur3_bolum4_tel_projektor.jpg` ("Tel makası gerekli" düğmesi görünür).
 - **Bölüm 5:** dört açının hepsi CI'da bellek yetmediğinden düşmüştü; `harita.py` bellek düzeltmesiyle 0 ve 1–3 açıları yeniden render ediliyor.
+
+### Tur 3e – Bölüm 5 render'ı (14:00)
+- Bellek düzeltmesiyle (`harita.py`: kopyasız ters çevirme + yarım hassasiyet) Bölüm 5'in 4 açısı CI'da sorunsuz render edildi (açı başına ~1,5–2 sa).
+- İlk ölçüm 16,4 MB → bölüme özel Godot kalitesi (zemin 0,55, nesne 0,66; `bolum_ozel.bolum5`) → **14,9 MB** ✔. 2× yakınlaştırmada nesnelerde hale/bant yok, zemin biraz yumuşak.
+- 4 açı görüntüsü: `docs/ekran/tur3_bolum5_4aci.jpg` (şato avlusu, bahçe çitleri, tank, kamyon).
+- `hat.py ayarla` artık `godot_nesne_kalite` de destekliyor.

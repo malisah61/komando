@@ -332,9 +332,14 @@ def ayarla():
                 if fn.endswith(".import"):
                     params = dict(gi[kat])
                     # bolume ozel zemin kalitesi (levels/<bolum>_art/vK/ground_*.webp)
-                    if kat == "harita" and fn.startswith("ground_") and "mini" not in fn:
+                    if kat == "harita":
                         ad = os.path.basename(os.path.dirname(dp))[:-4]
-                        q = A.get("bolum_ozel", {}).get(ad, {}).get("godot_zemin_kalite")
+                        oz = A.get("bolum_ozel", {}).get(ad, {})
+                        q = None
+                        if fn.startswith("ground_") and "mini" not in fn:
+                            q = oz.get("godot_zemin_kalite")
+                        elif fn.startswith("objects_"):
+                            q = oz.get("godot_nesne_kalite")
                         if q is not None:
                             params["compress/lossy_quality"] = q
                     n += _import_yaz(os.path.join(dp, fn), params)
