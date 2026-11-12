@@ -38,6 +38,11 @@ const STONE_NOISE := 200.0
 var hp := 100.0
 var max_hp := 100.0
 var carrying = null               # tasinan ceset
+# Tur 3
+var disguise := ""                # giyilen Alman uniformasi (er/kis): erler uzaktan fark etmez
+var ropes := 3                    # bayilan askeri baglamak icin ip
+var _whistle_cd := 0.0
+const WHISTLE_CD := 5.0
 var _cool := 0.0
 var _hurt_t := 0.0
 var ghost: AnimatedSprite2D       # bina/agac arkasindayken gorunen silüet (Commandos gibi)
@@ -104,7 +109,7 @@ func attack(g) -> void:
 	if carrying != null:
 		return
 	target_guard = g
-	if weapon == "knife" or global_position.distance_to(g.global_position) > PISTOL_RANGE:
+	if weapon != "pistol" or global_position.distance_to(g.global_position) > PISTOL_RANGE:
 		navigation_agent.target_position = g.global_position
 	else:
 		navigation_agent.target_position = global_position
@@ -125,6 +130,7 @@ func cur_speed() -> float:
 
 func _physics_process(delta: float) -> void:
 	_cool -= delta
+	_whistle_cd -= delta
 	_hurt_t -= delta
 	if not alive or main.game_over or not nav_ready():
 		velocity = Vector2.ZERO
@@ -170,16 +176,20 @@ func _attack_step(delta: float) -> void:
 		navigation_agent.target_position = global_position
 		return
 	var d := global_position.distance_to(g.global_position)
-	if weapon == "knife":
+	if weapon == "knife" or weapon == "fist":
 		if d < 30.0:
 			# onden ve tetikteyken tek darbede olmez: yaralar, catisma baslar
 			var to_me: Vector2 = global_position - g.global_position
 			var facing_me: bool = absf(wrapf(to_me.angle() - g.facing, -PI, PI)) < 1.2
 			if g.state == &"combat" and facing_me:
-				g.take_damage(KNIFE_FRONT_DMG, global_position)
+				g.take_damage(KNIFE_FRONT_DMG if weapon == "knife" else 12.0, global_position)
 				_cool = 0.6
+			elif weapon == "fist":
+				g.knock_out()                 # bayilt: oldurmez, ~40 sn sonra ayilir (bagla!)
+				main.stats["knockouts"] = main.stats.get("knockouts", 0) + 1
 			else:
 				g.kill()
+			main.scuffle(g.global_position, self)
 			target_guard = null
 			_play(&"action", true)
 			navigation_agent.target_position = global_position
@@ -210,6 +220,7 @@ func _attack_step(delta: float) -> void:
 				aim += Vector2(randf_range(-28, 28), randf_range(-28, 28))
 			Fx.tracer(main.world, global_position + Vector2(0, -18), aim)
 			main.make_noise(global_position, PISTOL_NOISE, self)
+			blow_disguise()
 			if hit:
 				g.take_damage(PISTOL_DMG * randf_range(0.85, 1.15), global_position)
 			main.hud.refresh_items()
@@ -251,6 +262,60 @@ func throw_stone(p: Vector2) -> bool:
 	main.hud.refresh_items()
 	get_tree().create_timer(0.45, false).timeout.connect(func(): main.distract(to, STONE_NOISE))
 	return true
+
+
+func do_whistle() -> void:
+	## islik: 190 px icindeki askerler sesin geldigi yere bakmaya gelir
+	if _whistle_cd > 0.0 or not alive:
+		main.hud.toast("Islık için bekle (%d sn)" % ceili(maxf(_whistle_cd, 0.0)))
+		return
+	_whistle_cd = WHISTLE_CD
+	var n: int = main.whistle(global_position)
+	main.hud.toast("Islık çaldın: %d asker geliyor" % n if n > 0 else "Islık çaldın (yakında asker yok)")
+
+
+func put_on_uniform(g) -> void:
+	## Commandos 2: olu/bayilan erin uniformasini giy. Erler uzaktan fark etmez; SS ve subay tanir.
+	if g == null or g.stripped or g.kind == "elit" or g.kind == "subay" or g.kind == "kule":
+		return
+	g.stripped = true
+	disguise = g.kind
+	_set_outfit("res://assets/sprites/alman_%s_sprite_sheet.png" % g.kind)
+	main.stats["disguises"] = main.stats.get("disguises", 0) + 1
+	main.hud.toast("Üniformayı giydin: erler seni uzaktan tanımaz (SS ve subaylara dikkat!)")
+
+
+func blow_disguise() -> void:
+	if disguise == "":
+		return
+	disguise = ""
+	for path in SHEETS:
+		if ResourceLoader.exists(path):
+			_set_outfit(path)
+			break
+	main.hud.toast("Kılığın açığa çıktı!")
+
+
+func _set_outfit(path: String) -> void:
+	if sprite == null or not ResourceLoader.exists(path):
+		return
+	var tmp: AnimatedSprite2D = SpriteSheet.attach(self, path)
+	if tmp == null:
+		return
+	sprite.sprite_frames = tmp.sprite_frames
+	if ghost != null:
+		ghost.sprite_frames = tmp.sprite_frames
+	remove_child(tmp)
+	tmp.queue_free()
+
+
+func tie_up(g) -> void:
+	if g == null or not g.knocked or g.tied or ropes <= 0:
+		return
+	ropes -= 1
+	g.tied = true
+	g.queue_redraw()
+	main.hud.toast("Asker bağlandı (kalan ip: %d)" % ropes)
 
 
 func use_medkit() -> void:

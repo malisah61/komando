@@ -7,6 +7,7 @@ var main
 var frame := 0
 var fails := 0
 var g_start := {}
+var had := false
 
 
 func _initialize() -> void:
@@ -51,9 +52,11 @@ func _physics_process(_delta: float) -> bool:
 	if frame == 300:
 		check(main.cur_interior >= 0 and main.level.interiors[main.cur_interior]["irect"].has_point(main.commando.global_position), "Ev A'nin icindeyiz (ayri ekran)")
 		# 4 yonlu bakis: aci yoksa cevirme reddedilir, varsa doner
-		var had: bool = main.level.has_view(1)
+		had = main.level.has_view(1)
 		main.rotate_view(1)
+	if frame == 330:
 		check(main.level.view == (1 if had else 0), "bakis acisi cevirme (%s)" % ("render var" if had else "render yok, reddedildi"))
+	if frame == 330:
 		print("game_over=", main.game_over, " alert=", main.alert_level)
 		print("SONUC: ", "BASARILI" if fails == 0 else "%d HATA" % fails)
 		quit(1 if fails > 0 else 0)

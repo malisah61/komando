@@ -1,11 +1,12 @@
 extends SceneTree
 ## Bolum ekran goruntusu (4 aci): xvfb-run godot -s res://tests/shot_bolum.gd -- --level=res://levels/bolum2.json
 ##   --cx=3200 --cy=1300 --zoom=0.8 --out=/tmp/b2 --views=0,1
+##   --temiz=1 : arayuz, koniler ve karakterler gizli (sikistirma once/sonra karsilastirmasi icin)
 ## Kamera noktasina komandoyu da koyar; askerler, koniler, sirenler, kuleler gorunur.
 
 var main
 var frame := 0
-var opts := {"level": "res://levels/bolum2.json", "cx": "1600", "cy": "1200", "zoom": "0.8", "out": "/tmp/shot", "views": "0,1"}
+var opts := {"level": "res://levels/bolum2.json", "cx": "1600", "cy": "1200", "zoom": "0.8", "out": "/tmp/shot", "views": "0,1", "temiz": "0"}
 var views: Array = []
 
 
@@ -38,6 +39,12 @@ func _process(_delta: float) -> bool:
 		main.commando.move_to(main.commando.global_position)
 		main.commando.crouch = true
 		_cam()
+	if frame >= 10 and opts["temiz"] == "1":
+		main.hud.visible = false
+		main.cones.visible = false
+		for ch in main.world.get_children():
+			if not ch.has_meta("static_z"):
+				ch.visible = false
 	for i in views.size():
 		var at := 40 + i * 40
 		if frame == at - 20:

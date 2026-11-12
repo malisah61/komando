@@ -7,11 +7,13 @@ kadar yukari kayar (oyundaki yukseltilmis cizimle ayni geometri).
 
     blender -b --python tools/blender/harita.py -- levels/bolum0.json [--samples 32] [--quick]
 
-Cikti: levels/<bolum>_art/
-    ground.jpg     zemin (yollar, camur, su, kopruler, bina ici zeminler, nesnelerin golgeleri)
-    objects.png    nesne atlasi (duvarlar, agaclar, kum torbalari, araclar ...)
-    roofs.png      cati atlasi (bina icine girince seffaflasir)
+Cikti (ham, kayipsiz): levels/<bolum>_art/v<aci>/   (v0..v3 hep ayni duzen)
+    ground_X_Y.png zemin karolari (yollar, camur, su, kopruler, bina ici zeminler, nesnelerin golgeleri)
+    objects_N.png  nesne atlasi (duvarlar, agaclar, kum torbalari, araclar ...)
+    roofs_N.png    cati atlasi (bina icine girince seffaflasir)
     manifest.json  her parcanin atlas bolgesi, dunyadaki yeri ve hangi engele ait oldugu
+Sonraki adim: python3 tools/varlik/hat.py sikistir levels/<bolum>_art/v<aci>
+(WebP'ye cevirir, ayarlar tools/varlik_ayarlari.json). Hat: render -> sikistir -> Godot import -> export.
 """
 import bpy
 import bmesh
@@ -311,11 +313,11 @@ def box(name, x, y, z, sx, sy, sz, material, coll, rot=0.0):
     return obj_from_bm(name, bm, material, coll)
 
 
-def cyl(name, x, y, z, r, h, material, coll, segs=10, axis="Z"):
+def cyl(name, x, y, z, r, h, material, coll, segs=10, axis="Z", caps=True):
     bm = bmesh.new()
-    bmesh.ops.create_cone(bm, cap_ends=True, segments=segs, radius1=r, radius2=r, depth=h)
-    if axis == "X":
-        bmesh.ops.rotate(bm, cent=Vector(), matrix=Matrix.Rotation(math.pi / 2, 3, "Y"), verts=bm.verts)
+    bmesh.ops.create_cone(bm, cap_ends=caps, segments=segs, radius1=r, radius2=r, depth=h)
+    if axis in ("X", "Y"):
+        bmesh.ops.rotate(bm, cent=Vector(), matrix=Matrix.Rotation(math.pi / 2, 3, "Y" if axis == "X" else "X"), verts=bm.verts)
         bmesh.ops.translate(bm, vec=B(x, y, z), verts=bm.verts)
     else:
         bmesh.ops.translate(bm, vec=B(x, y, z + h / 2), verts=bm.verts)
@@ -687,6 +689,27 @@ def build(level, quick=False):
                 objs.append(box("direk", px, py, 0, 5, 5, 20, M["wood"], o_coll))
             for z in (8, 16):
                 objs.append(box("tel", (bb[0] + bb[2]) / 2, (bb[1] + bb[3]) / 2, z, max(w, 3), max(h, 3), 2.5, M["wood"], o_coll))
+        elif t == "tel":
+            # dikenli tel orgu (tel makasiyla kesilebilir): X kazikli, sarmal tel
+            horiz = w >= h
+            L = w if horiz else h
+            n = max(2, int(L / 34) + 1)
+            for i in range(n):
+                t0 = i / (n - 1)
+                px = bb[0] + (L * t0 if horiz else w / 2)
+                py = bb[1] + (h / 2 if horiz else L * t0)
+                objs.append(box("kazik", px, py, 0, 4, 4, 18, M["grey"], o_coll, rot=0.6))
+                objs.append(box("kazik", px, py, 0, 4, 4, 18, M["grey"], o_coll, rot=-0.6))
+            k = max(3, int(L / 9))
+            for i in range(k):
+                t0 = (i + 0.5) / k
+                px = bb[0] + (L * t0 if horiz else w / 2)
+                py = bb[1] + (h / 2 if horiz else L * t0)
+                objs.append(cyl("sarmal", px, py, 8 + (i % 2) * 2, 7.0, 1.4, M["grey"], o_coll, 8, "X" if horiz else "Y", caps=False))
+        elif t == "projektor":
+            # projektor kulesi: kisa direk + tepe lambasi (isik oyunda cizilir)
+            objs.append(cyl("direk", cx, cy, 0, 3.5, 40, M["grey"], o_coll, 8))
+            objs.append(cyl("lamba", cx, cy, 40, 8, 9, M["grey"], o_coll, 10))
         elif t == "tent":
             bm = bmesh.new()
             ridge_h = 40
@@ -1042,7 +1065,7 @@ def main():
         level = json.load(f)
     W0, H0 = level["size"]
     W, H = (H0, W0) if VIEW % 2 else (W0, H0)       # bu acidaki ekran boyutu
-    out_dir = os.path.splitext(path)[0] + "_art" + ("/v%d" % VIEW if VIEW else "")
+    out_dir = os.path.splitext(path)[0] + "_art/v%d" % VIEW
     os.makedirs(out_dir, exist_ok=True)
     tmp = os.path.join(out_dir, "_tmp")
     os.makedirs(tmp, exist_ok=True)
@@ -1065,13 +1088,13 @@ def main():
     ground = render_to_array(os.path.join(tmp, "ground.png"), RW, RH)
     manifest = {"size": [W, H], "world_size": [W0, H0], "view": VIEW, "shear": SHEAR, "wall_h": WALL_H, "scale": SCALE, "ground": []}
     for f in os.listdir(out_dir):        # eski ciktilari temizle
-        if f.endswith((".jpg", ".png")) or f.endswith(".import"):
+        if f.endswith((".jpg", ".png", ".webp")) or f.endswith(".import"):
             os.remove(os.path.join(out_dir, f))
     for ty in range(0, RH, TILE):
         for tx in range(0, RW, TILE):
             part = ground[ty:ty + TILE, tx:tx + TILE, :3].copy()
-            fn = f"ground_{tx // TILE}_{ty // TILE}.jpg"
-            save_array(part, os.path.join(out_dir, fn), "JPEG", 90)
+            fn = f"ground_{tx // TILE}_{ty // TILE}.png"
+            save_array(part, os.path.join(out_dir, fn), "PNG")
             manifest["ground"].append({"file": fn, "rect": [tx / SCALE, ty / SCALE, part.shape[1] / SCALE, part.shape[0] / SCALE]})
     sc.render.film_transparent = True
 

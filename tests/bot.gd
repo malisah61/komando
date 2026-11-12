@@ -38,6 +38,11 @@ var _thrown_at := {}           # hangi izleyiciye tas atildi
 var _carry_t := 0.0
 var _wait_on := {}             # izleyici -> toplam bekleme
 var chase_t := 0.0
+var _wire_t := 0.0
+var _lag_t := 0.0
+var _had_cutter := false
+var _dodge_t := 0.0
+var _light_d := {}
 var flee_t := 0.0
 var flee_to := Vector2.ZERO
 # gizli rota planlayici (Tur 2): 50 px izgarada A*, nobetci konileri ve devriye hatlari pahali, calilar ucuz
@@ -212,6 +217,20 @@ func _build_astar() -> void:
 			var q: Vector2 = NavigationServer2D.map_get_closest_point(map, c)
 			if q.distance_to(c) > CELL * 0.45:
 				astar.set_point_solid(Vector2i(x, y), true)
+	# Tur 3: tel makasi varsa dikenli tel gecilebilir sayilir (yaklasinca kesilir)
+	_had_cutter = main.mission.items.get("tel_makasi", 0) > 0
+	if _had_cutter:
+		for w in lvl.wires:
+			if w["cut"]:
+				continue
+			var bb := Rect2(w["pts"][0], Vector2.ZERO)
+			for q in w["pts"]:
+				bb = bb.expand(q)
+			bb = bb.grow(CELL * 0.6)
+			for x in range(int(bb.position.x / CELL), int(bb.end.x / CELL) + 1):
+				for y in range(int(bb.position.y / CELL), int(bb.end.y / CELL) + 1):
+					if astar.is_in_boundsv(Vector2i(x, y)):
+						astar.set_point_solid(Vector2i(x, y), false)
 	_danger_t = 0.0
 
 
@@ -264,6 +283,22 @@ func _update_danger() -> void:
 							var ci := pc + Vector2i(dx, dy)
 							if astar.is_in_boundsv(ci):
 								w[ci.y * n.x + ci.x] += 5.0
+	# Tur 3: projektor isik yollari pahali
+	for sl in lvl.searchlights:
+		if not sl["on"]:
+			continue
+		var lp: Array = sl["path"]
+		for i in lp.size() - 1:
+			var a: Vector2 = lp[i]
+			var b: Vector2 = lp[i + 1]
+			var steps := int(a.distance_to(b) / CELL) + 1
+			for j in steps + 1:
+				var pc := Vector2i(a.lerp(b, float(j) / steps) / CELL)
+				for dx in range(-2, 3):
+					for dy in range(-2, 3):
+						var ci := pc + Vector2i(dx, dy)
+						if astar.is_in_boundsv(ci):
+							w[ci.y * n.x + ci.x] += 9.0
 	for x in n.x:
 		for y in n.y:
 			astar.set_point_weight_scale(Vector2i(x, y), w[y * n.x + x])
@@ -476,9 +511,9 @@ func _fight(dt: float) -> bool:
 		elif hostile and d < 130.0:
 			if d < bd:
 				best = g; bd = d; mode = "knife"
-		elif not hostile and d < 120.0 and not _sees_me(g):
+		elif not hostile and d < 120.0 and not _sees_me(g) and main.level.has_los(c.global_position, g.global_position):
 			if d < bd:
-				best = g; bd = d; mode = "knife"
+				best = g; bd = d; mode = "fist" if (c.ropes > 0 and opts["style"] != "saldiri") else "knife"
 	if best == null:
 		return false
 	c.weapon = mode
@@ -534,6 +569,11 @@ func _hide_body(dt: float) -> bool:
 	var c = main.commando
 	if opts["style"] == "saldiri":
 		return false
+	# Tur 3: bayilttigi askeri hemen bagla (yoksa ~40 sn sonra ayilir)
+	var kb = c.body_nearby()
+	if kb != null and kb.knocked and not kb.tied and c.ropes > 0:
+		c.tie_up(kb)
+		rep["tied"] = rep.get("tied", 0) + 1
 	if c.carrying != null:
 		for g in _guards():
 			if g.alive and g.state == &"combat" and g.global_position.distance_to(c.global_position) < 300.0:
@@ -639,6 +679,13 @@ func _stealth_hold(dt: float) -> bool:
 					rep["stones"] += 1
 					wait_t = 0.1
 				break
+	# Tur 3: projektor isigi yolun ustundeyse/yaklasiyorsa bekle (isik gecsin)
+	if wa == null and main.cur_interior < 0:
+		for sl in main.level.searchlights:
+			if sl["on"] and (sl["pos"].distance_to(ahead) < sl["r"] + 45.0 or sl["pos"].distance_to(c.global_position) < sl["r"] + 25.0):
+				wa = sl["op"] if sl["op"] != null else _guards()[0]
+				rep["light_waits"] = rep.get("light_waits", 0) + (1 if wait_t == 0.0 else 0)
+				break
 	if wa != null and wait_t < 7.0:
 		if wait_t == 0.0:
 			rep["waits"] += 1
@@ -694,6 +741,8 @@ func _process(dt: float) -> bool:
 	if astar == null and opts["style"] != "saldiri":
 		_build_astar()
 		main.level.changed_map.connect(func(): _build_astar())
+	if astar != null and (m.items.get("tel_makasi", 0) > 0) != _had_cutter:
+		_build_astar()
 	if astar != null:
 		_danger_t -= dt
 		if _danger_t <= 0.0 or main.bodies.size() != _dead_n:
@@ -728,6 +777,10 @@ func _process(dt: float) -> bool:
 	if m.plant_target != null and m.bombs.is_empty() and m.plant_target["id"] == goal_key:
 		m.start_planting()
 		return false
+	# tel kesiliyor: tehlike yoksa yerinde kal (hareket kesmeyi bozar)
+	if main._cut_i >= 0 and main.alert_level < 2 and c.target_guard == null:
+		c.navigation_agent.target_position = c.global_position
+		return false
 	if _flee(dt):
 		return false
 	if _fight(dt):
@@ -741,12 +794,82 @@ func _process(dt: float) -> bool:
 			near = true
 			break
 	c.crouch = near and opts["style"] != "saldiri"
+	# Tur 3: projektor isigi yaklasiyorsa yolundan cekil (isikta beklemek yakalatir)
+	if opts["style"] != "saldiri" and main.cur_interior < 0 and _dodge_t <= 0.0:
+		for sl in main.level.searchlights:
+			if not sl["on"]:
+				continue
+			var lp: Vector2 = sl["pos"]
+			var dl: float = lp.distance_to(c.global_position)
+			if dl < sl["r"] + 90.0:
+				var prev: float = _light_d.get(sl["pole"], INF)
+				_light_d[sl["pole"]] = dl
+				if dl <= prev + 1.0:
+					var away: Vector2 = (c.global_position - lp).normalized()
+					if away == Vector2.ZERO:
+						away = Vector2.RIGHT
+					var map1: RID = c.navigation_agent.get_navigation_map()
+					c.move_to(NavigationServer2D.map_get_closest_point(map1, c.global_position + away * (sl["r"] + 120.0)))
+					c.run_once = true
+					_dodge_t = 1.2
+					rep["light_dodges"] = rep.get("light_dodges", 0) + 1
+					return false
+			else:
+				_light_d.erase(sl["pole"])
+	if _dodge_t > 0.0:
+		_dodge_t -= dt
+		return false
 	# gizli tarz: ilerideki noktayi goren devriye varsa bekle; supheleniyorsa geri cekil
 	if opts["style"] != "saldiri" and _stealth_hold(dt):
+		return false
+	# Tur 3: takipciyi koru: geride kaldiysa bekle (onu da gorebilirler), kosma
+	var lag := false
+	for id in m.npcs:
+		var fn = m.npcs[id]
+		if fn.following and fn.alive and fn.global_position.distance_to(c.global_position) > 190.0 \
+				and main.level.interior_at(fn.global_position) == main.cur_interior and not _escaping():
+			lag = true
+	_lag_t = (_lag_t + dt) if lag else 0.0
+	if _lag_t > 8.0:
+		_lag_t = -4.0            # takipci takildi: biraz ilerle, yeniden bekle
+	if lag and opts["style"] != "saldiri" and _lag_t >= 0.0:
+		c.navigation_agent.target_position = c.global_position
+		rep["follower_waits"] = rep.get("follower_waits", 0) + 1
 		return false
 	var gl = _goal()
 	if gl == null:
 		return false
+	# Tur 3: tel makasi: yol tel orgu yuzunden cok dolaniyorsa yakindaki teli kes
+	if main._cut_i >= 0:
+		return false
+	_wire_t -= dt
+	if _wire_t <= 0.0 and m.items.get("tel_makasi", 0) > 0 and main.cur_interior < 0:
+		_wire_t = 1.5
+		var wi: int = main.level.wire_near(c.global_position, 40.0)
+		# rota telin icinden geciyorsa kes
+		if wi >= 0 and _use_route:
+			var wb := Rect2(main.level.wires[wi]["pts"][0], Vector2.ZERO)
+			for q in main.level.wires[wi]["pts"]:
+				wb = wb.expand(q)
+			for j in range(_route_i, mini(_route_i + 3, _route.size())):
+				if wb.grow(CELL * 0.7).has_point(_route[j]):
+					main._cut_i = wi
+					main._cut_t = 0.0
+					c.move_to(c.global_position)
+					rep["wires_cut"] = rep.get("wires_cut", 0) + 1
+					return false
+		if wi >= 0:
+			var map0: RID = c.navigation_agent.get_navigation_map()
+			var pth := NavigationServer2D.map_get_path(map0, c.global_position, gl[1], true)
+			var plen := 0.0
+			for k in range(pth.size() - 1):
+				plen += pth[k].distance_to(pth[k + 1])
+			if plen > c.global_position.distance_to(gl[1]) * 1.5 + 250.0:
+				main._cut_i = wi
+				main._cut_t = 0.0
+				c.move_to(c.global_position)
+				rep["wires_cut"] = rep.get("wires_cut", 0) + 1
+				return false
 	if gl[0] != goal_key:
 		goal_key = gl[0]
 		repath_t = 0.0
@@ -806,6 +929,8 @@ func _finish() -> void:
 	rep["bodies_found"] = main.stats.get("bodies_found", 0)
 	rep["missed_noticed"] = main.stats.get("missed", 0)
 	rep["runners_stopped"] = main.stats.get("runners_stopped", 0)
+	for k in ["knockouts", "witnessed", "lit", "grenades", "wires", "disguises"]:
+		rep["st_" + k] = main.stats.get(k, 0)
 	if main.game_over and c.alive:
 		var sc: Dictionary = main.score()
 		rep["points"] = sc["points"]

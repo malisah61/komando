@@ -35,7 +35,8 @@
 | 1 | **Nehir Operasyonu** | Orne nehri vadisi | Direnişle buluş, pilotu kurtar, planları çal, köprüyü uçur, kaç | 25–45 dk |
 | 2 | **Karlı Kale** | Norveç fiyordu, kış | Lars ile buluş, telsizi sustur, Şahin'i hapishaneden çıkar, kodları çal, radarı ve uçaksavarı uçur | 30–50 dk |
 | 3 | **Denizaltı Üssü** | Saint-Nazaire benzeri liman | Gölge ile sızma, trafoyu sabote et, kontrol odasından sevkiyat defterini çal, denizaltı kapılarını uçur | 35–55 dk |
-| 4 | Gece Treni | Demiryolu ve kavşak | Mühimmat trenini havaya uçur, Richter'i yakala | 40–60 dk |
+| 4 | **Gece Treni** | Demiryolu kavşağı, gece | Kıvılcım'ı kurtar, sinyali boz, mühimmat trenini uçur | 40–60 dk |
+| 5 | **Kartal Yuvası** (final) | Richter'in şatosu, havaalanı | Santrali kes, Storch'u ve radyo kulesini uçur, planları çal, Richter'i esir al | 50–70 dk |
 
 ## Bölüm 1 – Nehir Operasyonu (ayrıntılı)
 
@@ -91,6 +92,43 @@
 **Zorluk:** 54 asker (SS ağırlıklı), 5 kule, 5 kışla, 6 siren, 13 bina; harita 5400x3800.
 
 **Kapanış:** Henri: *"Bunker yanıyor. Richter'in elinde artık sadece trenler kaldı."* (Bölüm 4: Gece Treni)
+
+## Bölüm 4 – Gece Treni (Tur 3)
+
+**Açılış:** 5 Haziran 1944'e karşı gece, Normandiya'da bir demiryolu kavşağı. Denizaltılar battı; Richter'in elinde artık trenler var. Şafakta geçecek mühimmat treni, kıyıya giden panzer tümeninin cephanesini taşıyor.
+
+**Görev akışı:**
+1. **Temas:** Köydeki lamba evinde demiryolcu direnişçi **Marie Lefèvre**: 3 patlayıcı + **tel makası**.
+2. **Anahtar:** Kamp karargâhındaki masadan nöbet barakasının anahtarı.
+3. **Kıvılcım:** Kilitli nöbet barakasından **Onb. Sam "Kıvılcım" Kowalski** (İstihkamcı) kurtarılır, seni izler.
+4. **Sinyal (sessiz sabotaj):** Sinyal kulübesinde hat bozulur; tren sahada durur, sahanın kışlası telsizsiz kalır.
+5. **Sevk listesi:** Depo ofisinden.
+6. **Lokomotif** ve **mühimmat vagonları** uçurulur (sinyal bozulduktan sonra).
+7. *(İsteğe bağlı)* Su kulesi.
+8. **Kaçış:** Kuzeydoğu ormanındaki kamyon.
+
+**Zorluk:** ~62 asker, 6 kule, **4 projektör** (ışık yolları), **dikenli tel** çevrili manevra sahası (kapılar tutulur, tel kesilerek kendi kapını açarsın), 6 kışla, 7 siren, gece.
+
+**Kapanış:** Kowalski: *"Bu patlamayı Londra'dan duydular."* Marie: *"Richter şatosuna çekildi. Kartal yuvası diyorlar."*
+
+## Bölüm 5 – Kartal Yuvası (Tur 3, final)
+
+**Açılış:** 5 Haziran 1944 şafağı, çıkarmaya saatler var. Richter bocage çitleriyle çevrili eski bir şatodan panzerlere karşı-çıkarma emrini telsizle verecek.
+
+**Görev akışı:**
+1. **Temas:** Değirmende Pierre Lemaire (3 patlayıcı + tel makası).
+2. **Santral (sessiz sabotaj):** Şato kışlası çağrılamaz.
+3. **Storch:** Havaalanındaki kaçış uçağı uçurulur (havaalanı dikenli telli).
+4. **Radyo kulesi:** Emrin tek yolu uçurulur.
+5. **Anahtar:** Avluda dolaşan kâhya subaydan şato anahtarı.
+6. **Planlar:** Şatodaki kasadan karşı-çıkarma rotaları.
+7. **Richter:** Çalışma odasında esir alınır, seni izler (askerleri onu görürse çatışma).
+8. *(İsteğe bağlı)* Havaalanı yakıt tankları.
+9. **Kaçış:** Nehrin batısındaki tekne (iki köprüden biri).
+
+**Zorluk:** ~76 asker (SS ağırlıklı), 7 kule, 5 projektör, 7 kışla, 8 siren, 13 bina; çit labirenti hem saklar hem yolu keser.
+
+**Kapanış:** Şafakta ufukta çıkarma filosu. Richter: *"Bunu siz mi yaptınız... dört kişi?"* Reilly: *"Beş. Pierre'i unutma."*
 
 ## Gelecek mekanikler (öncelik sırasıyla)
 1. İkinci komando (Şahin), birden fazla karakter seçimi ve portreler

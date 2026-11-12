@@ -31,6 +31,8 @@ const TYPES := {
 	"tank":    [true,  true,  24.0, Color(0.37, 0.39, 0.34), Color(0.24, 0.26, 0.22)],
 	"rock":    [true,  true,  18.0, Color(0.52, 0.52, 0.5),  Color(0.36, 0.36, 0.34)],
 	"tower":   [false, false, 52.0, Color(0.45, 0.33, 0.2),  Color(0.3, 0.22, 0.13)],   # gozetleme kulesi (dekor, ustunde kule nobetcisi)
+	"tel":     [true,  false, 12.0, Color(0.5, 0.5, 0.48),  Color(0.3, 0.3, 0.28)],    # dikenli tel: tel makasiyla kesilir
+	"projektor": [true, false, 40.0, Color(0.4, 0.42, 0.4), Color(0.26, 0.27, 0.26)],  # projektor direği
 }
 # siper: arkasinda comelen karakter daha zor vurulur (Desperados III / Commandos)
 const COVER_TYPES := ["sandbag", "crate", "rock", "truck", "tank", "wall", "fence"]
@@ -57,11 +59,12 @@ var _query := 0
 var footprints: Array = []        # {pos, rot, age, noticed}
 
 var _redraw_t := 0.0
+var _stream_t := 0.0
 
 # --- Blender'da render edilmis harita (levels/<bolum>_art/) ---
 var art := false
 var ground_tex: Texture2D        # eski tek parca zemin (geriye uyum)
-var ground_tiles: Array = []      # [Texture2D, Rect2] - parcali zemin
+var ground_tiles: Array = []      # {path, rect, tex, loading} - parcali zemin (akisla yuklenir)
 var art_scale := 1.0
 var _areas: Array = []            # bina indeksi -> Roof alani
 var pickups: Array = []          # {type, pos, taken} - saglik cantasi / mermi
@@ -74,7 +77,7 @@ var occluders: Array = []         # [ekran dikdortgeni, taban y, dugum] - silüe
 static var view := 0              # 0..3, her biri 90 derece
 static var view_rot := 0.0        # kamera donusu (radyan)
 var art_dir := ""
-var _views := {}                  # aci -> {ground, objects, roofs, occ, walls, roof_nodes}
+var _views := {}                  # yuklu aci (yalniz biri) -> {ground, nodes, occ, walls, roof_nodes}
 var _world: Node2D
 var _roofs: Node2D
 
@@ -88,6 +91,10 @@ var cover_polys: Array = []       # [PackedVector2Array, Rect2] - siper
 var sirens: Array = []            # Vector2 - alarm sireni (asker kosup calar)
 var siren_on := 0.0               # siren calma suresi (gorsel)
 var soft_from := 0                # view_segments icinde calilik (yumusak) kenarlarin isareti
+var wires: Array = []             # {pts, center, index, body, cut} - dikenli tel (Tur 3)
+var cut_obstacles := {}           # kesilen engel indeksi -> true (her acida gizlenir)
+var searchlights: Array = []      # {pole, path, speed, r, u, dir, pos, op, on, heat} (Tur 3)
+var _obst_i := 0
 
 
 
@@ -106,7 +113,7 @@ func load_level(path: String, world: Node2D, roofs: Node2D) -> bool:
 	_plan_interiors()
 	_map_data()
 	art_dir = path.get_basename() + "_art/"
-	art = FileAccess.file_exists(art_dir + "manifest.json")
+	art = view_dir(0) != ""
 	_world = world
 	_roofs = roofs
 	view = 0
@@ -126,6 +133,12 @@ func load_level(path: String, world: Node2D, roofs: Node2D) -> bool:
 		bridges.append(Rect2(r[0], r[1], r[2], r[3]))
 	for sp in data.get("sirens", []):
 		sirens.append(_v(sp))
+	for sl in data.get("searchlights", []):
+		var lpath: Array = []
+		for q in sl["path"]:
+			lpath.append(_v(q))
+		searchlights.append({"pole": _v(sl["pole"]), "path": lpath, "speed": float(sl.get("speed", 70.0)),
+			"r": float(sl.get("r", 64.0)), "u": 0.0, "dir": 1.0, "pos": lpath[0], "op": null, "on": true, "heat": 0.0})
 	for s in data.get("surfaces", []):
 		var col := Color(0.9, 0.92, 0.95)
 		match s.get("type", ""):
@@ -166,7 +179,14 @@ func _build_obstacle(o: Dictionary, world: Node2D) -> void:
 		pts = _poly(o["points"])
 	var blocks_move: bool = o.get("move", t[0])
 	var blocks_view: bool = o.get("view", t[1])
+	var oi := _obst_i
+	_obst_i += 1
 	_add_solid(pts, blocks_move, blocks_view)
+	if o.get("type", "") == "tel":
+		var cc := Vector2.ZERO
+		for q in pts:
+			cc += q
+		wires.append({"pts": pts, "center": cc / pts.size(), "index": oi, "body": get_child(get_child_count() - 1), "cut": false})
 	if o.get("type", "wall") in COVER_TYPES:
 		var bb := Rect2(pts[0], Vector2.ZERO)
 		for q in pts:
@@ -186,6 +206,8 @@ func _build_obstacle(o: Dictionary, world: Node2D) -> void:
 	var p = _mkprop()
 	p.setup(pts, t[2], t[3], t[4])
 	world.add_child(p)
+	if o.get("type", "") == "tel":
+		wires[-1]["prop"] = p
 
 
 func _build_building(b: Dictionary, world: Node2D, roofs: Node2D) -> void:
@@ -520,39 +542,18 @@ func _furn(k: String, center: Vector2, world: Node2D, rotated := false) -> Rect2
 	return r
 
 
-func _build_art(dir: String, world: Node2D, roofs: Node2D) -> void:
-	## Blender ciktisi: zemin karolari + her nesne icin Y-Sort'a giren ayri sprite
-	var man = JSON.parse_string(FileAccess.get_file_as_string(dir + "manifest.json"))
+func _build_art(_dir: String, _world_n: Node2D, _roofs_n: Node2D) -> void:
+	## Blender ciktisi (levels/<bolum>_art/v0..v3, tools/varlik/hat.py ile sikistirilmis):
+	## zemin karolari (kamera yakinindakiler akisla yuklenir) + her nesne icin ayri sprite.
+	var man := _manifest(0)
 	art_scale = float(man.get("scale", 1.0))
-	if man.has("ground"):
-		for g in man["ground"]:
-			var r: Array = g["rect"]
-			ground_tiles.append([load(dir + g["file"]), Rect2(r[0], r[1], r[2], r[3])])
-	else:
-		ground_tex = load(dir + "ground.jpg")
-	var obj_pages := _pages(dir, man, "objects")
-	var roof_pages := _pages(dir, man, "roofs")
-	var vs := {"ground": ground_tiles, "nodes": [], "occ": occluders, "walls": {}, "roof_nodes": {}}
-	for e in man.get("objects", []):
-		var spr := _art_sprite(obj_pages[int(e.get("page", 0))], e)
-		spr.set_meta("static_z", true)
-		world.add_child(spr)
-		vs["nodes"].append(spr)
-		occluders.append([_world_rect(e), float(e["base"][3]), spr])
-		if e["kind"] == "wall":
-			var a = _areas[int(e["building"])]
-			a.wall_nodes.append(spr)
-			if not vs["walls"].has(int(e["building"])):
-				vs["walls"][int(e["building"])] = []
-			vs["walls"][int(e["building"])].append(spr)
-	for e in man.get("roofs", []):
-		var spr := _art_sprite(roof_pages[int(e.get("page", 0))], e)
-		roofs.add_child(spr)
-		vs["nodes"].append(spr)
-		occluders.append([_world_rect(e), INF, spr])
-		_areas[int(e["building"])].roof_node = spr
-		vs["roof_nodes"][int(e["building"])] = spr
-	_views[0] = vs
+	var mini = man.get("ground_mini", null)
+	if mini != null:
+		ground_mini = load(view_dir(0) + mini["file"])
+	var tex := {}
+	for pth in _view_textures(0, man):
+		tex[pth] = load(pth)
+	_apply_view(0, man, tex)       # zemin karolari kamera kurulunca (main) yuklenir
 
 
 # ---------------- 4 yonlu bakis ----------------
@@ -573,10 +574,17 @@ func from_view(v: Vector2, k := -1) -> Vector2:
 	return (v - c2).rotated(k * PI / 2.0) + c
 
 
+func view_dir(k: int) -> String:
+	## v0..v3 ayni duzen; eski duzende v0 dosyalari _art/ kokundeydi
+	if FileAccess.file_exists(art_dir + "v%d/manifest.json" % k):
+		return art_dir + "v%d/" % k
+	return art_dir if k == 0 else ""
+
+
 func has_view(k: int) -> bool:
 	if not art:
 		return k == 0
-	return k == 0 or FileAccess.file_exists(art_dir + "v%d/manifest.json" % k)
+	return view_dir(k) != ""
 
 
 static func zkey(view_y: float) -> int:
@@ -584,25 +592,51 @@ static func zkey(view_y: float) -> int:
 	return clampi(int(view_y * 0.4) - 1500, -3000, 3000)
 
 
-func _load_view(k: int) -> Dictionary:
-	var dir := art_dir + "v%d/" % k
-	var man = JSON.parse_string(FileAccess.get_file_as_string(dir + "manifest.json"))
+func _manifest(k: int) -> Dictionary:
+	var m = JSON.parse_string(FileAccess.get_file_as_string(view_dir(k) + "manifest.json"))
+	return m if typeof(m) == TYPE_DICTIONARY else {}
+
+
+func _page_files(man: Dictionary, key: String) -> Array:
+	if man.has(key + "_pages"):
+		return man[key + "_pages"]
+	return [key + ".png"]
+
+
+func _view_textures(k: int, man: Dictionary) -> Array:
+	## bu acinin nesne + cati atlas yollari (zemin ayri, akisla yuklenir)
+	var out: Array = []
+	for key in ["objects", "roofs"]:
+		for f in _page_files(man, key):
+			out.append(view_dir(k) + f)
+	return out
+
+
+func _apply_view(k: int, man: Dictionary, tex: Dictionary) -> void:
+	## acinin sprite'larini kur; onceki acinin dugumleri ve dokulari serbest birakilir
+	var dir := view_dir(k)
 	var vs := {"ground": [], "nodes": [], "occ": [], "walls": {}, "roof_nodes": {}}
 	var rot := k * PI / 2.0
-	var old_scale := art_scale
 	art_scale = float(man.get("scale", 1.0))
 	for g in man.get("ground", []):
 		var r: Array = g["rect"]
-		vs["ground"].append([load(dir + g["file"]), Rect2(r[0], r[1], r[2], r[3])])
-	var obj_pages := _pages(dir, man, "objects")
-	var roof_pages := _pages(dir, man, "roofs")
+		vs["ground"].append({"path": dir + g["file"], "rect": Rect2(r[0], r[1], r[2], r[3]), "tex": null, "loading": false})
+	var obj_pages: Array = []
+	for f in _page_files(man, "objects"):
+		obj_pages.append(tex.get(dir + f))
+	var roof_pages: Array = []
+	for f in _page_files(man, "roofs"):
+		roof_pages.append(tex.get(dir + f))
 	for e in man.get("objects", []):
 		var spr := _art_sprite(obj_pages[int(e.get("page", 0))], e)
-		spr.position = from_view(spr.position, k)
-		spr.rotation = rot
-		spr.z_index = zkey(float(e["base"][3]))
+		if k != 0:
+			spr.position = from_view(spr.position, k)
+			spr.rotation = rot
+			spr.z_index = zkey(float(e["base"][3]))
 		spr.set_meta("static_z", true)
-		spr.visible = false
+		if e["kind"] == "obstacle":
+			spr.set_meta("obstacle", int(e.get("index", -1)))
+			spr.visible = not cut_obstacles.has(int(e.get("index", -1)))
 		_world.add_child(spr)
 		vs["nodes"].append(spr)
 		vs["occ"].append([_world_rect(e), float(e["base"][3]), spr])
@@ -613,35 +647,182 @@ func _load_view(k: int) -> Dictionary:
 			vs["walls"][bi].append(spr)
 	for e in man.get("roofs", []):
 		var spr := _art_sprite(roof_pages[int(e.get("page", 0))], e)
-		spr.position = from_view(spr.position, k)
-		spr.rotation = rot
-		spr.visible = false
+		if k != 0:
+			spr.position = from_view(spr.position, k)
+			spr.rotation = rot
 		_roofs.add_child(spr)
 		vs["nodes"].append(spr)
 		vs["occ"].append([_world_rect(e), INF, spr])
 		vs["roof_nodes"][int(e["building"])] = spr
-	art_scale = old_scale
-	return vs
+	# eski acilari birak (gorunmeyen acinin dokulari bellekte tutulmaz)
+	for kk in _views.keys():
+		for n in _views[kk]["nodes"]:
+			n.queue_free()
+		for t in _views[kk]["ground"]:
+			if t["loading"]:
+				ResourceLoader.load_threaded_get(t["path"])
+		_views.erase(kk)
+	for t in vs["ground"]:
+		if tex.has(t["path"]):
+			t["tex"] = tex[t["path"]]
+	_views[k] = vs
+	_switch_to(k)
+
+
+func _release_views() -> void:
+	## eski acilari birak (gorunmeyen acinin dokulari bellekte tutulmaz)
+	for kk in _views.keys():
+		for n in _views[kk]["nodes"]:
+			n.queue_free()
+		for t in _views[kk]["ground"]:
+			if t["loading"]:
+				ResourceLoader.load_threaded_get(t["path"])
+			t["tex"] = null
+		_views.erase(kk)
+	for a in _areas:
+		a.roof_node = null
+		a.wall_nodes = []
+	occluders = []
+	ground_tiles = []
+
+
+# --- aci degistirme: dokular arka planda yuklenir, hazir olunca gecilir ---
+signal view_ready(k: int)
+var view_loading := -1            # yuklenen aci (-1: yok)
+var _vl_man := {}
+var _vl_paths: Array = []
+var ground_mini: Texture2D        # mini harita / buyuk harita icin kucuk zemin (v0)
+const GROUND_NEED := 256.0        # ekranin bu kadar disina kadar zemin karosu yuklenir
+const GROUND_KEEP := 520.0        # bundan uzaktaki karolar bellekten atilir (telefon doku bellegi)
+const GROUND_PER_TICK := 3        # 0.1 sn'de en fazla bu kadar yeni karo istenir (kasma olmasin)
+
+
+func request_view(k: int, sync := false) -> bool:
+	if not has_view(k):
+		return false
+	if not art:
+		_switch_to(k)
+		view_ready.emit(k)
+		return true
+	_vl_man = _manifest(k)
+	_vl_paths = _view_textures(k, _vl_man)
+	# yeni acida ekranda olacak zemin karolari da onceden (arka planda) yuklenir
+	var need := _need_rect(k)
+	for g in _vl_man.get("ground", []):
+		var r: Array = g["rect"]
+		if need.intersects(Rect2(r[0], r[1], r[2], r[3])):
+			_vl_paths.append(view_dir(k) + g["file"])
+	view_loading = k
+	if sync:
+		var tex := {}
+		for pth in _vl_paths:
+			tex[pth] = load(pth)
+		_finish_view(tex)
+		return true
+	for pth in _vl_paths:
+		ResourceLoader.load_threaded_request(pth, "Texture2D")
+	# yeni aci yuklenirken eskisinin dokulari birakilir (tepe bellek: iki aci ayni anda tutulmaz);
+	# o sirada zemin onizlemesi ve "Cevriliyor..." gorunur
+	_release_views()
+	queue_redraw()
+	return true
+
+
+func _poll_view() -> void:
+	for pth in _vl_paths:
+		var st := ResourceLoader.load_threaded_get_status(pth)
+		if st == ResourceLoader.THREAD_LOAD_IN_PROGRESS:
+			return
+	var tex := {}
+	for pth in _vl_paths:
+		var st := ResourceLoader.load_threaded_get_status(pth)
+		tex[pth] = ResourceLoader.load_threaded_get(pth) if st == ResourceLoader.THREAD_LOAD_LOADED else load(pth)
+	_finish_view(tex)
+
+
+func _finish_view(tex: Dictionary) -> void:
+	var k := view_loading
+	view_loading = -1
+	_apply_view(k, _vl_man, tex)
+	_vl_man = {}
+	_vl_paths = []
+	stream_ground()
+	view_ready.emit(k)
 
 
 func set_view(k: int) -> bool:
-	if not has_view(k):
-		return false
-	if not _views.has(k):
-		_views[k] = _load_view(k)
-	for kk in _views:
-		for n in _views[kk]["nodes"]:
-			n.visible = kk == k
-	var vs: Dictionary = _views[k]
+	## esitli (senkron) gecis: testler ve geriye uyum icin
+	if k == view and _views.has(k):
+		return true
+	return request_view(k, true)
+
+
+func stream_ground(sync := false) -> void:
+	## kamera yakinindaki zemin karolarini yukle, uzaktakileri birak (telefonda doku bellegi)
+	if ground_tiles.is_empty() or not (ground_tiles[0] is Dictionary):
+		return
+	var need := _need_rect(view)
+	if need.size == Vector2.ZERO:
+		return
+	var keep := need.grow(GROUND_KEEP)
+	var changed := false
+	var asked := 0
+	for t in ground_tiles:
+		var r: Rect2 = t["rect"]
+		if t["loading"]:
+			var st := ResourceLoader.load_threaded_get_status(t["path"])
+			if st != ResourceLoader.THREAD_LOAD_IN_PROGRESS:
+				var res = ResourceLoader.load_threaded_get(t["path"]) if st == ResourceLoader.THREAD_LOAD_LOADED else null
+				t["loading"] = false
+				if r.intersects(keep):
+					t["tex"] = res if res != null else load(t["path"])
+					changed = true
+		if r.intersects(need):
+			if t["tex"] == null and not t["loading"]:
+				if sync:
+					t["tex"] = load(t["path"])
+					changed = true
+				elif asked < GROUND_PER_TICK:
+					asked += 1
+					ResourceLoader.load_threaded_request(t["path"], "Texture2D")
+					t["loading"] = true
+		elif t["tex"] != null and not r.intersects(keep):
+			t["tex"] = null
+			changed = true
+	if changed:
+		queue_redraw()
+
+
+func _need_rect(k: int) -> Rect2:
+	## k. acinin koordinatinda kameranin gordugu alan (+ pay)
+	var vp := get_viewport()
+	var cam := vp.get_camera_2d() if vp != null else null
+	if cam == null:
+		return Rect2()
+	var half: Vector2 = vp.get_visible_rect().size / cam.zoom * 0.5
+	return Rect2(to_view(cam.get_screen_center_position(), k) - half, half * 2.0).grow(GROUND_NEED)
+
+
+func loaded_ground_tiles() -> int:
+	var n := 0
+	for t in ground_tiles:
+		if t is Dictionary and t["tex"] != null:
+			n += 1
+	return n
+
+
+func _switch_to(k: int) -> void:
+	var vs: Dictionary = _views.get(k, {"ground": ground_tiles, "nodes": [], "occ": occluders, "walls": {}, "roof_nodes": {}})
 	view = k
 	view_rot = k * PI / 2.0
 	SpriteSheet.view_rot = view_rot
 	ground_tiles = vs["ground"]
 	occluders = vs["occ"]
-	for bi in _areas.size():
-		var a = _areas[bi]
-		a.roof_node = vs["roof_nodes"].get(bi)
-		a.wall_nodes = vs["walls"].get(bi, [])
+	if art:
+		for bi in _areas.size():
+			var a = _areas[bi]
+			a.roof_node = vs["roof_nodes"].get(bi)
+			a.wall_nodes = vs["walls"].get(bi, [])
 	# donuk acida Y-Sort calismaz (yerel y'ye gore siralar): z sirasi kullan
 	_world.y_sort_enabled = k == 0
 	z_index = 0 if k == 0 else -4000
@@ -653,7 +834,6 @@ func set_view(k: int) -> bool:
 			ch.z_index = 0
 	update_z()
 	queue_redraw()
-	return true
 
 
 func update_z() -> void:
@@ -669,18 +849,13 @@ func update_z() -> void:
 			ch.z_index = zkey(to_view(ch.position).y)
 
 
-func ground_tiles0() -> Array:
-	return _views[0]["ground"] if _views.has(0) else ground_tiles
-
-
-func _pages(dir: String, man: Dictionary, key: String) -> Array:
-	var out: Array = []
-	if man.has(key + "_pages"):
-		for f in man[key + "_pages"]:
-			out.append(load(dir + f))
-	else:
-		out.append(load(dir + key + ".png"))
-	return out
+func ground_overview() -> Array:
+	## mini harita / buyuk harita: [[doku, dunya dikdortgeni]] (v0 yonunde)
+	if ground_mini != null:
+		return [[ground_mini, Rect2(Vector2.ZERO, size)]]
+	if ground_tex != null:
+		return [[ground_tex, Rect2(Vector2.ZERO, size)]]
+	return []
 
 
 func _world_rect(e: Dictionary) -> Rect2:
@@ -782,6 +957,47 @@ func destroy_bridge(i: int) -> void:
 	changed_map.emit()
 
 
+func wire_near(p: Vector2, dist := 34.0) -> int:
+	## yakindaki kesilmemis dikenli tel (indeks) ya da -1
+	for i in wires.size():
+		var w: Dictionary = wires[i]
+		if w["cut"]:
+			continue
+		var pts: PackedVector2Array = w["pts"]
+		if Geometry2D.is_point_in_polygon(p, pts):
+			return i
+		for k in pts.size():
+			var c := Geometry2D.get_closest_point_to_segment(p, pts[k], pts[(k + 1) % pts.size()])
+			if c.distance_to(p) < dist:
+				return i
+	return -1
+
+
+func cut_wire(i: int) -> void:
+	## tel makasi: teli kes, yeni bir gecit acilir (navigasyon yeniden hesaplanir)
+	var w: Dictionary = wires[i]
+	if w["cut"]:
+		return
+	w["cut"] = true
+	cut_obstacles[w["index"]] = true
+	var pts: PackedVector2Array = w["pts"]
+	for k in move_polys.size():
+		if move_polys[k] == pts:
+			move_polys.remove_at(k)
+			break
+	if is_instance_valid(w["body"]) and w["body"] is StaticBody2D:
+		w["body"].queue_free()
+	if w.has("prop") and is_instance_valid(w["prop"]):
+		w["prop"].visible = false
+	for kk in _views:
+		for n in _views[kk]["nodes"]:
+			if n.has_meta("obstacle") and int(n.get_meta("obstacle")) == w["index"]:
+				n.visible = false
+	_build_navigation(false)
+	queue_redraw()
+	changed_map.emit()
+
+
 func add_scorch(p: Vector2, r: float) -> void:
 	scorches.append([p, r])
 	queue_redraw()
@@ -876,6 +1092,12 @@ func _process(delta: float) -> void:
 	if siren_on > 0.0:
 		siren_on -= delta
 		_redraw_t = minf(_redraw_t, 0.12)
+	if view_loading >= 0:
+		_poll_view()
+	_stream_t -= delta
+	if _stream_t <= 0.0 and art:
+		_stream_t = 0.1
+		stream_ground()
 	if _redraw_t <= 0.0:
 		_redraw_t = 0.25
 		queue_redraw()
@@ -902,14 +1124,19 @@ func _draw() -> void:
 		draw_rect(rug.grow(-8), Color(0.62, 0.48, 0.2, 0.6), false, 3.0)
 		draw_string(ThemeDB.fallback_font, ir.position + Vector2(24, -14), it["name"], HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color(0.85, 0.8, 0.6))
 	if not ground_tiles.is_empty():
+		if ground_mini != null:
+			draw_texture_rect(ground_mini, Rect2(Vector2.ZERO, size), false)   # karo yuklenene kadar
 		if view != 0:
 			# acinin zemini kendi (donuk) koordinatinda: dunyaya cevir
 			var c := size * 0.5
 			var c2 := Vector2(size.y, size.x) * 0.5 if view % 2 == 1 else c
 			draw_set_transform(c - c2.rotated(view_rot), view_rot)
 		for t in ground_tiles:
-			draw_texture_rect(t[0], t[1], false)
+			if t["tex"] != null:
+				draw_texture_rect(t["tex"], t["rect"], false)
 		draw_set_transform(Vector2.ZERO, 0.0)
+	elif ground_mini != null:
+		draw_texture_rect(ground_mini, Rect2(Vector2.ZERO, size), false)    # aci yuklenirken
 	elif ground_tex != null:
 		draw_texture(ground_tex, Vector2.ZERO)
 	else:
@@ -966,6 +1193,13 @@ func _draw_overlays(font: Font) -> void:
 		else:
 			draw_rect(Rect2(pp - Vector2(9, 6), Vector2(18, 12)), Color(0.35, 0.38, 0.22))
 			draw_rect(Rect2(pp - Vector2(9, 6), Vector2(18, 12)), Color(0.85, 0.75, 0.3), false, 1.5)
+	for w in wires:
+		if w["cut"]:
+			# kesilmis tel: yerde kivrik tel parcalari
+			var c: Vector2 = w["center"]
+			for k in 5:
+				var a := Vector2.from_angle(k * 1.3) * (8.0 + k * 5.0)
+				draw_arc(c + a, 5.0, 0.0, 4.5, 8, Color(0.55, 0.55, 0.52, 0.9), 1.5)
 	for sc in scorches:
 		draw_circle(sc[0], sc[1], Color(0.08, 0.07, 0.06, 0.55))
 		draw_circle(sc[0], sc[1] * 0.6, Color(0.05, 0.04, 0.03, 0.5))

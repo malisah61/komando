@@ -206,3 +206,28 @@ Render: Bölüm 1–3 × 4 açı paralel (Bölüm 2 ~95 dk, Bölüm 3 ~120 dk). 
 - Commandos 2 (kışla, iç mekân, 4 yönlü kamera): https://commandos.shoutwiki.com/wiki/Commandos_2
 - Partisans 1941 (siper, takım, gizlilik + çatışma dengesi): https://www.pcgamer.com/partisans-1941-review/
 - Godot AStarGrid2D (bot rota planlayıcısı) ve NavigationServer merge rasterizer ayarı: Godot 4.3 belgeleri
+
+---
+
+## Varlık ve boyut bütçesi
+
+Varlık hattı tek yerde ve belgeli (kod: `tools/varlik/hat.py`, ayarlar: `tools/varlik_ayarlari.json`):
+
+1. **Render** – `tools/blender/harita.py <bölüm>.json --view K` → `levels/<bölüm>_art/vK/` (v0..v3 hep aynı düzen; kayıpsız PNG karolar ve atlaslar + `manifest.json`).
+2. **Sıkıştırma** – `python3 tools/varlik/hat.py sikistir levels/<bölüm>_art/vK` → zemin 1024 px WebP karolar (bölüme özel çözünürlük ölçeği), nesne/çatı atlasları saydamlığı koruyan kayıplı WebP (sağ/alt boş alan kırpılır), v0 için 2048 px zemin önizlemesi (`ground_mini.webp`: mini harita, büyük harita, açı yüklenirken yer tutucu).
+3. **Godot import** – `hat.py ayarla` ayarlardan `project.godot [importer_defaults]` ve `.import` dosyalarını yazar: harita = Lossy WebP (kalite 0,82, mipmap yok); karakter sprite'ları = VRAM (ETC2/S3TC; her an ekranda olduklarından telefonda 4 kat az bellek).
+4. **Export** – `export_presets.cfg`: `tests/ tools/ docs/ kaynak/ *.glb *.md` hariç; Android yalnız ETC2/ASTC, PC yalnız S3TC, Web yalnız masaüstü biçimi; Android release şablonu.
+5. **Bütçe** – `hat.py butce` her derlemede bölüm × açı MB'ını ve APK/zip boyutlarını yazar (Actions özeti + sürüm notu); bütçe aşılırsa `::warning::`.
+
+Hedefler: **APK ≤ 200 MB**, **PC zip ≤ 120 MB**, **yeni bölüm ≤ 15 MB** (4 açı toplamı), Web .pck ≤ 150 MB.
+
+| Bölüm | v0 | v1 | v2 | v3 | Toplam MB (Godot .ctex) |
+|---|---|---|---|---|---|
+| bolum0 | 0,8 | 0,6 | 0,7 | 0,7 | 2,8 |
+| bolum1 | 3,3 | 3,0 | 3,1 | 3,1 | 12,5 |
+| bolum2 | 3,0 | 2,9 | 3,0 | 2,8 | 11,7 |
+| bolum3 | 5,5 | 5,2 | 5,4 | 5,4 | 21,6 (zemin 3,9 MB/açı; eski bölüm, bütçe öncesi) |
+| bolum4, bolum5 | | | | | render sonrası CI'da ölçülür (zemin ölçeği 0,75) |
+| karakter sprite'ları | | | | | 56,0 |
+
+Önce (Tur 2, açı başına bölüm 3'te ~27 MB) → sonra (5,4 MB). Bölüm 3'te zemin açı başına 2048² DXT1/ETC2 yerine 1024 px WebP.

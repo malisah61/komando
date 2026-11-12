@@ -1,7 +1,9 @@
 name: Harita render (Blender)
 
 # Bolum dosyasi ya da harita render scripti degisince haritalari yeniden render eder
-# (levels/<bolum>_art/) ve repoya geri yazar. Commit mesajinda [render-yok] varsa calismaz.
+# (levels/<bolum>_art/v0..v3) ve repoya geri yazar. Commit mesajinda [render-yok] varsa calismaz.
+# Varlik hatti: render (harita.py, kayipsiz PNG) -> sikistir (tools/varlik/hat.py, WebP) -> Godot import -> export.
+# Push'ta yalnizca degisen bolumler render edilir (harita.py degistiyse hepsi).
 on:
   push:
     branches: [main]
@@ -9,7 +11,7 @@ on:
   workflow_dispatch:
     inputs:
       bolum:
-        description: "Sadece bu bolum(ler) (bos = hepsi), or. bolum1"
+        description: "Sadece bu bolum(ler) (bos = hepsi), or. bolum1 ya da 'bolum4 bolum5'"
         required: false
         default: ""
 
@@ -24,14 +26,26 @@ jobs:
       bolumler: ${{ steps.l.outputs.bolumler }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - id: l
         run: |
-          if [ -n "${{ inputs.bolum }}" ]; then L="${{ inputs.bolum }}"; else L=$(ls levels/*.json | xargs -n1 basename | sed 's/\.json$//'); fi
+          if [ -n "${{ inputs.bolum }}" ]; then L="${{ inputs.bolum }}"
+          else
+            B="${{ github.event.before }}"
+            if [ -n "$B" ] && git cat-file -e "$B" 2>/dev/null && ! git diff --name-only "$B" HEAD | grep -q '^tools/blender/harita.py$'; then
+              L=$(git diff --name-only "$B" HEAD | grep -E '^levels/[^/]+\.json$' | xargs -r -n1 basename | sed 's/\.json$//')
+            else
+              L=$(ls levels/*.json | xargs -n1 basename | sed 's/\.json$//')
+            fi
+          fi
+          echo "Render edilecek: $L"
           echo "bolumler=$(printf '%s\n' $L | python3 -c 'import sys,json;print(json.dumps([l.strip() for l in sys.stdin if l.strip()]))')" >> $GITHUB_OUTPUT
 
   render:
     # her bolum x 4 bakis acisi paralel render (Commandos 2 gibi 4 yonlu kamera)
     needs: liste
+    if: ${{ needs.liste.outputs.bolumler != '[]' }}
     runs-on: ubuntu-latest
     timeout-minutes: 340
     strategy:
@@ -59,14 +73,14 @@ jobs:
       - name: Render
         run: |
           ~/blender/blender-4.2.3-linux-x64/blender -b --python tools/blender/harita.py -- levels/${{ matrix.bolum }}.json --samples 24 --view ${{ matrix.aci }}
-          A=levels/${{ matrix.bolum }}_art
-          if [ "${{ matrix.aci }}" = "0" ]; then
-            mkdir -p out/${{ matrix.bolum }}_art
-            cp $A/*.jpg $A/*.png $A/manifest.json out/${{ matrix.bolum }}_art/
-          else
-            mkdir -p out/${{ matrix.bolum }}_art
-            cp -r $A/v${{ matrix.aci }} out/${{ matrix.bolum }}_art/
-          fi
+
+      - name: Sıkıştır (WebP, tools/varlik_ayarlari.json)
+        run: |
+          python3 -m pip install --quiet pillow
+          python3 tools/varlik/hat.py sikistir levels/${{ matrix.bolum }}_art/v${{ matrix.aci }}
+          mkdir -p out/${{ matrix.bolum }}_art
+          cp -r levels/${{ matrix.bolum }}_art/v${{ matrix.aci }} out/${{ matrix.bolum }}_art/
+          du -sh out/${{ matrix.bolum }}_art/v${{ matrix.aci }}
           find out -type f | head -50
 
       - uses: actions/upload-artifact@v4
@@ -88,6 +102,8 @@ jobs:
       - name: Repoya yaz
         run: |
           ls -R out | head -80
+          # eski duzen (v0 dosyalari _art/ kokunde) temizlenir; her aci kendi klasorunde
+          for d in out/*_art; do b=$(basename $d); for v in $d/v*; do rm -rf levels/$b/$(basename $v); done; find levels/$b -maxdepth 1 -type f -delete 2>/dev/null || true; done
           cp -r out/* levels/ || true
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"

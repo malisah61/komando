@@ -54,6 +54,8 @@ jobs:
       - name: Projeyi içe aktar
         run: |
           chmod +x ~/godot/godot
+          # varlik hatti: import ayarlari tek yerden (tools/varlik_ayarlari.json)
+          python3 tools/varlik/hat.py ayarla
           ~/godot/godot --headless --import || true
 
       - name: Web derlemesi
@@ -106,8 +108,18 @@ jobs:
           export GODOT_ANDROID_KEYSTORE_DEBUG_PATH="$PWD/debug.keystore"
           export GODOT_ANDROID_KEYSTORE_DEBUG_USER=androiddebugkey
           export GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD=android
+          # release sablonu (debug'dan ~8 MB kucuk, daha hizli); ayni anahtarla imzalanir
+          export GODOT_ANDROID_KEYSTORE_RELEASE_PATH="$PWD/debug.keystore"
+          export GODOT_ANDROID_KEYSTORE_RELEASE_USER=androiddebugkey
+          export GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD=android
           mkdir -p build/android
-          ~/godot/godot --headless --export-debug "Android" build/android/komando.apk
+          ~/godot/godot --headless --export-release "Android" build/android/komando.apk
+
+      - name: Boyut bütçesi (APK / zip / bölüm başına MB)
+        run: |
+          ls -la build/android build/dist build/web | grep -E "apk|zip|pck|wasm" || true
+          python3 tools/varlik/hat.py butce --build build --md build/boyut.md
+          { echo "Otomatik derleme: ${{ github.sha }}"; echo; cat build/boyut.md; } > build/surum_notu.md
 
       - name: APK'yı yükle
         uses: actions/upload-artifact@v4
@@ -120,7 +132,7 @@ jobs:
         with:
           tag_name: son-surum
           name: Komando - son sürüm
-          body: "Otomatik derleme: ${{ github.sha }}"
+          body_path: build/surum_notu.md
           files: |
             build/android/komando.apk
             build/dist/Komando-Windows.zip

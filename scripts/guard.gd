@@ -4,6 +4,9 @@ extends CharacterBody2D
 ## Rutbeler (Commandos'taki gibi): er, elit (SS), subay. Rutbe algiyi, cani ve atis hizini degistirir.
 ## Yapay zeka v2: kademeli tespit (mesafe/comelme/rutbe), cevresel algi, catismada atis + siper yerine
 ## gorus kazanmak icin hareket, yakindakilere seslenme, ses/patlama duyma, cok noktali arama.
+## Yapay zeka v4 (Tur 3): tetikte kalma (supheden sonra daha genis/hizli bakar), ayak izi takibi (iz surer),
+## bogusma sesi + cinayete tanik olma, SS/subay el bombasi (siperdeki hedefe), kule gozcusunun isaret
+## vermesi, paylasimli arama noktalari, uniformali komandoyu rutbeye gore tanima, bayilan askerin ayilmasi.
 
 const SpriteSheet = preload("res://scripts/sprite_sheet.gd")
 const Fx = preload("res://scripts/fx.gd")
@@ -70,6 +73,17 @@ var siren_pos := Vector2.ZERO
 var _far_t := 0.0
 var _slow := 1.0
 var _slow_t := 0.0     # alarma kosarken hedef siren
+# yapay zeka v4
+var vigilant_t := 0.0             # tetikte kalma suresi (Shadow Tactics: suphelenen asker bir sure dikkatli)
+var _trail := 0                   # ayak izi takibi: kalan adim
+var _trail_age := 0.0
+var _grenade_t := 0.0             # el bombasi bekleme (SS/subay)
+var knocked := false              # bayiltildi (yumruk): ayilir, bagli degilse
+var tied := false                 # baglandi: bir daha ayilmaz
+var _wake_t := 0.0
+var stripped := false             # uniformasi alindi
+const VIGIL_TIME := 45.0
+const GRENADE_R := 72.0
 
 
 func _stat(i: int) -> float:
@@ -117,8 +131,14 @@ func view_range() -> float:
 
 func _physics_process(delta: float) -> void:
 	if not alive:
+		if knocked and not tied and not carried and not main.game_over:
+			_wake_t -= delta
+			if _wake_t <= 0.0:
+				_wake_up()
 		return
 	t += delta
+	vigilant_t = maxf(0.0, vigilant_t - delta)
+	_grenade_t -= delta
 	if not main.game_over and _ready_nav:
 		_think(delta)
 		_watch(delta)
@@ -286,9 +306,26 @@ func _start_search() -> void:
 		# tahminli arama: hedefin kactigi yone dogru once bak
 		_search_pts.append(NavigationServer2D.map_get_closest_point(map0, investigate_pos + _last_dir * 160.0))
 		_last_dir = Vector2.ZERO
-	for i in 3:
-		var p: Vector2 = investigate_pos + Vector2.from_angle(randf() * TAU) * randf_range(60, 150)
-		_search_pts.append(NavigationServer2D.map_get_closest_point(navigation_agent.get_navigation_map(), p))
+	# paylasimli arama: yakinda arayan arkadaslarin baktigi noktalara bakma, alani bolusun
+	var claimed: Array = []
+	for g in get_tree().get_nodes_in_group("guards"):
+		if g != self and g.alive and g.state == &"search" and g.global_position.distance_to(global_position) < 400.0:
+			claimed.append_array(g._search_pts)
+			claimed.append(g._dest())
+	var tries := 0
+	while _search_pts.size() < (4 if vigilant_t > 0.0 else 3) and tries < 14:
+		tries += 1
+		var p: Vector2 = investigate_pos + Vector2.from_angle(randf() * TAU) * randf_range(60, 170)
+		var q: Vector2 = NavigationServer2D.map_get_closest_point(map0, p)
+		var ok := true
+		for c in claimed:
+			if c.distance_to(q) < 75.0:
+				ok = false
+				break
+		if ok or tries > 10:
+			_search_pts.append(q)
+			claimed.append(q)
+	vigilant_t = maxf(vigilant_t, VIGIL_TIME * 0.5)
 	navigation_agent.target_position = global_position
 
 
@@ -423,6 +460,79 @@ func hear_alarm(p: Vector2) -> void:
 	hear_noise(p)
 
 
+func _follow_trail() -> bool:
+	## ayak izi takibi: buradan daha yeni bir iz yakindaysa ona git
+	if _trail <= 0:
+		return false
+	var best = null
+	var bd := 150.0
+	for fp in main.level.footprints:
+		if fp["age"] < _trail_age and not fp["noticed"]:
+			var d: float = fp["pos"].distance_to(global_position)
+			if d < bd and main.level.has_los(global_position, fp["pos"]):
+				bd = d
+				best = fp
+	if best == null:
+		_trail = 0
+		return false
+	_trail -= 1
+	best["noticed"] = true
+	_trail_age = best["age"]
+	_set_investigate(best["pos"])
+	return true
+
+
+func _try_grenade() -> bool:
+	## SS / subay: siperde saklanan hedefe el bombasi (Commandos / Partisans)
+	if kind != "elit" and kind != "subay" or _grenade_t > 0.0:
+		return false
+	if _lost_t < 1.2:
+		return false
+	var p := investigate_pos
+	var d := global_position.distance_to(p)
+	if d < 110.0 or d > 300.0 or main.level.interior_at(p) != main.level.interior_at(global_position):
+		return false
+	for g in get_tree().get_nodes_in_group("guards"):
+		if g != self and g.alive and g.global_position.distance_to(p) < GRENADE_R + 20.0:
+			return false      # arkadasini vurmaz
+	_grenade_t = 14.0
+	velocity = Vector2.ZERO
+	facing = (p - global_position).angle()
+	if sprite != null:
+		SpriteSheet.play(sprite, &"shoot", facing, true)
+	main.throw_grenade(self, global_position, p)
+	return true
+
+
+func knock_out() -> void:
+	## yumrukla bayiltildi: ~40 sn sonra ayilir (baglanmazsa), ceset gibi bulunabilir
+	if not alive:
+		return
+	knocked = true
+	_wake_t = 40.0
+	kill()
+
+
+func _wake_up() -> void:
+	knocked = false
+	alive = true
+	hp = max_hp * 0.6
+	main.bodies.erase(self)
+	discovered = false
+	hidden_body = false
+	collision_layer = 2
+	for ch in get_children():
+		if ch is CollisionShape2D:
+			ch.set_deferred("disabled", false)
+	vigilant_t = VIGIL_TIME * 2.0
+	suspicion = 0.6
+	investigate_pos = global_position
+	if sprite != null:
+		sprite.visible = true
+	main.guard_woke(self)
+	_start_search()
+
+
 func take_damage(amount: float, from: Vector2) -> void:
 	if not alive:
 		return
@@ -443,7 +553,7 @@ func can_see(p: Vector2, crouched := false) -> bool:
 	var r := view_range() * (NEAR_FRAC if crouched else 1.0)
 	if d.length() > r:
 		return false
-	if absf(wrapf(d.angle() - facing, -PI, PI)) > VIEW_HALF:
+	if absf(wrapf(d.angle() - facing, -PI, PI)) > VIEW_HALF * (1.2 if vigilant_t > 0.0 else 1.0):
 		return false
 	if main.level.has_los(global_position, p):
 		return true
@@ -473,6 +583,14 @@ func _watch(delta: float) -> void:
 			continue
 		var cr: bool = u.has_method("is_crouching") and u.is_crouching()
 		var dd := global_position.distance_to(u.global_position)
+		# uniforma (Commandos 2 kilik): erler ancak cok yakindan ya da kosarken fark eder,
+		# SS ve subay koninin yakin kisminda tanir
+		var dis: String = u.get("disguise") if u.get("disguise") != null else ""
+		if dis != "":
+			if kind == "elit" or kind == "subay":
+				cr = true
+			elif not (dd < 52.0 and (u.velocity.length() > 1.0 or cr)) and not u.get("run"):
+				continue
 		# cevresel algi: cok yakinda, ayakta ve hareket ediyorsa arkadan da hisseder
 		var feel: bool = dd < PERIPHERAL and not cr and u.velocity.length() > 1.0
 		if feel or can_see(u.global_position, cr):
@@ -482,6 +600,11 @@ func _watch(delta: float) -> void:
 	if spotted != null:
 		var near := clampf(1.0 - sd / view_range(), 0.15, 1.0)
 		var rate := (0.7 + near * 2.6) * _stat(2)
+		if vigilant_t > 0.0:
+			rate *= 1.25
+		var sdis = spotted.get("disguise")
+		if sdis != null and sdis != "":
+			rate *= 0.6
 		if main.alert_level == 1:
 			rate *= 1.4
 		elif main.alert_level >= 2:
@@ -589,6 +712,9 @@ func cone_color() -> Color:
 
 # ---------------- Cizim ----------------
 func _draw() -> void:
+	if not alive and knocked:
+		draw_set_transform(Vector2.ZERO, SpriteSheet.view_rot, Vector2.ONE)
+		draw_string(ThemeDB.fallback_font, Vector2(-14, -18), "bağlı" if tied else "zzz", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(0.8, 0.9, 1.0, 0.85))
 	if not alive and sprite != null and SpriteSheet.base_anim(sprite) == "death":
 		return
 	if not alive:

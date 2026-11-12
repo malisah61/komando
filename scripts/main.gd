@@ -8,12 +8,15 @@ const Guard = preload("res://scripts/guard.gd")
 const Hud = preload("res://scripts/hud.gd")
 const Mission = preload("res://scripts/mission.gd")
 const Npc = preload("res://scripts/npc.gd")
+const Fx = preload("res://scripts/fx.gd")
 
 const LEVELS := [
 	["res://levels/bolum0.json", "Bölüm 0 – Normandiya Köyü", "Eğitim: küçük köy, 6 asker"],
 	["res://levels/bolum1.json", "Bölüm 1 – Nehir Operasyonu", "Geniş harita: nehir, köprüler, köy, karargâh, kışlalar"],
 	["res://levels/bolum2.json", "Bölüm 2 – Karlı Kale", "Norveç fiyordu: kale, hapishane, radar, kuleler, derin kar"],
 	["res://levels/bolum3.json", "Bölüm 3 – Denizaltı Üssü", "Atlantik limanı: bunker, kontrol odası, demiryolu, 5 kışla"],
+	["res://levels/bolum4.json", "Bölüm 4 – Gece Treni", "Gece, demiryolu kavşağı: projektörler, dikenli tel, mühimmat treni"],
+	["res://levels/bolum5.json", "Bölüm 5 – Kartal Yuvası", "Final: Richter'in şatosu, havaalanı, bocage çitleri, 76 asker"],
 ]
 static var level_choice := ""      # sahne yeniden yuklenince de hatirlanir
 static var briefed := ""           # brifingi gosterilen son bolum (yeniden baslatinca tekrar gosterme)
@@ -36,6 +39,9 @@ var bodies: Array = []        # olu askerler (her asker her karede tum askerleri
 var players: Array = []       # oyuncu tarafindaki karakterler (komando + izleyenler)
 var runner = null             # sirene kosan asker
 var throw_mode := false       # tas atma: siradaki dokunus tasin dusecegi yer
+var _cut_i := -1              # kesilen tel (Tur 3)
+var _cut_t := 0.0
+const CUT_TIME := 3.0
 const SAVE_PATH := "user://kayit.cfg"
 
 # kamera / girdi
@@ -84,6 +90,7 @@ func _ready() -> void:
 		world.add_child(g)
 
 	_pair_buddies()
+	_assign_light_ops()
 	commando = Commando.new()
 	commando.main = self
 	commando.stones = int(level.data.get("stones", 4))
@@ -118,6 +125,8 @@ func _ready() -> void:
 	cam.position = commando.position
 	add_child(cam)
 	cam.make_current()
+	level.view_ready.connect(_view_done)
+	level.stream_ground()      # zemin karolari arka planda (brifing sirasinda) yuklenir
 	_clamp_cam()
 	hud = Hud.new()
 	hud.main = self
@@ -145,6 +154,74 @@ func _pair_buddies() -> void:
 		if best != null:
 			g.buddy = best
 			g.buddy_post = best.position
+
+
+func _assign_light_ops() -> void:
+	## her projektoru en yakin nobetci (tercihen kule) yonetir; o olurse isik soner
+	for sl in level.searchlights:
+		var best = null
+		var bd := 320.0
+		for g in get_tree().get_nodes_in_group("guards"):
+			var d: float = g.position.distance_to(sl["pole"]) - (120.0 if g.kind == "kule" else 0.0)
+			if d < bd:
+				bd = d
+				best = g
+		sl["op"] = best
+
+
+func _update_lights(delta: float) -> void:
+	## projektor: isik yol boyunca gidip gelir; icinde kalan karakter ~0.5 sn'de fark edilir
+	for sl in level.searchlights:
+		if not sl["on"]:
+			continue
+		var op = sl["op"]
+		if op != null and (not is_instance_valid(op) or not op.alive):
+			sl["on"] = false
+			hud.toast("Projektör söndü (operatör etkisiz)")
+			continue
+		var path: Array = sl["path"]
+		var total := 0.0
+		for i in path.size() - 1:
+			total += path[i].distance_to(path[i + 1])
+		if total <= 0.0:
+			continue
+		var spd: float = sl["speed"] * (1.4 if alert_level >= 1 else 1.0)
+		sl["u"] = float(sl["u"]) + sl["dir"] * spd * delta / total
+		if sl["u"] >= 1.0 or sl["u"] <= 0.0:
+			sl["u"] = clampf(sl["u"], 0.0, 1.0)
+			sl["dir"] = -sl["dir"]
+		var dist: float = sl["u"] * total
+		var p: Vector2 = path[0]
+		for i in path.size() - 1:
+			var l: float = path[i].distance_to(path[i + 1])
+			if dist <= l:
+				p = path[i].lerp(path[i + 1], dist / maxf(l, 0.001))
+				break
+			dist -= l
+			p = path[i + 1]
+		# alarmda isik oyuncuyu kovalar
+		if alert_level >= 2 and op != null and op.target != null and is_instance_valid(op.target):
+			p = sl["pos"].move_toward(op.target.global_position, spd * 1.5 * delta)
+		sl["pos"] = p
+		var lit = null
+		for u in players:
+			if u.alive and level.interior_at(u.global_position) < 0 and u.global_position.distance_to(p) < sl["r"]:
+				if u.has_method("is_hidden") and u.is_hidden():
+					continue
+				lit = u
+				break
+		if lit != null:
+			sl["heat"] = float(sl["heat"]) + delta
+			if sl["heat"] > 0.5:
+				sl["heat"] = 0.0
+				stats["lit"] = stats.get("lit", 0) + 1
+				hud.toast("Projektör seni gördü!")
+				if op != null:
+					op.enter_combat(lit)
+				else:
+					combat_alarm(lit.global_position, null)
+		else:
+			sl["heat"] = maxf(0.0, float(sl["heat"]) - delta)
 
 
 func far_from_players(p: Vector2) -> bool:
@@ -220,6 +297,63 @@ func buddy_missing(g, post: Vector2) -> void:
 			h.hear_distraction(post + Vector2(randf_range(-80, 80), randf_range(-80, 80)))
 
 
+func throw_grenade(g, from: Vector2, to: Vector2) -> void:
+	## SS / subay el bombasi: 1.3 sn sonra patlar, yakindakilere hasar (siper korumaz, kac!)
+	Fx.stone(world, from + Vector2(0, -20), to)
+	hud.toast("El bombası!")
+	stats["grenades"] = stats.get("grenades", 0) + 1
+	get_tree().create_timer(1.3, false).timeout.connect(func():
+		if game_over:
+			return
+		var fx = load("res://scripts/explosion.gd").new()
+		fx.position = to
+		fx.scale = Vector2(0.6, 0.6)
+		world.add_child(fx)
+		level.add_scorch(to, 40.0)
+		for u in get_tree().get_nodes_in_group("player"):
+			var d: float = u.global_position.distance_to(to)
+			if u.alive and d < g.GRENADE_R and level.has_los(to, u.global_position):
+				u.take_damage(70.0 * (1.0 - d / g.GRENADE_R * 0.6), to)
+		for h in get_tree().get_nodes_in_group("guards"):
+			if h.alive and h.global_position.distance_to(to) < g.GRENADE_R * 0.6:
+				h.take_damage(60.0, to)
+		make_noise(to, 600.0, null))
+
+
+func scuffle(p: Vector2, killer) -> void:
+	## bicak/yumruk: kisa bogusma sesi; olayi goren asker hemen catismaya girer (tanik)
+	for g in get_tree().get_nodes_in_group("guards"):
+		if not g.alive or g.state == &"combat":
+			continue
+		var d: float = g.global_position.distance_to(p)
+		if d < 260.0 and g.can_see(killer.global_position, killer.is_crouching()):
+			g.enter_combat(killer)
+			stats["witnessed"] = stats.get("witnessed", 0) + 1
+		elif d < 70.0 and level.interior_at(g.global_position) == level.interior_at(p):
+			g.hear_distraction(p)
+
+
+func guard_woke(g) -> void:
+	hud.toast("Bayılan asker ayıldı!")
+	if alert_level < 1:
+		set_alert_level(1)
+	for h in get_tree().get_nodes_in_group("guards"):
+		if h != g and h.alive and h.state == &"patrol" and h.kind != "kule" and h.global_position.distance_to(g.global_position) < 360.0:
+			h.hear_distraction(g.global_position + Vector2(randf_range(-60, 60), randf_range(-60, 60)))
+
+
+func whistle(p: Vector2) -> int:
+	## islik: yakindaki askerleri bulundugun yere cek (Shadow Tactics / Commandos 2 tuzagi)
+	var n := 0
+	for g in get_tree().get_nodes_in_group("guards"):
+		if g.alive and g.kind != "kule" and g.state != &"combat" and g.global_position.distance_to(p) < 190.0 \
+				and level.interior_at(g.global_position) == level.interior_at(p):
+			g.hear_distraction(p)
+			n += 1
+	stats["whistles"] = stats.get("whistles", 0) + 1
+	return n
+
+
 func distract(p: Vector2, radius: float) -> void:
 	## tas dustu: yakindaki askerler alarm vermeden bakmaya gider
 	var n := 0
@@ -245,8 +379,14 @@ func score() -> Dictionary:
 	pts -= int(stats["alarms"]) * 150
 	pts -= int(stats.get("bodies_found", 0)) * 60
 	pts -= int(stats.get("missed", 0)) * 40
-	pts -= bodies.size() * 10
+	var dead := 0
+	for g in bodies:
+		if not g.knocked:
+			dead += 1
+	pts -= dead * 10
+	pts += int(stats.get("knockouts", 0)) * 15         # oldurmeden etkisiz birakmak odullendirilir
 	pts += int(stats.get("runners_stopped", 0)) * 50
+	pts -= int(stats.get("witnessed", 0)) * 40
 	for o in mission.objectives:
 		if o["done"] and o.get("optional", false):
 			pts += 200
@@ -291,9 +431,9 @@ func win() -> void:
 	var sc := score()
 	var rec := save_result(sc)
 	var t: float = sc["time"]
-	_end("GÖREV TAMAMLANDI\nSüre %d:%02d   Puan %d   %s%s\n%s\nAlarm %d · Ceset bulundu %d · Öldürülen %d" % [
+	_end("GÖREV TAMAMLANDI\nSüre %d:%02d   Puan %d   %s%s\n%s\nAlarm %d · Ceset bulundu %d · Öldürülen %d · Bayıltılan %d" % [
 		int(t) / 60, int(t) % 60, sc["points"], "★".repeat(sc["stars"]) + "☆".repeat(3 - sc["stars"]), rec, sc["rank"],
-		stats["alarms"], stats.get("bodies_found", 0), bodies.size()], Color(0.5, 1, 0.5))
+		stats["alarms"], stats.get("bodies_found", 0), bodies.filter(func(g): return not g.knocked).size(), int(stats.get("knockouts", 0))], Color(0.5, 1, 0.5))
 
 
 func lose(text: String) -> void:
@@ -378,6 +518,17 @@ func _process(delta: float) -> void:
 			set_alert_level(1)
 		elif not fighting:
 			hud.set_alarm(2, "ALARM: Askerler arıyor (%d sn)" % ceili(alarm_t))
+	if not level.searchlights.is_empty():
+		_update_lights(delta)
+	if _cut_i >= 0:
+		_cut_t += delta
+		if (_cut_t > 0.3 and commando.velocity.length() > 1.0) or not commando.alive:
+			_cut_i = -1
+		elif _cut_t >= CUT_TIME:
+			level.cut_wire(_cut_i)
+			stats["wires"] = stats.get("wires", 0) + 1
+			hud.toast("Tel kesildi: yeni geçit açıldı")
+			_cut_i = -1
 	# takviye cikislari
 	var i := _pending.size() - 1
 	while i >= 0:
@@ -495,9 +646,28 @@ func _update_action() -> void:
 		hud.set_action(("%s... %d%%" % ["Sabote ediliyor" if sab else "Kuruluyor", int(mission.planting / mission.plant_time() * 100.0)]) if planting else ("Sabote Et" if sab else "Patlayıcı Kur"),
 				not planting, func(): mission.start_planting())
 		return
+	if _cut_i >= 0:
+		hud.set_action("Tel kesiliyor... %d%%" % int(_cut_t / CUT_TIME * 100.0), false)
+		return
+	var wi: int = level.wire_near(c.global_position)
+	if wi >= 0 and cur_interior < 0:
+		var has_cutter: bool = mission.items.get("tel_makasi", 0) > 0
+		hud.set_action("Teli Kes" if has_cutter else "Tel makası gerekli", has_cutter, func():
+			_cut_i = wi
+			_cut_t = 0.0
+			c.move_to(c.global_position))
+		return
 	var b = c.body_nearby()
 	if b != null:
-		hud.set_action("Cesedi Taşı", true, func(): c.pick_body(b))
+		var t2 := ""
+		var cb2 := Callable()
+		if b.knocked and not b.tied and c.ropes > 0:
+			t2 = "Bağla (%d)" % c.ropes
+			cb2 = func(): c.tie_up(b)
+		elif not b.stripped and (b.kind == "er" or b.kind == "kis") and c.disguise == "":
+			t2 = "Üniforma Giy"
+			cb2 = func(): c.put_on_uniform(b)
+		hud.set_action("Taşı" if t2 != "" else ("Baygını Taşı" if b.knocked else "Cesedi Taşı"), true, func(): c.pick_body(b), t2, cb2)
 		return
 	hud.set_action("", false)
 
@@ -562,9 +732,17 @@ func rotate_view(step := 1) -> void:
 	while not level.has_view(k) and tries < 3:
 		k = posmod(k + step, 4)
 		tries += 1
-	if k == level.view or not level.set_view(k):
-		hud.toast("Bu bölümün diğer açıları henüz render edilmedi")
+	if k == level.view or level.view_loading >= 0 or not level.request_view(k):
+		if level.view_loading < 0:
+			hud.toast("Bu bölümün diğer açıları henüz render edilmedi")
 		return
+	if level.view_loading >= 0:
+		# dokular arka planda yukleniyor: hazir olunca _view_done
+		hud.show_busy("Çevriliyor…")
+
+
+func _view_done(k: int) -> void:
+	hud.show_busy("")
 	cam.rotation = level.view_rot
 	cones.z_index = 0 if k == 0 else -3900
 	_clamp_cam()

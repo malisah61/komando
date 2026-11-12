@@ -220,7 +220,7 @@ guard([[2650, 2000], [2650, 2450], [3400, 2450]])
 guard([[3000, 2280]], 0)
 
 # ------------------------------------------------------------ GOREVLER VE KARAKTERLER
-guard([[2470, 1625]], 180)                                         # belediye kapisi nobetcisi
+guard([[2470, 1625]], 135)                                         # belediye kapisi nobetcisi (Tur 3: guneybatiya bakar, kuzeyden arkasindan yaklasilir)
 guard([[2600, 1572]], 90)                                          # belediye ici
 lvl["npcs"] = [
     {"id": "pierre", "outfit": "direnisci", "name": "Pierre", "pos": [1300, 1430], "facing": 180},

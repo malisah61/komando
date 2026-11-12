@@ -17,6 +17,15 @@ Kampanya, karakterler ve bölüm planı: [docs/SENARYO.md](docs/SENARYO.md)
 - Sağ üstteki "Çevir" (PC: Q / E): haritayı 90° çevir, binaların öbür yüzünü gör (4 açı Blender'da ayrı render).
 - Bot testi: `GODOT=godot python3 tools/bot/rapor.py` → `docs/BOT_RAPORU.md`.
 
+## Tur 3 mekanikleri
+- **Üniforma (kılık):** Öldürdüğün ya da bayılttığın erin yanında "Üniforma Giy". Erler seni ancak çok yakından ya da koşarken fark eder; SS ve subaylar tanır. Ateş edersen ya da biri seni yakalarsa kılık açığa çıkar.
+- **Yumruk + Bağla:** SİLAH → Yumruk: arkadan yumruk askeri öldürmeden bayıltır (~40 sn). "Bağla" (ip) ile kalıcı etkisiz kalır; bağlanmazsa ayılır ve çevreyi arar. Öldürmeden etkisiz bırakmak puan kazandırır.
+- **Islık:** 190 px içindeki askerleri bulunduğun yere çeker (5 sn bekleme). Tuzak kurmak için.
+- **Dikenli tel + tel makası:** Tel örgü geçilmez ama görüşü kesmez. Tel makasın varsa telin yanında "Teli Kes" (3 sn): kendi kapını açarsın.
+- **Projektör:** Işık yol boyunca gidip gelir; içinde yarım saniye kalan görülür. Kulesindeki nöbetçiyi susturursan söner. Alarmda ışık seni kovalar.
+- **Asker yapay zekâsı v4:** tetikte kalma, ayak izini takip etme, bıçaklamaya tanık olma, SS/subay el bombası, kule gözcüsünün işareti, paylaşımlı arama.
+- **Açı değiştirme arka planda:** "Çevriliyor…" yazısı; görünmeyen açıların dokuları bellekten atılır, zemin kamera yakınında akışla yüklenir.
+
 ## Tur 2 mekanikleri
 - **Taş at** (HAREKET → Taş, sonra yere dokun): düştüğü yerin 200 px çevresindeki askerler alarm vermeden bakmaya gider.
 - **Alarm sireni:** Sireni olan bölümlerde seni gören ya da ceset bulan asker sirene koşar ("ALARM" yazar). Yolda durdurursan kırmızı alarm ve takviye olmaz.
@@ -44,13 +53,19 @@ Bölüm dosyasındaki `objectives` listesi: `reach` (buluş/konuş, eşya ver), 
 - **Bölüm 2 – Karlı Kale** (Tur 2): 4800x3400 Norveç fiyordu, ~50 asker (kış askeri, SS, subay), 4 gözetleme kulesi, 4 kışla, 5 siren. Lars ile buluş, köy telsizini sessizce kes, gardiyandan hücre anahtarını al, Şahin'i kurtar, kodları çal, uçaksavarı ve radarı uçur, kodları Lars'a teslim et, fiyorttaki tekneye kaç. Derin kar yavaşlatır ve iz bırakır. `tools/gen_bolum2.py`
 - **Bölüm 3 – Denizaltı Üssü** (Tur 2): 5400x3800 Atlantik limanı, ~56 asker (SS ağırlıklı), 5 kule, 5 kışla, 6 siren, 13 bina. Gölge seni izler; trafoyu sabote et, liman anahtarıyla kilitli kontrol odasından sevkiyat defterini al, istasyondan tarifeyi çal, makası boz, bunkerdeki iki denizaltı kapısını uçur, doğu rıhtımına kaç. `tools/gen_bolum3.py`
 
+- **Bölüm 4 – Gece Treni** (Tur 3): 6000x3800 gece demiryolu kavşağı, ~62 asker, 6 kule, 4 projektör, dikenli tel çevrili manevra sahası, kilitli nöbet barakası. Marie'den tel makası ve patlayıcı al, Kıvılcım'ı kurtar, sinyal kulübesini sabote et, sevk listesini çal, lokomotifi ve mühimmat vagonlarını uçur. `tools/gen_bolum4.py`
+- **Bölüm 5 – Kartal Yuvası** (Tur 3, final): 6400x4200 şato + havaalanı + bocage çitleri, ~76 asker, 7 kule, 5 projektör, 7 kışla, 8 siren. Santrali kes, Storch'u ve radyo kulesini uçur, kâhyadan şato anahtarını al, planları çal, Richter'i esir alıp nehirdeki tekneye götür. `tools/gen_bolum5.py`
+
 Yeni bölüm üreticileri `tools/bolum_lib.py` yardımcılarını kullanır (bina, asker, kule, çalı şeridi, nehir, duvarlı alan). Her bölüm için erişim testi: `godot --headless --script res://tests/sim_bolum.gd -- --level=res://levels/bolum2.json`.
+
+## Varlık hattı ve boyut bütçesi
+Tek hat: **render** (`tools/blender/harita.py`, kayıpsız PNG, `levels/<bölüm>_art/v0..v3/`) → **sıkıştırma** (`python3 tools/varlik/hat.py sikistir`, WebP + zemin önizlemesi) → **Godot import** (`hat.py ayarla`, ayarlar `tools/varlik_ayarlari.json`) → **export** (`export_presets.cfg`, test/araç/belge hariç). Her derlemede `hat.py butce` APK/zip boyutlarını yazar ve bütçe aşılırsa uyarır. Ayrıntı: `docs/GELISTIRME.md` → "Varlık ve boyut bütçesi".
 
 ## Harita render hattı (Blender)
 `tools/blender/harita.py` bölüm dosyasından 3D sahneyi kurar (kiremit çatılı evler, pencereler, ağaçlar, çitler, kum torbaları, çadırlar, kamyonlar, tank, nehir, köprüler, çimen detayları) ve oyunun eğik bakış açısıyla render alır:
-- `levels/<bölüm>_art/ground.jpg` – zemin (nesnelerin gölgeleri dahil)
-- `objects.png` – her nesne ayrı parça; oyunda Y-Sort ile karakterlerle doğru sıralanır
-- `roofs.png` – çatılar; binaya girince şeffaflaşır
+- `levels/<bölüm>_art/v<açı>/ground_X_Y.webp` – zemin karoları (nesnelerin gölgeleri dahil), `ground_mini.webp` (v0) mini/büyük harita
+- `objects_N.webp` – her nesne ayrı parça; oyunda Y-Sort ile karakterlerle doğru sıralanır
+- `roofs_N.webp` – çatılar; binaya girince şeffaflaşır
 - `manifest.json` – parçaların atlas ve dünya konumları
 
 Bölüm dosyası ya da script değişip push edilince GitHub Actions haritaları yeniden render eder. Komando bir nesnenin arkasında kalınca yeşil silüeti görünür.

@@ -33,6 +33,7 @@ void fragment() {
 """
 var _toast_t := 0.0
 var toast_label: Label
+var busy_label: Label             # "Cevriliyor..." (aci dokulari arka planda yuklenirken)
 var hp_bar: ProgressBar
 var pistol_btn: Button
 var med_btn: Button
@@ -121,6 +122,13 @@ func _ready() -> void:
 	toast_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	toast_label.visible = false
 	top.add_child(toast_label)
+	busy_label = _label("", 26, Color(1, 1, 0.85))
+	busy_label.set_anchors_preset(Control.PRESET_CENTER)
+	busy_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	busy_label.add_theme_color_override("font_outline_color", Color(0, 0, 0))
+	busy_label.add_theme_constant_override("outline_size", 6)
+	busy_label.visible = false
+	add_child(busy_label)
 	timer_label = _label("", 30, Color(1, 0.4, 0.25))
 	timer_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	top.add_child(timer_label)
@@ -257,9 +265,15 @@ func _ready() -> void:
 		if on:
 			main.commando.weapon = "knife")
 	weap.add_child(knife_btn)
+	# Tur 3: yumruk (bayilt, oldurmez) ve islik (yakindaki askerleri cek)
+	var fist_btn := _button("Yumruk", true)
+	fist_btn.button_group = group
+	fist_btn.toggled.connect(func(on):
+		if on:
+			main.commando.weapon = "fist")
+	weap.add_child(fist_btn)
 	pistol_btn = _button("Tabanca", true)
 	pistol_btn.button_group = group
-	pistol_btn.custom_minimum_size.x = BTN * 2 + 4
 	pistol_btn.toggled.connect(func(on):
 		if on:
 			main.commando.weapon = "pistol")
@@ -267,6 +281,9 @@ func _ready() -> void:
 	med_btn = _button("Sağlık", false)
 	med_btn.pressed.connect(func(): main.commando.use_medkit())
 	weap.add_child(med_btn)
+	var wh_btn := _button("Islık", false)
+	wh_btn.pressed.connect(func(): main.commando.do_whistle())
+	weap.add_child(wh_btn)
 	br_box.add_child(_label("HAREKET", 13, ACCENT))
 	var abil := HBoxContainer.new()
 	br_box.add_child(abil)
@@ -395,7 +412,7 @@ func _process(delta: float) -> void:
 	var ea := (0.25 + 0.2 * sin(_pulse)) if main.alert_level >= 2 else 0.0
 	for e in _edges:
 		e.color.a = ea
-	pistol_btn.text = "Tabanca (%d)" % c.ammo
+	pistol_btn.text = "Tabanca\n%d" % c.ammo
 	med_btn.text = "Sağlık x%d" % c.medkits
 	med_btn.disabled = c.medkits <= 0
 	if not c.alive:
@@ -415,7 +432,7 @@ func _process(delta: float) -> void:
 
 # ---------------- Disaridan cagrilanlar ----------------
 const ITEM_NAMES := {"patlayici": "PATLAYICI", "belge": "BELGE", "planlar": "PLANLAR", "hucre_anahtari": "HÜCRE ANAHT.",
-	"kodlar": "KODLAR", "liman_anahtari": "LİMAN ANAHT.", "sevkiyat": "SEVKİYAT", "anahtar": "ANAHTAR", "belediye_anahtari": "BELEDİYE ANAHT.", "tarife": "TARİFE"}
+	"kodlar": "KODLAR", "liman_anahtari": "LİMAN ANAHT.", "sevkiyat": "SEVKİYAT", "anahtar": "ANAHTAR", "belediye_anahtari": "BELEDİYE ANAHT.", "tarife": "TARİFE", "tel_makasi": "TEL MAKASI", "liste": "SEVK LİSTESİ", "baraka_anahtari": "BARAKA ANAHT.", "sato_anahtari": "ŞATO ANAHT.", "pusula": "PUSULA", "rota": "ROTA", "sifre": "ŞİFRE"}
 
 
 func refresh_objectives() -> void:
@@ -536,6 +553,14 @@ func toast(text: String) -> void:
 	toast_label.text = text
 	toast_label.visible = true
 	_toast_t = 2.5
+
+
+func show_busy(text: String) -> void:
+	busy_label.text = text
+	busy_label.visible = text != ""
+	if busy_label.visible:
+		busy_label.position = get_viewport().get_visible_rect().size * 0.5 - Vector2(120, 20)
+		busy_label.size = Vector2(240, 40)
 
 
 func set_alarm(level: int, text: String) -> void:

@@ -80,8 +80,8 @@ func _draw() -> void:
 func _draw_static(c: Control) -> void:
 	var lvl = main.level
 	var k := _scale()
-	if not lvl.ground_tiles0().is_empty():
-		for t in lvl.ground_tiles0():
+	if not lvl.ground_overview().is_empty():
+		for t in lvl.ground_overview():
 			var tr: Rect2 = t[1]
 			c.draw_texture_rect(t[0], Rect2(tr.position * k, tr.size * k), false)
 	elif lvl.ground_tex != null:
