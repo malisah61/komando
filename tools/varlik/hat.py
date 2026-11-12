@@ -73,6 +73,110 @@ def _bolum_ayari(A, d):
     return hz
 
 
+def _skyline(boyutlar, W, H, pad=2):
+    """skyline (alt-sol) paketleme: [(w, h)] -> [(sayfa, x, y)], sayfa boyutlari"""
+    sira = sorted(range(len(boyutlar)), key=lambda i: (-boyutlar[i][1], -boyutlar[i][0]))
+    sayfalar = []          # her sayfa: skyline [(x, y, w)], kullanilan (maxx, maxy)
+    yer = [None] * len(boyutlar)
+    for i in sira:
+        w, h = boyutlar[i][0] + pad, boyutlar[i][1] + pad
+        konuldu = False
+        for pi, (sky, kul) in enumerate(sayfalar):
+            en_iyi = None
+            for si in range(len(sky)):
+                x = sky[si][0]
+                if x + w > W:
+                    break
+                # x..x+w araligindaki en yuksek y
+                y, kalan, j = 0, w, si
+                while kalan > 0 and j < len(sky):
+                    y = max(y, sky[j][1])
+                    kalan -= sky[j][2] if j > si else sky[j][2]
+                    j += 1
+                if kalan > 0 or y + h > H:
+                    continue
+                if en_iyi is None or (y + h, x) < (en_iyi[1] + h, en_iyi[0]):
+                    en_iyi = (x, y)
+            if en_iyi is None:
+                continue
+            x, y = en_iyi
+            # skyline'i guncelle
+            yeni = []
+            for (sx, sy, sw) in sky:
+                a, b = sx, sx + sw
+                if b <= x or a >= x + w:
+                    yeni.append((sx, sy, sw))
+                else:
+                    if a < x:
+                        yeni.append((a, sy, x - a))
+                    if b > x + w:
+                        yeni.append((x + w, sy, b - (x + w)))
+            yeni.append((x, y + h, w))
+            yeni.sort()
+            # komsu esit yukseklikleri birlestir
+            bir = []
+            for seg in yeni:
+                if bir and bir[-1][1] == seg[1] and bir[-1][0] + bir[-1][2] == seg[0]:
+                    bir[-1] = (bir[-1][0], seg[1], bir[-1][2] + seg[2])
+                else:
+                    bir.append(seg)
+            sayfalar[pi] = (bir, (max(kul[0], x + w), max(kul[1], y + h)))
+            yer[i] = (pi, x, y)
+            konuldu = True
+            break
+        if not konuldu:
+            sayfalar.append(([(0, 0, W)], (0, 0)))
+            sky, kul = sayfalar[-1]
+            yer[i] = (len(sayfalar) - 1, 0, 0)
+            sayfalar[-1] = ([(0, h, w), (w, 0, W - w)] if w < W else [(0, h, W)], (w, h))
+    return yer, [k for _, k in sayfalar]
+
+
+def yeniden_paketle(d, man, key, kalite, alfa_kalite):
+    """atlas sayfalarini skyline ile yeniden paketle (bos saydam alan -> daha az GPU bellegi)"""
+    from PIL import Image
+    sayfa_ad = man.get(key + "_pages", [])
+    if not sayfa_ad or not man.get(key):
+        return False
+    sayfalar = [Image.open(os.path.join(d, f)).convert("RGBA") for f in sayfa_ad]
+    eski = sum(p.width * p.height for p in sayfalar)
+    parcalar, boy = [], []
+    for e in man[key]:
+        x, y = e["atlas"]
+        w, h = e["rect"][2], e["rect"][3]
+        parcalar.append(sayfalar[int(e.get("page", 0))].crop((x, y, x + w, y + h)))
+        boy.append((w, h))
+    en_iyi = None
+    for W in (1024, 1536, 2048, 2560, 3072, 3584, 4096):
+        if max(b[0] for b in boy) + 2 > W:
+            continue
+        yer, kul = _skyline(boy, W, 4096)
+        alan = sum(k[0] * k[1] for k in kul)
+        if en_iyi is None or alan < en_iyi[0]:
+            en_iyi = (alan, yer, kul)
+    alan, yer, kul = en_iyi
+    if alan >= eski * 0.97:
+        return False
+    for f in sayfa_ad:
+        _sil(os.path.join(d, f))
+    yeni_ad = []
+    for pi, (kw, kh) in enumerate(kul):
+        im = Image.new("RGBA", (kw, kh), (0, 0, 0, 0))
+        for i, (p, x, y) in enumerate(yer):
+            if p == pi:
+                im.paste(parcalar[i], (x, y))
+        fn = "%s_%d.webp" % (key, pi)
+        im.save(os.path.join(d, fn), "WEBP", quality=kalite, alpha_quality=alfa_kalite, method=6)
+        yeni_ad.append(fn)
+    for e, (p, x, y) in zip(man[key], yer):
+        e["page"] = p
+        e["atlas"] = [x, y]
+    man[key + "_pages"] = yeni_ad
+    man[key + "_packed"] = "skyline"
+    print("  %s: %.1f -> %.1f Mpx (%d sayfa)" % (key, eski / 1e6, alan / 1e6, len(kul)))
+    return True
+
+
 def sikistir_aci(d, A, zorla=False):
     from PIL import Image
     Image.MAX_IMAGE_PIXELS = None
@@ -145,6 +249,9 @@ def sikistir_aci(d, A, zorla=False):
             degisti = True
         if sayfalar:
             man[key + "_pages"] = yeni
+        if hz[ak].get("paketle", True) and man.get(key + "_packed") != "skyline":
+            if yeniden_paketle(d, man, key, int(hz[ak]["kalite"]), int(hz[ak]["alfa_kalite"])):
+                degisti = True
     # gecici render klasoru
     shutil.rmtree(os.path.join(d, "_tmp"), ignore_errors=True)
     if degisti:

@@ -48,11 +48,9 @@ func _process(_delta: float) -> bool:
 	for i in views.size():
 		var at := 40 + i * 40
 		if frame == at - 20:
-			while main.level.view != views[i]:
-				var before: int = main.level.view
-				main.rotate_view(1)
-				if main.level.view == before:
-					break
+			# esitli gecis (ekran goruntusu icin; oyunda arka planda yuklenir)
+			if main.level.view != views[i] and main.level.set_view(views[i]):
+				pass
 			_cam()
 		if frame == at:
 			root.get_texture().get_image().save_png("%s_aci%d.png" % [opts["out"], main.level.view])

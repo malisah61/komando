@@ -341,3 +341,5 @@ Geliştirme listesi bu bulgulardan: takipçiyi koruyan bot, Bölüm 0'a siren + 
 - **Proje ikonu** eklendi (export uyarısı gitti).
 - **Zemin akışı:** 0,1 sn'de en fazla 2 karo, karolar ekrandan 320 px önce istenir (kaydırmada GPU yüklemesi dağılır).
 - Ölçüm (llvmpipe): sabit kamerada en yavaş kare 64,8 ms (önce 75,8), açı değişiminde en yavaş kare 91,6 ms; bölüm açılışı ~1,1 sn (paketten sprite açma +~0,3 sn; zstd), doku belleği aynı (264 / 352 MB).
+- **Atlas yeniden paketleme (skyline):** `hat.py sikistir` nesne/çatı parçalarını raf yerine skyline yöntemiyle yeniden diziyor (boş saydam alan → daha az GPU belleği). Bölüm 2 nesne atlası 21,6 → 13,3 Mpx, Bölüm 3 (doğu) çatı 11,8 → 5,9 Mpx. Bölüm 3'te doku belleği en yüksek 352 → **291 MB**, açılışta 264 → 249 MB. 4 açı görüntü karşılaştırması: fark yok.
+- **Bölüm 5 render'ı:** 2 açı CI makinesinde bellek yetmediği için düştü (12800x8400 piksel). `harita.py` artık render'ı kopyasız ve yarım hassasiyetle tutuyor (~3,4 GB → ~0,9 GB); `harita.yml`'a `aci` girdisi eklendi, düşen açılar ayrıca render ediliyor.

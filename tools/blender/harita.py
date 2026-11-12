@@ -20,6 +20,7 @@ import bmesh
 import json
 import math
 import os
+import gc
 import random
 import sys
 import numpy as np
@@ -911,7 +912,13 @@ def render_to_array(path, W, H, raw=False):
     a = np.empty(W * H * 4, dtype=np.float32)
     img.pixels.foreach_get(a)
     bpy.data.images.remove(img)
-    return a.reshape(H, W, 4)[::-1].copy()     # ust satir once
+    gc.collect()
+    # bellek: kopyasiz ters cevirme (gorunum) + yarim hassasiyet (8 bit cikti icin yeterli).
+    # Bolum 5 (12800x8400 render) 7 GB'lik CI makinesinde bellek yetmedigi icin dusuyordu.
+    out = a.reshape(H, W, 4)[::-1].astype(np.float16)
+    del a
+    gc.collect()
+    return out
 
 
 def save_array(arr, path, fmt="PNG", quality=90):
@@ -919,7 +926,7 @@ def save_array(arr, path, fmt="PNG", quality=90):
     if arr.shape[2] == 3:
         arr = np.concatenate([arr, np.ones((h, w, 1), dtype=np.float32)], axis=2)
     img = bpy.data.images.new(os.path.basename(path), w, h, alpha=True)
-    img.pixels.foreach_set(np.ascontiguousarray(arr[::-1]).ravel())
+    img.pixels.foreach_set(np.ascontiguousarray(arr[::-1], dtype=np.float32).ravel())
     img.filepath_raw = path
     img.file_format = fmt
     sc = bpy.context.scene

@@ -14,6 +14,10 @@ on:
         description: "Sadece bu bolum(ler) (bos = hepsi), or. bolum1 ya da 'bolum4 bolum5'"
         required: false
         default: ""
+      aci:
+        description: "Sadece bu acilar (JSON), or. [2,3]"
+        required: false
+        default: "[0,1,2,3]"
 
 permissions:
   contents: write
@@ -52,7 +56,7 @@ jobs:
       fail-fast: false
       matrix:
         bolum: ${{ fromJson(needs.liste.outputs.bolumler) }}
-        aci: [0, 1, 2, 3]
+        aci: ${{ fromJson(inputs.aci || '[0,1,2,3]') }}
     steps:
       - uses: actions/checkout@v4
 

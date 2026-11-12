@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://dhnr03ame4x0i"
-path="res://.godot/imported/objects_1.webp-43add2109fa39bd39c7c81c1c0e60e14.ctex"
+uid="uid://cu7y32u2lburc"
+path="res://.godot/imported/objects_1.webp-c4798a1d3b7c9814cc9314e11f413f94.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://levels/bolum3_art/v3/objects_1.webp"
-dest_files=["res://.godot/imported/objects_1.webp-43add2109fa39bd39c7c81c1c0e60e14.ctex"]
+source_file="res://levels/bolum3_art/v2/objects_1.webp"
+dest_files=["res://.godot/imported/objects_1.webp-c4798a1d3b7c9814cc9314e11f413f94.ctex"]
 
 [params]
 

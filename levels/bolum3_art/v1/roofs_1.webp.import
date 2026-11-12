@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bv2dcvs600lj3"
-path="res://.godot/imported/objects_1.webp-84ed0683b08fd8b501db11bed20da686.ctex"
+uid="uid://bt2qv77t6grqp"
+path="res://.godot/imported/roofs_1.webp-7f119b10d3527729fd26c3ca10699fd9.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://levels/bolum2_art/v0/objects_1.webp"
-dest_files=["res://.godot/imported/objects_1.webp-84ed0683b08fd8b501db11bed20da686.ctex"]
+source_file="res://levels/bolum3_art/v1/roofs_1.webp"
+dest_files=["res://.godot/imported/roofs_1.webp-7f119b10d3527729fd26c3ca10699fd9.ctex"]
 
 [params]
 
