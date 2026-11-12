@@ -5,6 +5,8 @@ extends CanvasLayer
 ## Tum parcalar capa (anchor) ile kenarlara yapisir: telefon ve PC'de ayni duzen.
 
 const Minimap = preload("res://scripts/minimap.gd")
+const Kayit = preload("res://scripts/kayit.gd")
+const Yenilikler = preload("res://scripts/yenilikler.gd")
 
 const BTN := 76          # dokunmatik icin en az ~10 mm
 const PANEL_BG := Color(0.1, 0.11, 0.08, 0.82)
@@ -49,6 +51,10 @@ var alert_label: Label
 var status_label: Label
 var msg_label: Label
 var restart_btn: Button
+var continue_btn: Button          # Tur 4: olunce son kayittan devam
+var pick_btn: Button
+var _continue_slot := ""
+var _saves_panel: Control = null
 var knife_btn: Button
 var run_btn: Button
 var cone_btn: Button
@@ -326,6 +332,15 @@ func _ready() -> void:
 	menu_btn.offset_bottom = 62
 	menu_btn.pressed.connect(func(): show_menu(main.LEVELS))
 	root.add_child(menu_btn)
+	# kayit (Tur 4): PC'de F5 hizli kaydet, F9 hizli yukle, Esc/K kayit paneli
+	var save_btn := _button("Kayıt", false)
+	save_btn.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	save_btn.offset_left = -294
+	save_btn.offset_right = -204
+	save_btn.offset_top = 10
+	save_btn.offset_bottom = 62
+	save_btn.pressed.connect(func(): show_saves())
+	root.add_child(save_btn)
 	# 4 yonlu bakis: haritayi 90 derece cevir (PC: Q / E)
 	var rot_btn := _button("Çevir", false)
 	rot_btn.set_anchors_preset(Control.PRESET_TOP_RIGHT)
@@ -356,6 +371,21 @@ func _ready() -> void:
 		get_tree().paused = false
 		get_tree().reload_current_scene())
 	mid.add_child(restart_btn)
+	continue_btn = Button.new()
+	continue_btn.add_theme_font_size_override("font_size", 26)
+	continue_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	continue_btn.visible = false
+	continue_btn.pressed.connect(func():
+		if _continue_slot != "":
+			main.load_slot(_continue_slot))
+	mid.add_child(continue_btn)
+	pick_btn = Button.new()
+	pick_btn.text = "  Kayıt seç…  "
+	pick_btn.add_theme_font_size_override("font_size", 22)
+	pick_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	pick_btn.visible = false
+	pick_btn.pressed.connect(func(): show_saves(true))
+	mid.add_child(pick_btn)
 
 
 func show_menu(levels: Array) -> void:
@@ -389,6 +419,18 @@ func show_menu(levels: Array) -> void:
 		var path: String = lv[0]
 		b.pressed.connect(func(): main.choose_level(path))
 		box.add_child(b)
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 12)
+	box.add_child(row)
+	var lb := _button("Kayıtlı oyunu yükle", false)
+	lb.custom_minimum_size = Vector2(250, 56)
+	lb.pressed.connect(func(): show_saves(true))
+	row.add_child(lb)
+	var nb := _button("Yenilikler", false)
+	nb.custom_minimum_size = Vector2(250, 56)
+	nb.pressed.connect(func(): show_news())
+	row.add_child(nb)
 	if main.level_choice != "":
 		var back := _button("Geri dön", false)
 		back.custom_minimum_size = Vector2(200, 56)
@@ -667,6 +709,20 @@ func show_end(text: String, col: Color) -> void:
 	msg_label.add_theme_color_override("font_color", col)
 	msg_label.visible = true
 	restart_btn.visible = true
+	# kaybettiysen: son kayittan devam (once bu bolumun kaydi)
+	_continue_slot = ""
+	if not main.commando.alive or col.r > col.g:
+		_continue_slot = Kayit.latest(main.level_path)
+	if _continue_slot != "":
+		var inf: Dictionary = Kayit.info(_continue_slot)
+		var t: float = float(inf.get("sure", 0))
+		continue_btn.text = "  Son kayıttan devam: %s (%d:%02d)  " % [Kayit.SLOT_NAMES.get(_continue_slot, _continue_slot), int(t) / 60, int(t) % 60]
+		continue_btn.visible = true
+		pick_btn.visible = true
+		# sira: once "devam", sonra "kayit sec", en son "yeniden basla"
+		var mid: Node = restart_btn.get_parent()
+		mid.move_child(continue_btn, restart_btn.get_index())
+		mid.move_child(pick_btn, restart_btn.get_index())
 
 
 func used_knife() -> void:
@@ -717,3 +773,118 @@ func _button(text: String, toggle: bool) -> Button:
 	b.add_theme_stylebox_override("pressed", on)
 	b.add_theme_stylebox_override("hover_pressed", on)
 	return b
+
+
+# ---------------- Kayit paneli (Tur 4) ----------------
+func show_saves(load_only := false) -> void:
+	## 5 yuva: hizli, otomatik, 1-3. Elle yuvalara ve hizliya kaydedilir; hepsi yuklenebilir.
+	if _saves_panel != null and is_instance_valid(_saves_panel):
+		_close_saves()
+		return
+	var was_paused := get_tree().paused
+	get_tree().paused = true
+	var shade := ColorRect.new()
+	shade.color = Color(0, 0, 0, 0.78)
+	shade.set_anchors_preset(Control.PRESET_FULL_RECT)
+	shade.mouse_filter = Control.MOUSE_FILTER_STOP
+	shade.set_meta("was_paused", was_paused)
+	add_child(shade)
+	_saves_panel = shade
+	var box := VBoxContainer.new()
+	box.set_anchors_preset(Control.PRESET_CENTER)
+	box.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	box.grow_vertical = Control.GROW_DIRECTION_BOTH
+	box.add_theme_constant_override("separation", 10)
+	shade.add_child(box)
+	box.add_child(_label("KAYIT", 36, ACCENT))
+	var why: String = "" if load_only else Kayit.why_not(main)
+	if why != "" and not main.game_over:
+		box.add_child(_label("Şu an kaydedilemez: " + why, 17, Color(1, 0.6, 0.4)))
+	for slot in Kayit.SLOTS:
+		var inf: Dictionary = Kayit.info(slot)
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 10)
+		box.add_child(row)
+		var txt: String = Kayit.SLOT_NAMES[slot] + "\n"
+		if inf.is_empty():
+			txt += "boş"
+		elif inf.get("bozuk", false):
+			txt += "okunamadı"
+		else:
+			var t: float = float(inf.get("sure", 0))
+			txt += "%s · %d:%02d · görev %s · %s" % [inf.get("ad", "?"), int(t) / 60, int(t) % 60, inf.get("gorev", "?"), str(inf.get("tarih", "")).replace("T", " ").left(16)]
+		var l := _label(txt, 17)
+		l.custom_minimum_size = Vector2(470, 52)
+		row.add_child(l)
+		if slot in Kayit.MANUAL and not load_only:
+			var sb := _button("Kaydet", false)
+			sb.custom_minimum_size = Vector2(110, 52)
+			sb.disabled = why != ""
+			sb.pressed.connect(func():
+				if main.save_slot(slot):
+					_close_saves())
+			row.add_child(sb)
+		elif not load_only:
+			var gap := Control.new()      # otomatik kayda elle kaydedilmez: sutunlar hizali kalsin
+			gap.custom_minimum_size = Vector2(110, 52)
+			row.add_child(gap)
+		var yb := _button("Yükle", false)
+		yb.custom_minimum_size = Vector2(110, 52)
+		yb.disabled = inf.is_empty() or inf.get("bozuk", false)
+		yb.pressed.connect(func(): main.load_slot(slot))
+		row.add_child(yb)
+	var hint := _label("PC: F5 hızlı kaydet · F9 hızlı yükle · Esc bu panel", 14, Color(1, 1, 1, 0.6))
+	box.add_child(hint)
+	var close := _button("Kapat", false)
+	close.custom_minimum_size = Vector2(180, 52)
+	close.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	close.pressed.connect(func(): _close_saves())
+	box.add_child(close)
+
+
+func _close_saves() -> void:
+	if _saves_panel == null or not is_instance_valid(_saves_panel):
+		return
+	var was: bool = _saves_panel.get_meta("was_paused", false)
+	_saves_panel.queue_free()
+	_saves_panel = null
+	get_tree().paused = was
+
+
+func show_news() -> void:
+	var shade := ColorRect.new()
+	shade.color = Color(0.04, 0.04, 0.03, 0.92)
+	shade.set_anchors_preset(Control.PRESET_FULL_RECT)
+	shade.mouse_filter = Control.MOUSE_FILTER_STOP
+	add_child(shade)
+	var scroll := ScrollContainer.new()
+	scroll.set_anchors_preset(Control.PRESET_FULL_RECT)
+	scroll.offset_left = 60
+	scroll.offset_right = -60
+	scroll.offset_top = 30
+	scroll.offset_bottom = -30
+	shade.add_child(scroll)
+	var box := VBoxContainer.new()
+	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	box.add_theme_constant_override("separation", 8)
+	scroll.add_child(box)
+	box.add_child(_label("YENİLİKLER", 34, ACCENT))
+	for entry in Yenilikler.LIST:
+		box.add_child(_label(entry[0], 20, ACCENT))
+		for line in entry[1]:
+			var l := _label("•  " + line, 17)
+			l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			box.add_child(l)
+	var close := _button("Kapat", false)
+	close.custom_minimum_size = Vector2(180, 52)
+	close.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	close.pressed.connect(func(): shade.queue_free())
+	box.add_child(close)
+
+
+func _unhandled_key_input(e: InputEvent) -> void:
+	## oyun duraklamisken (kayit paneli acik) Esc paneli kapatir
+	if e.pressed and not e.echo and e.keycode == KEY_ESCAPE and _saves_panel != null and is_instance_valid(_saves_panel):
+		_close_saves()
+		get_viewport().set_input_as_handled()

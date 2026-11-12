@@ -4,7 +4,7 @@
 
 ## Kampanya: "Operasyon Gece Kuşu"
 
-**Dönem:** Mayıs – Haziran 1944, Müttefiklerin Normandiya çıkarmasından önceki son haftalar.
+**Dönem:** Mayıs – Haziran 1944, Müttefiklerin Normandiya çıkarmasından önceki son haftalar (1. perde, Bölüm 0–5); Temmuz 1944 ve sonrası, çıkarmadan sonra (2. perde, Bölüm 6–11). Kampanya 12 bölüm olarak planlandı.
 **Ton:** Gerçekçi ama macera filmi havasında. Kahramanlar küçük bir ekip, düşman güçlü ve sayıca kalabalık. Her görev bir sızma ve sabotaj bulmacası.
 
 **Ana fikir:** Alman Binbaşı Klaus Richter, çıkarma bölgesine hızla tank takviyesi gönderebilecek bir lojistik ağı kuruyor. Ekibin görevi bu ağı parça parça çökertmek: köprüler, yakıt depoları, haberleşme merkezleri ve en sonunda Richter'in kendisi.
@@ -36,7 +36,8 @@
 | 2 | **Karlı Kale** | Norveç fiyordu, kış | Lars ile buluş, telsizi sustur, Şahin'i hapishaneden çıkar, kodları çal, radarı ve uçaksavarı uçur | 30–50 dk |
 | 3 | **Denizaltı Üssü** | Saint-Nazaire benzeri liman | Gölge ile sızma, trafoyu sabote et, kontrol odasından sevkiyat defterini çal, denizaltı kapılarını uçur | 35–55 dk |
 | 4 | **Gece Treni** | Demiryolu kavşağı, gece | Kıvılcım'ı kurtar, sinyali boz, mühimmat trenini uçur | 40–60 dk |
-| 5 | **Kartal Yuvası** (final) | Richter'in şatosu, havaalanı | Santrali kes, Storch'u ve radyo kulesini uçur, planları çal, Richter'i esir al | 50–70 dk |
+| 5 | **Kartal Yuvası** (1. perde finali) | Richter'in şatosu, havaalanı | Santrali kes, Storch'u ve radyo kulesini uçur, planları çal, Richter'i esir al | 50–70 dk |
+| 6 | **Çelik Rampa** (2. perde açılışı) | Pas-de-Calais ormanı, baraj gölü, V-1 üssü | Baraj santralini kes, Gölge'yi kamptan kurtar, hedef çizelgesini çal, V-1 rampasını ve harp başlıklarını uçur | 55–75 dk |
 
 ## Bölüm 1 – Nehir Operasyonu (ayrıntılı)
 
@@ -111,7 +112,7 @@
 
 **Kapanış:** Kowalski: *"Bu patlamayı Londra'dan duydular."* Marie: *"Richter şatosuna çekildi. Kartal yuvası diyorlar."*
 
-## Bölüm 5 – Kartal Yuvası (Tur 3, final)
+## Bölüm 5 – Kartal Yuvası (Tur 3, 1. perde finali)
 
 **Açılış:** 5 Haziran 1944 şafağı, çıkarmaya saatler var. Richter bocage çitleriyle çevrili eski bir şatodan panzerlere karşı-çıkarma emrini telsizle verecek.
 
@@ -129,6 +130,26 @@
 **Zorluk:** ~76 asker (SS ağırlıklı), 7 kule, 5 projektör, 7 kışla, 8 siren, 13 bina; çit labirenti hem saklar hem yolu keser.
 
 **Kapanış:** Şafakta ufukta çıkarma filosu. Richter: *"Bunu siz mi yaptınız... dört kişi?"* Reilly: *"Beş. Pierre'i unutma."*
+
+## Bölüm 6 – Çelik Rampa (Tur 4)
+
+**Açılış:** Temmuz 1944, Pas-de-Calais. Çıkarma başardı, Richter Londra'da sorguda. Defterindeki son sayfa ormanlara gizlenmiş V-1 rampalarını gösteriyor: her gece Londra'ya uçan bombalar. Rampanın komutanı SS albayı **Wilhelm Brandt**, Richter'in eski öğrencisi. Gölge üssü keşfederken yakalandı. Blake telsizden: *"Rampa baraj gölünün doğusunda, Reilly. Henri nehrin bu yakasında, kampta."*
+
+**Görev akışı:**
+1. **Temas:** Ormancı kulübesinde Pikardi direnişinden **Jeanne Morel** (3 patlayıcı + tel makası).
+2. **Santral (sessiz sabotaj):** Baraj santralinin telefon hattı kesilir; rampanın batı kışlası çağrılamaz.
+3. **Anahtar:** Zorunlu çalışma kampının avlusunda dolaşan kamp komutanından gözaltı bunkerinin anahtarı.
+4. **Gölge:** Kilitli gözaltı bunkerinden Henri Duval çıkarılır, seni izler (askerler onu da görür).
+5. **İkinci anahtar:** Rampanın çevresinde dolaşan rampa subayından komuta bunkerinin anahtarı.
+6. **Çizelge:** Komuta bunkerinden V-1 hedef çizelgesi (öteki rampaların yerleri).
+7. **Rampa:** Walter rampasının buhar jeneratörü uçurulur.
+8. **Depo:** Harp başlığı deposu uçurulur.
+9. *(İsteğe bağlı)* T-Stoff yakıt tankları.
+10. **Kaçış:** Gölge ile kuzeybatıdaki Lysander tarlası.
+
+**Zorluk:** ~86 asker (kampta erler, rampada SS), 9 kule, **6 projektör**, dikenli telli V-1 üssü (4 kapı, tel kesilerek kendi kapını açarsın), duvarlı kamp (3 kapı), 8 kışla, 9 siren, 13 bina, iki kilitli bina ve iki anahtar. Nehri üç yerden geçebilirsin: tutulan köprü, projektörlü baraj seddi ya da güneydeki çamurlu sığlık (iz kalır). Kamp ve barajdaki erler sıradan askerler: **üniforma** giyen komando aralarından geçer, rampadaki SS'ler ve subaylar tanır. Gece, ay ışığı.
+
+**Kapanış:** Orman alevler içinde, Lysander tarladan havalanıyor. Henri: *"Brandt rampada değildi, çavuş. Çizelgede bir isim daha var: Peenemünde."* Reilly: *"O zaman bir sonraki durağımız orası."* Kowalski (telsiz): *"Bana daha büyük bir patlayıcı getirin."*
 
 ## Gelecek mekanikler (öncelik sırasıyla)
 1. İkinci komando (Şahin), birden fazla karakter seçimi ve portreler

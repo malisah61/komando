@@ -566,7 +566,7 @@ func can_see(p: Vector2, crouched := false) -> bool:
 	var r := view_range() * (NEAR_FRAC if crouched else 1.0)
 	if d.length() > r:
 		return false
-	if absf(wrapf(d.angle() - facing, -PI, PI)) > VIEW_HALF * (1.2 if vigilant_t > 0.0 else 1.0):
+	if absf(wrapf(d.angle() - facing, -PI, PI)) > VIEW_HALF * (1.12 if vigilant_t > 0.0 else 1.0):
 		return false
 	if main.level.has_los(global_position, p):
 		return true
@@ -614,7 +614,7 @@ func _watch(delta: float) -> void:
 		var near := clampf(1.0 - sd / view_range(), 0.15, 1.0)
 		var rate := (0.7 + near * 2.6) * _stat(2)
 		if vigilant_t > 0.0:
-			rate *= 1.25
+			rate *= 1.15   # Tur 4: 1.25 -> 1.15 (AI v4 tespiti hedefin ustundeydi)
 		var sdis = spotted.get("disguise")
 		if sdis != null and sdis != "":
 			rate *= 0.6

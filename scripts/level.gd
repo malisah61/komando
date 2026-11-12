@@ -1003,7 +1003,7 @@ func wire_near(p: Vector2, dist := 34.0) -> int:
 	return -1
 
 
-func cut_wire(i: int) -> void:
+func cut_wire(i: int, rebuild := true) -> void:
 	## tel makasi: teli kes, yeni bir gecit acilir (navigasyon yeniden hesaplanir)
 	var w: Dictionary = wires[i]
 	if w["cut"]:
@@ -1023,9 +1023,10 @@ func cut_wire(i: int) -> void:
 		for n in _views[kk]["nodes"]:
 			if n.has_meta("obstacle") and int(n.get_meta("obstacle")) == w["index"]:
 				n.visible = false
-	_build_navigation(false)
+	if rebuild:      # kayit yuklemede birden cok tel tek seferde (Tur 4)
+		_build_navigation(false)
+		changed_map.emit()
 	queue_redraw()
-	changed_map.emit()
 
 
 func add_scorch(p: Vector2, r: float) -> void:

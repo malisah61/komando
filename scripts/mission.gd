@@ -37,6 +37,9 @@ func setup(level_data: Dictionary) -> void:
 	for o in src:
 		var d: Dictionary = o.duplicate(true)
 		d["done"] = false
+		# "after": "anahtar" (tek metin) de kabul edilir; eskiden harf harf dolasilip kosul hic islemiyordu
+		if d.get("after") is String:
+			d["after"] = [d["after"]]
 		objectives.append(d)
 
 
@@ -64,6 +67,7 @@ func _v(a) -> Vector2:
 func _complete(o: Dictionary) -> void:
 	o["done"] = true
 	main.hud.refresh_objectives()
+	main.objective_done(o)
 	if o.has("done_say"):
 		main.hud.show_dialog(o["done_say"])
 

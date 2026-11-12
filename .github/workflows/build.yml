@@ -63,6 +63,11 @@ jobs:
           python3 tools/varlik/hat.py ayarla
           grep -n "exclude_filter" export_presets.cfg
 
+      - name: Kayıt sistemi testi
+        run: |
+          # kaydet -> yukle -> ayni durum; bozuk/gelecek/eski surum dosyalari (Tur 4)
+          ~/godot/godot --headless -s res://tests/sim_kayit.gd -- --level=res://levels/bolum2.json
+
       - name: Web derlemesi
         run: |
           mkdir -p build/web

@@ -8,8 +8,12 @@ extends SceneTree
 ## Tarzlar: gizli (comel, arkadan bicak, gerekirse tabanca), saldiri (tabancayla temizle),
 ##          tam (gizli + istege bagli gorevler)
 
+const Kayit = preload("res://scripts/kayit.gd")
 var main
-var opts := {"level": "res://levels/bolum1.json", "style": "gizli", "seed": "1", "limit": "1500", "out": ""}
+var opts := {"level": "res://levels/bolum1.json", "style": "gizli", "seed": "1", "limit": "1500", "out": "", "reloads": ""}
+var M
+var max_reloads := 0
+var _save_t := 30.0          # iyi oyuncu sakinken sik kaydeder (Tur 4)
 var t := 0.0
 var started := false
 var finished := false
@@ -64,7 +68,13 @@ func _initialize() -> void:
 			var kv := a.substr(2).split("=", true, 1)
 			opts[kv[0]] = kv[1]
 	seed(int(opts["seed"]))
-	var M = load("res://scripts/main.gd")
+	# iyi oyuncu gibi: kaydeder, olunce son kayittan devam eder (saldiri tarzi pervasiz: yuklemez)
+	max_reloads = int(opts["reloads"]) if opts["reloads"] != "" else (0 if opts["style"] == "saldiri" else 4)
+	Kayit.dir_override = "user://bot_kayit/%s_%s_%s" % [opts["level"].get_file().get_basename(), opts["style"], opts["seed"]]
+	DirAccess.make_dir_recursive_absolute(Kayit.dir_override)
+	for sl in Kayit.SLOTS:
+		DirAccess.remove_absolute(Kayit.slot_path(sl))
+	M = load("res://scripts/main.gd")
 	M.level_choice = opts["level"]
 	M.briefed = M.level_choice
 	main = load("res://scenes/main.tscn").instantiate()
@@ -74,7 +84,7 @@ func _initialize() -> void:
 		"reinforcements": 0, "damage_taken": 0.0, "kills_knife": 0, "kills_pistol": 0, "kills_other": 0,
 		"shots": 0, "medkits_used": 0, "stuck": 0, "stuck_spots": [], "detect_spots": [], "death_pos": null,
 		"hp_end": 0.0, "waits": 0, "retreats": 0, "guards": 0, "time_crouched": 0.0, "time_in_combat": 0.0, "interior_visits": 0,
-		"stones": 0, "bodies_hidden": 0, "runners_shot": 0}
+		"stones": 0, "bodies_hidden": 0, "runners_shot": 0, "reloads": 0, "saves": 0, "deaths": [], "load_ms": []}
 
 
 func _place(p: Vector2) -> String:
@@ -717,7 +727,8 @@ func _process(dt: float) -> bool:
 		return false
 	if not started:
 		started = true
-		rep["guards"] = _guards().size()
+		if rep["guards"] == 0:
+			rep["guards"] = _guards().size()
 		for g in _guards():
 			prev_state[g.get_instance_id()] = g.state
 			prev_alive[g.get_instance_id()] = true
@@ -730,9 +741,17 @@ func _process(dt: float) -> bool:
 		main.get_tree().paused = false
 	t += dt
 	_measure(dt)
+	if main.game_over and not main.commando.alive and rep["reloads"] < max_reloads and t < float(opts["limit"]) and _reload():
+		return false
 	if main.game_over or t > float(opts["limit"]):
 		_finish()
 		return false
+	_save_t -= dt
+	if _save_t <= 0.0 and max_reloads > 0:
+		_save_t = 5.0
+		if _calm() and Kayit.save(main, "hizli") == "":
+			rep["saves"] += 1
+			_save_t = 40.0
 	var c = main.commando
 	var m = main.mission
 	if opts.has("trace") and int(t * 2.0) != int((t - dt) * 2.0):
@@ -905,9 +924,76 @@ func _process(dt: float) -> bool:
 	return false
 
 
+func _calm() -> bool:
+	## kaydetmek icin guvenli an: alarm yok, kimse suphelenmiyor, cevrede beni goren yok
+	if main.alert_level > 0 or main.commando.carrying != null:
+		return false
+	for g in _guards():
+		if g.alive and (g.state != &"patrol" or g.suspicion > 0.15):
+			return false
+	return Kayit.why_not(main) == ""
+
+
+func _reload() -> bool:
+	## olum: son kayittan devam (insan oyuncu gibi). Bot durumu yeni sahneye gore sifirlanir.
+	var slot: String = Kayit.latest(opts["level"])
+	if slot == "" or M.prepare_load(slot) != "":
+		return false
+	var c = main.commando
+	rep["deaths"].append([int(c.global_position.x), int(c.global_position.y), _place(c.global_position), round(t), main.end_text, slot])
+	rep["reloads"] += 1
+	var t0 := Time.get_ticks_msec()
+	root.remove_child(main)
+	main.queue_free()
+	main = load("res://scenes/main.tscn").instantiate()
+	root.add_child(main)
+	rep["load_ms"].append(Time.get_ticks_msec() - t0)
+	started = false
+	prev_state = {}
+	prev_alive = {}
+	prev_hp = 100.0
+	goal_key = ""
+	repath_t = 0.0
+	stuck_t = 0.0
+	flee_from = null
+	wait_t = 0.0
+	key_guard = null
+	hide_spot = null
+	_thrown_at = {}
+	_carry_t = 0.0
+	_wait_on = {}
+	chase_t = 0.0
+	_light_d = {}
+	flee_t = 0.0
+	astar = null
+	_route = PackedVector2Array()
+	_route_i = 0
+	_route_dest = Vector2(INF, INF)
+	_dead_n = -1
+	_want = Vector2(INF, INF)
+	_save_t = 20.0
+	obj_done = {}
+	for o in main.mission.objectives:
+		if o["done"]:
+			obj_done[o["id"]] = true
+	return true
+
+
 func _finish() -> void:
 	finished = true
 	var c = main.commando
+	# yuklemeden sonra kaybedilen gorevler sayilmasin: son durumda bitmis olanlar
+	var now_done := {}
+	for o in main.mission.objectives:
+		if o["done"]:
+			now_done[o["id"]] = true
+	rep["objectives"] = rep["objectives"].filter(func(o): return now_done.has(o["id"]))
+	var seen := {}
+	rep["objectives"] = rep["objectives"].filter(func(o):
+		if seen.has(o["id"]):
+			return false
+		seen[o["id"]] = true
+		return true)
 	rep["time"] = round(t)
 	rep["hp_end"] = round(c.hp)
 	if main.game_over and c.alive:

@@ -362,3 +362,55 @@ Bot (tohum 1): Bölüm 0 saldırı tarzı artık kaybediyor (önce 0:34'te kazan
 - 4 açı görüntüsü: `docs/ekran/tur3_bolum5_4aci.jpg` (şato avlusu, bahçe çitleri, tank, kamyon).
 - `hat.py ayarla` artık `godot_nesne_kalite` de destekliyor.
 - Son derlemede Windows zip 121,0 MB (bütçe 120) çıktı → Bölüm 3 zemini için Godot kalitesi 0,70 (`bolum_ozel.bolum3`): 21,6 → **16,1 MB**, 2× yakınlaştırmada fark yok denecek kadar az.
+
+## Tur 4 – Gece turu (12 Kasım 2026, Perşembe: SİSTEMLER)
+
+### 0. Oyuncu Notları
+Tek gerçek istek "Kaydet / yükle (görev ortasında)" idi; gecenin ana işi oldu (✅ belgeye yazıldı). Hata bölümünde yalnız örnek satır vardı.
+
+### 1. Ana iş: bölüm içi kayıt sistemi (`scripts/kayit.gd`)
+- **5 yuva:** Hızlı kayıt, Otomatik kayıt, Yuva 1–3. Sağ üstte **Kayıt** düğmesi; PC'de **F5** hızlı kaydet, **F9** hızlı yükle, **Esc / K** panel. Ana menüde "Kayıtlı oyunu yükle".
+- **Otomatik kayıt:** bölüm başında ve her görev tamamlanınca (çatışma bitince, 0,5 sn'de bir dener).
+- **Ölünce devam:** sonuç ekranında "Son kayıttan devam: <yuva> (m:ss)" + "Kayıt seç…" + "Yeniden Başla".
+- **Biçim:** `user://kayitlar/<yuva>.json` = JSON üst bilgi (`surum`, bölüm, ad, tarih, süre, görev x/y) + Godot `var_to_str` oyun durumu. Kaydedilen: komando (konum, can, mermi, taş, ip, silah, çömelme, kılık, taşınan ceset), her asker (bölüm dosyasındaki sırasıyla: konum, devriye noktası, ölü/baygın/bağlı, ayılma sayacı, üniforması alındı mı, ceset bulundu/saklandı, tetikte kalma), takviye askerler, yardımcı karakterler (izliyor mu), görevler, eşyalar, yerdeki eşyalar (düşen anahtarlar dahil), kesilen teller, patlama izleri, yıkılan köprüler, kışlalarda kalan asker, alarm düzeyi ve süresi, istatistikler, kamera.
+- **Sürüm güvenliği:** `surum` alanı; eski sürüm `_migrate` ile yükseltilir, eksik alanlar varsayılan alır, daha yeni sürümün kaydı ve bozuk dosya nazikçe reddedilir; bölüm dosyası kayıttan sonra değiştiyse eşleşen askerler uygulanır ve uyarı çıkar. Yazma önce `.tmp` dosyasına, sonra yer değiştirme (yarım yazılan dosya eski kaydı bozmaz). Kayıt metni nesne/kaynak oluşturamaz (`Object(`, `Resource(` reddedilir).
+- **Adalet kuralı (oyun mantığı):** çatışma sürerken, sirene koşan varken, takviye yoldayken ya da patlayıcı kuruluyken kaydedilemez – "kaydet, gör, geri al" hilesi ve kaydedip alarmı silme açığı yok. Gizlen → planla → kaydet → uygula döngüsü.
+- **Test:** `tests/sim_kayit.gd` (CI'da `build.yml` "Kayıt sistemi testi"): durumu değiştir → kaydet → yeni sahnede yükle → 17 alan aynı mı; çatışmada kaydetme engeli; bozuk / gelecek sürüm / eski sürüm (0) dosyaları. Bölüm 0–6'nın hepsinde BAŞARILI.
+
+### 2. Genel oynanış zekâsı, oyun mantığı, senaryo
+- En zayıf alan bu gece **oyun mantığı** idi: (a) kayıt yoktu, ölüm = bölümü baştan oynamak; (b) Bölüm 4–5'te `"after": "anahtar"` tek metin olarak yazılmıştı, `mission.available` metni harf harf dolaştığı için "önce anahtar" koşulu **hiç işlemiyordu** (görevler sırasız yapılabiliyordu). `mission.setup` artık tek metni listeye çeviriyor.
+- **Denge:** Tur 3'te AI v4 tespiti hedefin (+%25) üstündeydi (+%33–63). Tetikte kalan askerin fark etme hızı ×1,25 → **×1,15**, bakış açısı ×1,2 → **×1,12**.
+- **Senaryo:** 2. perde başladı (Bölüm 5 "1. perde finali"); Bölüm 6 – Çelik Rampa (Temmuz 1944, Pas-de-Calais V-1 orman üssü, Gölge zorunlu çalışma kampında, SS Albay Brandt). `docs/SENARYO.md`.
+
+### 3. İyi oyuncu bot
+- Bot sakinken (alarm yok, kimse şüphelenmiyor, ceset taşımıyor) en geç 40 sn'de bir **hızlı kayıt** alır; otomatik kayıtlar da oyunda kendiliğinden. Ölünce **son kayıttan devam** eder (gizli/tam en çok 4 kez; saldırı tarzı pervasız, yüklemez). Rapor tablosunda "Yükleme" sütunu; ölüm yerleri ve yükleme süreleri JSON'da.
+- Yükleme sahneyi baştan kurar (oyundaki `reload_current_scene` ile aynı yol), bot durumu sıfırlanır.
+
+### 4. Bot önce / sonra (3 tohum, gizli tarz; önce = Tur 3 botu, kayıtsız)
+| Bölüm | Önce: zafer / ort. görev | Sonra: zafer / ort. görev | Yükleme | Not |
+|---|---|---|---|---|
+| 0 | 3/3 · 2 | 3/3 · 2 | 0 | saldırı 2/3 → 3/3 (eğitimde pervasızlık hâlâ kazanıyor ✘) |
+| 1 | 0/3 · 1,0 | 0/3 · 1,7 | 12 | "Ev 3" darboğazı + açık arazi (2500,2000–2300) |
+| 2 | 0/3 · 4,0 | 0/3 · 5,7 | 12 | |
+| 3 | 0/3 · 7,7 | **1/3 · 8,7** (7:05) | 9 | Tur 2'den beri ilk gizli zafer |
+| 4 | 0/3 · 4,0 | 0/3 · 4,0 | 12 | açık arazi (1700,2400–2500) |
+| 5 | 0/3 · 3,0 | 0/3 · 2,7 | 12 | açık arazi (4900–5100,600) |
+| 6 (yeni) | – | 0/3 · 3,0 | 12 | açık arazi (1500–1700,1800–1900) |
+Saldırı tarzı Bölüm 1–6'da 0/3 (pervasızlık cezalandırılıyor ✔). Tespit sayıları artık yüklemeler boyunca toplandığından önceki turla karşılaştırılamaz.
+
+### 5. Ölçümler
+- Kayıt dosyası ~25 KB (Bölüm 3, 56 asker), **kaydetme 2 ms**.
+- Kayıt yükleme (llvmpipe, xvfb): Bölüm 3 **303 ms** (sahne kurulumu + uygulama + ilk kare; normal bölüm açılışı 778 ms), sonrasındaki 60 karede en yavaş kare 44–91 ms (zemin karoları akışla geliyor). Bot (headless): 43–74 ms; Bölüm 4 kesilen teller için navigasyon tek seferde: **640 → 190 ms**.
+- `tests/perf.gd` Bölüm 3: ortalama kare 37,1 ms, en yavaş 53,3 ms; açı değişimi 71 ms; doku belleği 310 / 379 MB (Tur 3 ile aynı).
+- Testler: sim, sim1–4, sim_bolum (0–6, "merge edge" yok; Bölüm 0–1'de "yeterli asker" eşiği eski bölümler için önceden de başarısız), sim_kayit (0–6) geçti.
+- Ekran: `docs/ekran/tur4_kayit.jpg` (panel, ölüm ekranı, oyun), `docs/ekran/tur4_bolum3_4aci.jpg` (4 açı).
+
+### 6. Sonraki tur
+1. Gizli bot Bölüm 1, 2, 4, 5, 6'yı kazanamıyor: ölüm noktalarına ikinci yol / çalı / siper; bot için taşla dikkat dağıtma ve üniforma.
+2. Zorluk seviyesi (Er/Çavuş/Komando) + ayarlar ekranı (Sistemler gecesi devamı).
+3. Bölüm 0 saldırı tarzı kazanıyor.
+
+### Kaynaklar
+- Godot 4.3 `var_to_str` / `str_to_var`, `FileAccess`, `DirAccess.rename_absolute`: https://docs.godotengine.org/en/4.3/classes/class_%40globalscope.html · https://docs.godotengine.org/en/4.3/tutorials/io/saving_games.html
+- Önce geçici dosyaya yazıp yer değiştirme: https://docs.godotengine.org/en/4.3/classes/class_diraccess.html
+- Commandos 2 (bölüm içi hızlı kayıt) tasarım referansı: https://commandos.shoutwiki.com/wiki/Commandos_2

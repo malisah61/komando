@@ -52,19 +52,20 @@ def mmss(s):
 L = ["# Bot oyun testi raporu", "",
      f"Tarih: {time.strftime('%Y-%m-%d %H:%M')} — {len(runs)} oyun ({', '.join(styles)} × {seeds} tohum).",
      "Bot `tests/bot.gd`: gizli = çömel, devriye bakıyorsa bekle, şüphelenirse geri çekil, arkadan bıçakla; "
-     "saldırı = tabancayla temizle; tam = gizli + isteğe bağlı görevler.", ""]
+     "saldırı = tabancayla temizle; tam = gizli + isteğe bağlı görevler. Gizli/tam sakinken kaydeder, ölünce son kayıttan "
+     "devam eder (en çok 4 kez, Tur 4); saldırı tarzı yüklemez.", ""]
 findings = []
 for lv in levels:
     rs = [r for r in runs if r["_lv"] == lv]
     if not rs:
         continue
-    L += [f"## {lv}", "", "| Tarz | Tohum | Sonuç | Süre | Tespit | Hasar | Bıçak/Tabanca | Takviye | Bekleme/Geri | Ceset sakl./bulundu | Taş | Takılma | Puan | Biten görevler |",
-          "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|"]
+    L += [f"## {lv}", "", "| Tarz | Tohum | Sonuç | Süre | Tespit | Hasar | Bıçak/Tabanca | Takviye | Bekleme/Geri | Ceset sakl./bulundu | Taş | Takılma | Yükleme | Puan | Biten görevler |",
+          "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|"]
     for r in rs:
         res = r["result"] + (f" ({r['reason']})" if r["reason"] else "")
         L.append(f"| {r['style']} | {r['seed']} | {res} | {mmss(r['time'])} | {r['detections']} | {int(r['damage_taken'])} | "
                  f"{r['kills_knife']}/{r['kills_pistol']} | {r['reinforcements']} | {r.get('waits',0)}/{r.get('retreats',0)} | "
-                 f"{r.get('bodies_hidden',0)}/{r.get('bodies_found',0)} | {r.get('stones',0)} | {r['stuck']} | {r.get('points','-')} | "
+                 f"{r.get('bodies_hidden',0)}/{r.get('bodies_found',0)} | {r.get('stones',0)} | {r['stuck']} | {r.get('reloads',0)} | {r.get('points','-')} | "
                  f"{', '.join(o['id'] for o in r['objectives'])} |")
     wins = [r for r in rs if r["result"] == "zafer"]
     L.append("")
@@ -72,7 +73,8 @@ for lv in levels:
         q = [r for r in rs if r["style"] == st]
         if q:
             w = [r for r in q if r["result"] == "zafer"]
-            L.append(f"- {st}: {len(w)}/{len(q)} zafer" + (f", ortalama zafer süresi {mmss(statistics.mean(r['time'] for r in w))}" if w else "")
+            rl = sum(r.get("reloads", 0) for r in q)
+            L.append(f"- {st}: {len(w)}/{len(q)} zafer" + (f" ({rl} kayıttan devamla)" if rl else "") + (f", ortalama zafer süresi {mmss(statistics.mean(r['time'] for r in w))}" if w else "")
                      + f", ortalama tespit {statistics.mean(r['detections'] for r in q):.1f}")
     L.append(f"Kazanma oranı: **{len(wins)}/{len(rs)}**" + (f", en hızlı zafer {mmss(min(r['time'] for r in wins))}" if wins else ""))
     # olum ve tespit noktalari

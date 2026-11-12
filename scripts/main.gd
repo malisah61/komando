@@ -9,6 +9,7 @@ const Hud = preload("res://scripts/hud.gd")
 const Mission = preload("res://scripts/mission.gd")
 const Npc = preload("res://scripts/npc.gd")
 const Fx = preload("res://scripts/fx.gd")
+const Kayit = preload("res://scripts/kayit.gd")
 
 const LEVELS := [
 	["res://levels/bolum0.json", "Bölüm 0 – Normandiya Köyü", "Eğitim: küçük köy, 6 asker"],
@@ -16,9 +17,11 @@ const LEVELS := [
 	["res://levels/bolum2.json", "Bölüm 2 – Karlı Kale", "Norveç fiyordu: kale, hapishane, radar, kuleler, derin kar"],
 	["res://levels/bolum3.json", "Bölüm 3 – Denizaltı Üssü", "Atlantik limanı: bunker, kontrol odası, demiryolu, 5 kışla"],
 	["res://levels/bolum4.json", "Bölüm 4 – Gece Treni", "Gece, demiryolu kavşağı: projektörler, dikenli tel, mühimmat treni"],
-	["res://levels/bolum5.json", "Bölüm 5 – Kartal Yuvası", "Final: Richter'in şatosu, havaalanı, bocage çitleri, 76 asker"],
+	["res://levels/bolum5.json", "Bölüm 5 – Kartal Yuvası", "1. perde finali: Richter'in şatosu, havaalanı, bocage çitleri, 76 asker"],
+	["res://levels/bolum6.json", "Bölüm 6 – Çelik Rampa", "2. perde: V-1 orman üssü, baraj gölü, dikenli tel, 6 projektör, 86 asker"],
 ]
 static var level_choice := ""      # sahne yeniden yuklenince de hatirlanir
+static var pending_load = null     # Tur 4: yuklenecek kayit durumu (sahne yeniden kurulunca uygulanir)
 static var briefed := ""           # brifingi gosterilen son bolum (yeniden baslatinca tekrar gosterme)
 
 var level_path := "res://levels/bolum1.json"
@@ -79,9 +82,12 @@ func _ready() -> void:
 	if not level.load_level(level_path, world, roofs):
 		return
 
+	var gi := 0
 	for gd in level.data.get("guards", []):
 		var g = Guard.new()
 		g.main = self
+		g.set_meta("gi", gi)      # kayit sistemi: bolum dosyasindaki sira
+		gi += 1
 		for p in gd["path"]:
 			g.waypoints.append(Vector2(p[0], p[1]))
 		g.position = g.waypoints[0]
@@ -134,9 +140,16 @@ func _ready() -> void:
 	add_child(hud)
 	if level_choice == "":
 		hud.show_menu(LEVELS)
-	elif briefed != level_path:
-		briefed = level_path
-		hud.show_briefing(level.data, mission.objectives)
+	elif pending_load != null:
+		var st: Dictionary = pending_load
+		pending_load = null
+		var warn: String = Kayit.apply(self, st)
+		hud.toast(warn if warn != "" else "Kayıt yüklendi")
+	else:
+		_autosave_want = true     # bolum basi otomatik kaydi (yeniden baslatinca da)
+		if briefed != level_path:
+			briefed = level_path
+			hud.show_briefing(level.data, mission.objectives)
 
 
 func _pair_buddies() -> void:
@@ -570,6 +583,7 @@ func _process(delta: float) -> void:
 			_spawn_reinforcements(pd[1], pd[2], pd[3])
 			_pending.remove_at(i)
 		i -= 1
+	_autosave_tick(delta)
 	_update_action()
 
 
@@ -713,10 +727,70 @@ func _end(text: String, col: Color) -> void:
 	hud.show_end(text, col)
 
 
+# ---------------- Kayit (Tur 4) ----------------
+var _autosave_want := false
+var _autosave_t := 0.0
+
+
+func objective_done(_o: Dictionary) -> void:
+	## her gorevden sonra otomatik kayit (catisma bitince)
+	_autosave_want = true
+
+
+func _autosave_tick(delta: float) -> void:
+	if not _autosave_want:
+		return
+	_autosave_t -= delta
+	if _autosave_t > 0.0:
+		return
+	_autosave_t = 0.5
+	if Kayit.why_not(self) == "" and Kayit.save(self, "oto") == "":
+		_autosave_want = false
+		hud.toast("Otomatik kaydedildi")
+
+
+func save_slot(slot: String) -> bool:
+	var err: String = Kayit.save(self, slot)
+	if err != "":
+		hud.toast(err)
+		return false
+	hud.toast("%s kaydedildi" % Kayit.SLOT_NAMES.get(slot, slot))
+	return true
+
+
+static func prepare_load(slot: String) -> String:
+	## kaydi oku ve sahne yeniden kurulunca uygulanmak uzere hazirla (bos metin: hazir)
+	var d: Dictionary = Kayit.read(slot)
+	if d.has("hata"):
+		return d["hata"]
+	pending_load = d["durum"]
+	level_choice = d["bolum"]
+	briefed = level_choice
+	return ""
+
+
+func load_slot(slot: String) -> void:
+	var err := prepare_load(slot)
+	if err != "":
+		hud.toast(err)
+		return
+	get_tree().paused = false
+	get_tree().reload_current_scene()
+
+
 # ---------------- Girdi ----------------
 func _unhandled_input(e: InputEvent) -> void:
 	if e is InputEventKey and e.pressed and not e.echo:
-		if e.keycode == KEY_Q:
+		if e.keycode == KEY_F5:
+			save_slot("hizli")
+		elif e.keycode == KEY_F9:
+			if Kayit.info("hizli").is_empty():
+				hud.toast("Hızlı kayıt yok (F5 ile kaydet)")
+			else:
+				load_slot("hizli")
+		elif e.keycode == KEY_ESCAPE or e.keycode == KEY_K:
+			hud.show_saves()
+		elif e.keycode == KEY_Q:
 			rotate_view(-1)
 		elif e.keycode == KEY_E:
 			rotate_view(1)

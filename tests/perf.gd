@@ -19,6 +19,8 @@ var pan_worst := 0.0
 var mem_start := 0.0
 var mem_max := 0.0
 var cx := 0.0
+var load_t := 0
+var load_worst := 0.0
 var cy := 0.0
 
 
@@ -80,6 +82,35 @@ func _process(_d):
 		print("kamera kaydirma (zemin akisi): en yavas kare %.1f ms, yuklu karo %d / %d" % [pan_worst,
 			main.level.loaded_ground_tiles(), main.level.ground_tiles.size()])
 		print("doku bellegi: baslangic %.1f MB, en yuksek %.1f MB, simdi %.1f MB" % [mem_start, mem_max, _mem()])
+		# kayit (Tur 4): kaydetme suresi + yukleme (sahne yeniden kurulumu + uygulama) ve sonrasi en yavas kare
+		var K = load("res://scripts/kayit.gd")
+		K.dir_override = "user://perf_kayit"
+		DirAccess.make_dir_recursive_absolute(K.dir_override)
+		main.game_over = false    # olcum: komando vurulduysa da kaydedebilsin
+		for g in main.get_tree().get_nodes_in_group("guards"):
+			if g.state == &"combat" or g.state == &"alarm_run":
+				g.state = &"search"
+		main._pending.clear()
+		var ts := Time.get_ticks_usec()
+		var err: String = K.save(main, "1")
+		print("kayit: kaydetme %.1f ms %s, dosya %.0f KB" % [(Time.get_ticks_usec() - ts) / 1000.0, err,
+			FileAccess.get_file_as_bytes(K.slot_path("1")).size() / 1024.0])
+		var M = load("res://scripts/main.gd")
+		ts = Time.get_ticks_usec()
+		M.prepare_load("1")
+		root.remove_child(main)
+		main.queue_free()
+		main = load("res://scenes/main.tscn").instantiate(); root.add_child(main)
+		load_t = ts
+		f = 10000
+		return false
+	if f > 10000 and f <= 10060:
+		if f == 10001:
+			print("kayit yukleme (sahne kurulumu + uygulama + ilk kare): %.0f ms" % ((now - load_t) / 1000.0))
+		else:
+			load_worst = maxf(load_worst, dt)
+	if f == 10060:
+		print("kayit yukleme sonrasi 60 karede en yavas kare: %.1f ms" % load_worst)
 		var G = load("res://scripts/guard.gd")
 		if "PT" in G:
 			for k in G.PT:
