@@ -24,6 +24,7 @@ Kampanya, karakterler ve bölüm planı: [docs/SENARYO.md](docs/SENARYO.md)
 - **Dikenli tel + tel makası:** Tel örgü geçilmez ama görüşü kesmez. Tel makasın varsa telin yanında "Teli Kes" (3 sn): kendi kapını açarsın.
 - **Projektör:** Işık yol boyunca gidip gelir; içinde yarım saniye kalan görülür. Kulesindeki nöbetçiyi susturursan söner. Alarmda ışık seni kovalar.
 - **Asker yapay zekâsı v4:** tetikte kalma, ayak izini takip etme, bıçaklamaya tanık olma, SS/subay el bombası, kule gözcüsünün işareti, paylaşımlı arama.
+- **ALARM!:** Seni gören asker bağırır, alarm hemen kırmızı olur ve yakındaki askerler geniş bir alanı tarar. Takviye ise ancak siren çalınca gelir: sirene koşanı durdur.
 - **Açı değiştirme arka planda:** "Çevriliyor…" yazısı; görünmeyen açıların dokuları bellekten atılır, zemin kamera yakınında akışla yüklenir.
 
 ## Tur 2 mekanikleri

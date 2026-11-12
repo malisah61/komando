@@ -83,6 +83,7 @@ var tied := false                 # baglandi: bir daha ayilmaz
 var _wake_t := 0.0
 var stripped := false             # uniformasi alindi
 const VIGIL_TIME := 45.0
+var shout_t := 0.0                # "ALARM!" diye bagiriyor (gorsel)
 const GRENADE_R := 72.0
 
 
@@ -138,6 +139,7 @@ func _physics_process(delta: float) -> void:
 		return
 	t += delta
 	vigilant_t = maxf(0.0, vigilant_t - delta)
+	shout_t = maxf(0.0, shout_t - delta)
 	_grenade_t -= delta
 	if not main.game_over and _ready_nav:
 		_think(delta)
@@ -313,16 +315,19 @@ func _start_search() -> void:
 			claimed.append_array(g._search_pts)
 			claimed.append(g._dest())
 	var tries := 0
-	while _search_pts.size() < (4 if vigilant_t > 0.0 else 3) and tries < 14:
+	# Tur 3c: alarmda cok daha genis alan aranir (sari x1.6, kirmizi x2.6), daha cok nokta
+	var rk: float = [1.0, 1.6, 2.6][clampi(main.alert_level, 0, 2)]
+	var want: int = [3, 4, 6][clampi(main.alert_level, 0, 2)] + (1 if vigilant_t > 0.0 else 0)
+	while _search_pts.size() < want and tries < 24:
 		tries += 1
-		var p: Vector2 = investigate_pos + Vector2.from_angle(randf() * TAU) * randf_range(60, 170)
+		var p: Vector2 = investigate_pos + Vector2.from_angle(randf() * TAU) * randf_range(60, 170) * rk
 		var q: Vector2 = NavigationServer2D.map_get_closest_point(map0, p)
 		var ok := true
 		for c in claimed:
 			if c.distance_to(q) < 75.0:
 				ok = false
 				break
-		if ok or tries > 10:
+		if ok or tries > 18:
 			_search_pts.append(q)
 			claimed.append(q)
 	vigilant_t = maxf(vigilant_t, VIGIL_TIME * 0.5)
@@ -458,6 +463,14 @@ func run_to_siren(sp: Vector2, incident: Vector2) -> void:
 
 func hear_alarm(p: Vector2) -> void:
 	hear_noise(p)
+
+
+func sweep(p: Vector2) -> void:
+	## alarm taramasi: olay yerinin cevresinde rastgele bir noktaya kos, sonra genis ara
+	if not alive or carried:
+		return
+	vigilant_t = VIGIL_TIME
+	_set_investigate(p + Vector2.from_angle(randf() * TAU) * randf_range(80.0, 320.0))
 
 
 func _follow_trail() -> bool:
@@ -750,7 +763,10 @@ func _draw_alert(body: Vector2) -> void:
 	if state == &"alarm_run":
 		draw_string(font, body + Vector2(-16, -19), "ALARM", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(1, 0.2, 0.15))
 	elif state == &"combat":
-		draw_string(font, body + Vector2(-5, -19), "!", HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Color(1, 0.25, 0.2))
+		if shout_t > 0.0:
+			draw_string(font, body + Vector2(-22, -22), "ALARM!", HORIZONTAL_ALIGNMENT_LEFT, -1, 15, Color(1, 0.25, 0.2))
+		else:
+			draw_string(font, body + Vector2(-5, -19), "!", HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Color(1, 0.25, 0.2))
 	elif suspicion > 0.0:
 		draw_arc(body + Vector2(0, -24), 8, -PI / 2, -PI / 2 + TAU * minf(suspicion, 1.0), 20, Color(1, 0.8, 0.2), 3.0)
 		draw_string(font, body + Vector2(-4, -19), "!" if suspicion > 0.6 else "?", HORIZONTAL_ALIGNMENT_LEFT, -1, 15, Color.WHITE)

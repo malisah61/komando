@@ -554,6 +554,7 @@ func _build_art(_dir: String, _world_n: Node2D, _roofs_n: Node2D) -> void:
 	for pth in _view_textures(0, man):
 		tex[pth] = load(pth)
 	_apply_view(0, man, tex)       # zemin karolari kamera kurulunca (main) yuklenir
+	_prefetch(1)
 
 
 # ---------------- 4 yonlu bakis ----------------
@@ -704,14 +705,14 @@ func request_view(k: int, sync := false) -> bool:
 		_switch_to(k)
 		view_ready.emit(k)
 		return true
-	_vl_man = _manifest(k)
+	if _pf_k != k:
+		_drop_prefetch()
+	_vl_man = _pf_man if _pf_k == k else _manifest(k)
 	_vl_paths = _view_textures(k, _vl_man)
-	# yeni acida ekranda olacak zemin karolari da onceden (arka planda) yuklenir
-	var need := _need_rect(k)
-	for g in _vl_man.get("ground", []):
-		var r: Array = g["rect"]
-		if need.intersects(Rect2(r[0], r[1], r[2], r[3])):
-			_vl_paths.append(view_dir(k) + g["file"])
+	_pf_k = -1
+	_pf_man = {}
+	# Tur 3c: zemin karolari beklenmez (onizleme gorunur, karolar akisla gelir); siradaki aci
+	# atlaslari onceden arka planda yuklendigi icin "Cevir" genelde aninda olur
 	view_loading = k
 	if sync:
 		var tex := {}
@@ -720,11 +721,13 @@ func request_view(k: int, sync := false) -> bool:
 		_finish_view(tex)
 		return true
 	for pth in _vl_paths:
-		ResourceLoader.load_threaded_request(pth, "Texture2D")
+		if ResourceLoader.load_threaded_get_status(pth) == ResourceLoader.THREAD_LOAD_INVALID_RESOURCE:
+			ResourceLoader.load_threaded_request(pth, "Texture2D")
 	# yeni aci yuklenirken eskisinin dokulari birakilir (tepe bellek: iki aci ayni anda tutulmaz);
 	# o sirada zemin onizlemesi ve "Cevriliyor..." gorunur
 	_release_views()
 	queue_redraw()
+	_poll_view()          # onceden yuklendiyse ayni karede gec
 	return true
 
 
@@ -748,6 +751,33 @@ func _finish_view(tex: Dictionary) -> void:
 	_vl_paths = []
 	stream_ground()
 	view_ready.emit(k)
+	_prefetch((k + 1) % 4)
+
+
+var _pf_k := -1
+var _pf_man := {}
+
+
+func _drop_prefetch() -> void:
+	## kullanilmayan on yuklemeyi birak (bellekte kalmasin)
+	if _pf_k < 0:
+		return
+	for pth in _view_textures(_pf_k, _pf_man):
+		if ResourceLoader.load_threaded_get_status(pth) != ResourceLoader.THREAD_LOAD_INVALID_RESOURCE:
+			ResourceLoader.load_threaded_get(pth)
+	_pf_k = -1
+	_pf_man = {}
+
+
+func _prefetch(k: int) -> void:
+	## "Cevir" hep bir sonraki aciya gecer: onun atlaslarini simdiden arka planda yukle
+	if not art or not has_view(k) or k == view:
+		return
+	_drop_prefetch()
+	_pf_k = k
+	_pf_man = _manifest(k)
+	for pth in _view_textures(k, _pf_man):
+		ResourceLoader.load_threaded_request(pth, "Texture2D")
 
 
 func set_view(k: int) -> bool:

@@ -40,6 +40,7 @@ var players: Array = []       # oyuncu tarafindaki karakterler (komando + izleye
 var runner = null             # sirene kosan asker
 var throw_mode := false       # tas atma: siradaki dokunus tasin dusecegi yer
 var _cut_i := -1              # kesilen tel (Tur 3)
+var _reinforced := false      # bu alarmda kisla takviyesi gonderildi mi
 var _cut_t := 0.0
 const CUT_TIME := 3.0
 const SAVE_PATH := "user://kayit.cfg"
@@ -233,11 +234,21 @@ func far_from_players(p: Vector2) -> bool:
 
 func combat_alarm(p: Vector2, by) -> void:
 	## catisma basladi: sireni olan bolumde biri sirene kosar (onu durdurabilirsin), yoksa telsizle kirmizi alarm
-	if level.sirens.is_empty() or alert_level >= 2:
+	if level.sirens.is_empty():
 		raise_alarm(p, by)
 		return
-	if alert_level < 1:
-		set_alert_level(1)
+	if alert_level >= 2:
+		alarm_t = maxf(alarm_t, 35.0)
+		if not _reinforced:
+			_dispatch_runner(p, by)       # takviye hala siren calinmasina bagli
+		return
+	# Tur 3c: asker "ALARM!" diye bagirir -> alarm hemen kirmizi (herkes tetikte, genis arama).
+	# Kisla takviyesi icin biri yine sirene kosar: onu durdurursan takviye gelmez.
+	alarm_t = maxf(alarm_t, 35.0)
+	stats["alarms"] += 1
+	set_alert_level(2)
+	hud.set_alarm(2, "ALARM! Asker bağırdı – sirene koşanı durdur, yoksa takviye gelir")
+	_sweep(p, by)
 	_dispatch_runner(p, by)
 
 
@@ -468,6 +479,9 @@ func raise_alarm(p: Vector2, _by) -> void:
 	if alert_level < 2:
 		stats["alarms"] += 1
 		set_alert_level(2)
+		_sweep(p, _by)
+	if not _reinforced:
+		_reinforced = true
 		var sent := 0
 		var order := barracks.duplicate()
 		order.sort_custom(func(a, b): return a[0].distance_to(p) < b[0].distance_to(p))
@@ -480,8 +494,26 @@ func raise_alarm(p: Vector2, _by) -> void:
 			sent += 1
 
 
+func _sweep(p: Vector2, by) -> void:
+	## alarm: yakindaki (900 px) en fazla 8 asker olay yerinin genis cevresini tarar
+	var cand: Array = []
+	for g in get_tree().get_nodes_in_group("guards"):
+		if g == by or not g.alive or g.carried or g.kind == "kule" or g.state == &"combat" or g.state == &"alarm_run":
+			continue
+		if level.interior_at(g.global_position) != level.interior_at(p):
+			continue
+		var d: float = g.global_position.distance_to(p)
+		if d < 900.0:
+			cand.append([d, g])
+	cand.sort_custom(func(a, b): return a[0] < b[0])
+	for i in mini(8, cand.size()):
+		cand[i][1].sweep(p)
+
+
 func set_alert_level(l: int) -> void:
 	alert_level = l
+	if l < 2:
+		_reinforced = false
 	if l == 2:
 		hud.set_alarm(2, "ALARM! Takviye birlikler kışladan çıkıyor")
 	elif l == 1:
