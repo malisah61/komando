@@ -361,3 +361,4 @@ Bot (tohum 1): Bölüm 0 saldırı tarzı artık kaybediyor (önce 0:34'te kazan
 - İlk ölçüm 16,4 MB → bölüme özel Godot kalitesi (zemin 0,55, nesne 0,66; `bolum_ozel.bolum5`) → **14,9 MB** ✔. 2× yakınlaştırmada nesnelerde hale/bant yok, zemin biraz yumuşak.
 - 4 açı görüntüsü: `docs/ekran/tur3_bolum5_4aci.jpg` (şato avlusu, bahçe çitleri, tank, kamyon).
 - `hat.py ayarla` artık `godot_nesne_kalite` de destekliyor.
+- Son derlemede Windows zip 121,0 MB (bütçe 120) çıktı → Bölüm 3 zemini için Godot kalitesi 0,70 (`bolum_ozel.bolum3`): 21,6 → **16,1 MB**, 2× yakınlaştırmada fark yok denecek kadar az.

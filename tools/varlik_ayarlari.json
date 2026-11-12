@@ -54,6 +54,9 @@
       },
       "godot_zemin_kalite": 0.55,
       "godot_nesne_kalite": 0.66
+    },
+    "bolum3": {
+      "godot_zemin_kalite": 0.7
     }
   },
   "export_haric": "tests/*,tools/*,docs/*,kaynak/*,build/*,*.blend,*.glb,*.gltf,*/_tmp/*,*/_ham/*,*.md",
