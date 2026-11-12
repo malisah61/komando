@@ -15,6 +15,8 @@ var sprite: AnimatedSprite2D
 var _repath := 0.0
 var hp := 60.0
 var max_hp := 60.0
+var _hide = null                  # Tur 2: catismada siper/cali
+var _threat_t := 0.0
 
 
 func _ready() -> void:
@@ -41,7 +43,38 @@ func start_following() -> void:
 
 
 func is_crouching() -> bool:
-	return following and main.commando.crouch
+	return following and (main.commando.crouch or _hide != null)
+
+
+func _find_hide():
+	## catisma: komandonun yakininda, ates edenin goremeyecegi bir cali ya da siper
+	var shooter = null
+	var sd := 420.0
+	for g in get_tree().get_nodes_in_group("guards"):
+		if g.alive and g.state == &"combat" and g.global_position.distance_to(global_position) < sd \
+				and main.level.has_los(g.global_position, global_position):
+			sd = g.global_position.distance_to(global_position)
+			shooter = g
+	if shooter == null:
+		return null
+	var c = main.commando
+	var best = null
+	var bd := INF
+	for hz in main.level.hide_zones:
+		if typeof(hz) != TYPE_ARRAY:
+			continue
+		var p: Vector2 = hz[0]
+		var d: float = p.distance_to(global_position)
+		if d > 260.0 or p.distance_to(c.global_position) > 300.0:
+			continue
+		if main.level.interior_at(p) != main.level.interior_at(global_position):
+			continue
+		if not main.level.has_los(shooter.global_position, p):
+			d *= 0.5          # gorus hatti disinda: daha iyi
+		if d < bd:
+			bd = d
+			best = p
+	return best
 
 
 func take_damage(amount: float, _from: Vector2) -> void:
@@ -68,11 +101,16 @@ func _physics_process(delta: float) -> void:
 		return
 	var c = main.commando
 	var dist := global_position.distance_to(c.global_position)
+	# catismada siper al (Commandos: esir ates altinda yere yatar); komando uzaklasirsa yine izler
+	_threat_t -= delta
+	if _threat_t <= 0.0:
+		_threat_t = 0.5
+		_hide = _find_hide() if dist < 320.0 else null
 	_repath -= delta
 	if _repath <= 0.0:
 		_repath = 0.3
-		navigation_agent.target_position = c.global_position
-	if dist < 42.0 or navigation_agent.is_navigation_finished():
+		navigation_agent.target_position = _hide if _hide != null else c.global_position
+	if (_hide == null and dist < 42.0) or navigation_agent.is_navigation_finished():
 		velocity = Vector2.ZERO
 		SpriteSheet.play(sprite, &"idle", facing)
 	else:

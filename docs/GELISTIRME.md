@@ -125,6 +125,7 @@ Son "Bot oyun testi" CI çalışması da aynı tabloyu verdi (başarılı, 12 oy
 - **Tahminli arama:** Arama ilk önce hedefin kaçtığı yöne (son hareket yönü ×160 px) bakar.
 - **Subay düdüğü:** Subay çatışmaya girince 1,6 kat uzaktaki askerleri çağırır.
 - **Gözetleme kulesi nöbetçisi:** 1,55× görüş, yerinden ayrılmaz, yavaş tarar.
+- **Takip eden karakter siper alır:** Kurtarılan Şahin/Gölge ateş altında komandonun yakınındaki, nişancının göremediği çalıya geçip çömelir.
 - **Taşa tepki:** Taş düşen yere alarm vermeden bakmaya gider (Desperados III'teki dikkat dağıtma).
 - **Kapı/alan:** Askerler kilitli kapılardan geçebilir (anahtarları var).
 - **Performans LOD'u:** Her oyuncudan 1500 px uzaktaki asker algıyı 5 Hz'de yapar.
@@ -178,7 +179,7 @@ Blender: `harita.py` artık `theme: "kar"` (kar zemin, karlı ağaç/kaya, çamu
 |---|---|---|---|
 | Bölüm 0 | 3/3, 0:40, 4,7 tespit → **3/3, 1:01, 0 tespit** | 3/3 (0:33) → 3/3 (0:34) | bot artık hiç görülmeden bitiriyor; eğitim bölümü kısa kalıyor |
 | Bölüm 1 | 1/3 (2:31), 16 tespit → **0/3**, 13 tespit; en uzun oyun 8:22 | 0/3 (0:33) → 0/3 (0:30) | anahtar + kilitli belediye + siren + kayıp nöbetçi bölümü zorlaştırdı; tespit "Ev 3 yakını"nda toplanıyor |
-| Bölüm 2 (yeni) | **1/3 zafer (5:02)**, 6,7 tespit; diğer ikisi 4:22–4:43'te 6–8 görevle | 0/3 (0:59–1:12) | saldırı zorlanıyor ✔; gizli kazanabiliyor ✔; süre hedefi (≥10 dk) henüz değil ✘ |
+| Bölüm 2 (yeni) | **1/3 zafer (5:02)**, ort. 4,3 tespit; diğer ikisi 4:22–4:43'te 6–8 görevle | 0/3 (0:59–1:12) | saldırı zorlanıyor ✔; gizli kazanabiliyor ✔; süre hedefi (≥10 dk) henüz değil ✘ |
 | Bölüm 3 (yeni) | 0/3, 7 görev bitiyor (4:28–4:59), Gölge kaçışta ölüyor | 0/3 (1:16–2:20) | takipçiyi koruyan bot davranışı eksik |
 
 Bot zaferinin süresi insan süresi değildir: bot mükemmel yolu bilir ve hiç keşif yapmaz. Oyuncu bölüm 1'i 6:50'de bitirmişti (bot 2:31). Bölüm 2 için tahmini insan süresi 20–30 dk.
