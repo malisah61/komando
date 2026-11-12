@@ -149,6 +149,21 @@ jobs:
             build/dist/Komando-Linux.zip
           make_latest: true
 
+      - name: Gece sürümü etiketi (Istanbul tarihi)
+        run: echo "GECE=gece-$(TZ=Europe/Istanbul date +%Y-%m-%d)" >> "$GITHUB_ENV"
+
+      - name: O gecenin sürümünü ayrıca sakla (gece-YYYY-AA-GG)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.GECE }}
+          name: Komando - ${{ env.GECE }}
+          body_path: build/surum_notu.md
+          files: |
+            build/android/komando.apk
+            build/dist/Komando-Windows.zip
+            build/dist/Komando-Linux.zip
+          make_latest: false
+
   pages:
     # GitHub Pages kaynagi "GitHub Actions" ise oyunu buradan yayinla (gh-pages dali da guncel kalir)
     needs: build
