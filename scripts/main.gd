@@ -12,6 +12,8 @@ const Npc = preload("res://scripts/npc.gd")
 const LEVELS := [
 	["res://levels/bolum0.json", "Bölüm 0 – Normandiya Köyü", "Eğitim: küçük köy, 6 asker"],
 	["res://levels/bolum1.json", "Bölüm 1 – Nehir Operasyonu", "Geniş harita: nehir, köprüler, köy, karargâh, kışlalar"],
+	["res://levels/bolum2.json", "Bölüm 2 – Karlı Kale", "Norveç fiyordu: kale, hapishane, radar, kuleler, derin kar"],
+	["res://levels/bolum3.json", "Bölüm 3 – Denizaltı Üssü", "Atlantik limanı: bunker, kontrol odası, demiryolu, 5 kışla"],
 ]
 static var level_choice := ""      # sahne yeniden yuklenince de hatirlanir
 static var briefed := ""           # brifingi gosterilen son bolum (yeniden baslatinca tekrar gosterme)
@@ -30,6 +32,11 @@ var stats := {"kills": 0, "alarms": 0, "shots": 0}
 var cur_interior := -1        # komando hangi bina icinde (-1: dis harita)
 var pending_enter := -1       # kapiya yuruyup girilecek bina
 var peeking := false          # kapidan disari bakiyor
+var bodies: Array = []        # olu askerler (her asker her karede tum askerleri taramasin)
+var players: Array = []       # oyuncu tarafindaki karakterler (komando + izleyenler)
+var runner = null             # sirene kosan asker
+var throw_mode := false       # tas atma: siradaki dokunus tasin dusecegi yer
+const SAVE_PATH := "user://kayit.cfg"
 
 # kamera / girdi
 var cam: Camera2D
@@ -73,10 +80,13 @@ func _ready() -> void:
 		g.position = g.waypoints[0]
 		g.facing = deg_to_rad(gd.get("facing", 0.0))
 		g.kind = gd.get("type", "er")
+		g.drops = gd.get("drops", "")
 		world.add_child(g)
 
+	_pair_buddies()
 	commando = Commando.new()
 	commando.main = self
+	commando.stones = int(level.data.get("stones", 4))
 	commando.position = level.start
 	world.add_child(commando)
 
@@ -97,6 +107,12 @@ func _ready() -> void:
 		world.add_child(n)
 		mission.npcs[n.id] = n
 
+	if level.data.has("ambient"):
+		# gece / kar havasi: dunyayi renklendir (arayuz etkilenmez)
+		var am: Array = level.data["ambient"]
+		var cm := CanvasModulate.new()
+		cm.color = Color(am[0], am[1], am[2])
+		add_child(cm)
 	cam = Camera2D.new()
 	cam.ignore_rotation = false        # 4 yonlu bakis: kamera doner
 	cam.position = commando.position
@@ -113,6 +129,107 @@ func _ready() -> void:
 		hud.show_briefing(level.data, mission.objectives)
 
 
+func _pair_buddies() -> void:
+	## her nobetci en yakin arkadasini bilir: arkadasi kaybolursa fark eder
+	var gs: Array = get_tree().get_nodes_in_group("guards")
+	for g in gs:
+		var best = null
+		var bd := 380.0
+		for h in gs:
+			if h == g or level.interior_at(h.position) != level.interior_at(g.position):
+				continue
+			var d: float = h.position.distance_to(g.position)
+			if d < bd and level.has_los(g.position, h.position):
+				bd = d
+				best = h
+		if best != null:
+			g.buddy = best
+			g.buddy_post = best.position
+
+
+func far_from_players(p: Vector2) -> bool:
+	for u in players:
+		if u.global_position.distance_squared_to(p) < 1500.0 * 1500.0:
+			return false
+	return true
+
+
+func combat_alarm(p: Vector2, by) -> void:
+	## catisma basladi: sireni olan bolumde biri sirene kosar (onu durdurabilirsin), yoksa telsizle kirmizi alarm
+	if level.sirens.is_empty() or alert_level >= 2:
+		raise_alarm(p, by)
+		return
+	if alert_level < 1:
+		set_alert_level(1)
+	_dispatch_runner(p, by)
+
+
+func _dispatch_runner(p: Vector2, by) -> void:
+	if runner != null and is_instance_valid(runner) and runner.alive and runner.state == &"alarm_run":
+		return
+	var sp: Vector2 = level.sirens[0]
+	for q in level.sirens:
+		if q.distance_to(p) < sp.distance_to(p):
+			sp = q
+	if sp.distance_to(p) > 1500.0:
+		raise_alarm(p, by)
+		return
+	var best = null
+	var bd := INF
+	for g in get_tree().get_nodes_in_group("guards"):
+		if not g.alive or g.carried or g.kind == "kule" or g.state == &"combat" and g != by:
+			continue
+		if g.global_position.distance_to(p) > 480.0:
+			continue
+		var d: float = g.global_position.distance_to(sp)
+		if g == by:
+			d += 250.0       # tercihen catismayan biri kossun
+		if d < bd:
+			bd = d
+			best = g
+	if best == null:
+		if by != null and by.kind == "kule":
+			raise_alarm(p, by)      # kule nobetcisi zil calar
+		return
+	runner = best
+	best.run_to_siren(sp, p)
+	hud.toast("Bir asker alarm sirenine koşuyor! Onu durdur!")
+
+
+func siren_reached(g) -> void:
+	runner = null
+	level.siren_on = 30.0
+	hud.toast("Siren çaldı!")
+	raise_alarm(g.investigate_pos, g)
+
+
+func runner_stopped(_g) -> void:
+	runner = null
+	hud.toast("Alarm koşucusu durduruldu")
+	stats["runners_stopped"] = stats.get("runners_stopped", 0) + 1
+
+
+func buddy_missing(g, post: Vector2) -> void:
+	if alert_level < 1:
+		set_alert_level(1)
+	hud.toast("Bir nöbetçi arkadaşının kaybolduğunu fark etti!")
+	stats["missed"] = stats.get("missed", 0) + 1
+	# yakindakilere haber verir: birlikte ararlar
+	for h in get_tree().get_nodes_in_group("guards"):
+		if h != g and h.alive and h.state == &"patrol" and h.kind != "kule" and h.global_position.distance_to(post) < 420.0:
+			h.hear_distraction(post + Vector2(randf_range(-80, 80), randf_range(-80, 80)))
+
+
+func distract(p: Vector2, radius: float) -> void:
+	## tas dustu: yakindaki askerler alarm vermeden bakmaya gider
+	var n := 0
+	for g in get_tree().get_nodes_in_group("guards"):
+		if g.alive and g.global_position.distance_to(p) < radius and level.interior_at(g.global_position) == level.interior_at(p):
+			g.hear_distraction(p)
+			n += 1
+	stats["distractions"] = stats.get("distractions", 0) + 1
+
+
 func choose_level(path: String) -> void:
 	level_choice = path
 	briefed = ""
@@ -121,9 +238,62 @@ func choose_level(path: String) -> void:
 
 
 # ---------------- Oyun akisi ----------------
-func win() -> void:
+func score() -> Dictionary:
+	## bolum sonu puani (Commandos tarzi istatistik): gizlilik odullendirilir
 	var t: float = mission.elapsed
-	_end("GÖREV TAMAMLANDI\nSüre %d:%02d" % [int(t) / 60, int(t) % 60], Color(0.5, 1, 0.5))
+	var pts := 1000
+	pts -= int(stats["alarms"]) * 150
+	pts -= int(stats.get("bodies_found", 0)) * 60
+	pts -= int(stats.get("missed", 0)) * 40
+	pts -= bodies.size() * 10
+	pts += int(stats.get("runners_stopped", 0)) * 50
+	for o in mission.objectives:
+		if o["done"] and o.get("optional", false):
+			pts += 200
+	pts = maxi(pts, 0)
+	var rank := "Çaylak"
+	if stats["alarms"] == 0 and stats.get("bodies_found", 0) == 0:
+		rank = "Hayalet"
+	elif pts >= 800:
+		rank = "Usta"
+	elif pts >= 500:
+		rank = "Komando"
+	return {"time": t, "points": pts, "rank": rank, "stars": 3 if pts >= 800 else (2 if pts >= 500 else 1)}
+
+
+func save_result(sc: Dictionary) -> String:
+	## en iyi sonucu kaydet (bolum menusunde gosterilir)
+	var cf := ConfigFile.new()
+	cf.load(SAVE_PATH)
+	var best: int = cf.get_value(level_path, "points", -1)
+	var rec := ""
+	if sc["points"] > best:
+		cf.set_value(level_path, "points", sc["points"])
+		cf.set_value(level_path, "rank", sc["rank"])
+		cf.set_value(level_path, "stars", sc["stars"])
+		rec = "  YENİ REKOR!"
+	var bt: float = cf.get_value(level_path, "time", INF)
+	if sc["time"] < bt:
+		cf.set_value(level_path, "time", sc["time"])
+	cf.save(SAVE_PATH)
+	return rec
+
+
+static func best_of(path: String) -> Dictionary:
+	var cf := ConfigFile.new()
+	if cf.load(SAVE_PATH) != OK or not cf.has_section(path):
+		return {}
+	return {"points": cf.get_value(path, "points", 0), "rank": cf.get_value(path, "rank", ""),
+		"stars": cf.get_value(path, "stars", 0), "time": cf.get_value(path, "time", 0.0)}
+
+
+func win() -> void:
+	var sc := score()
+	var rec := save_result(sc)
+	var t: float = sc["time"]
+	_end("GÖREV TAMAMLANDI\nSüre %d:%02d   Puan %d   %s%s\n%s\nAlarm %d · Ceset bulundu %d · Öldürülen %d" % [
+		int(t) / 60, int(t) % 60, sc["points"], "★".repeat(sc["stars"]) + "☆".repeat(3 - sc["stars"]), rec, sc["rank"],
+		stats["alarms"], stats.get("bodies_found", 0), bodies.size()], Color(0.5, 1, 0.5))
 
 
 func lose(text: String) -> void:
@@ -180,15 +350,20 @@ func set_alert_level(l: int) -> void:
 		hud.set_alarm(0, "")
 
 
-func body_found(p: Vector2) -> void:
+func body_found(p: Vector2, by = null) -> void:
 	if alert_level < 1:
 		set_alert_level(1)
+	stats["bodies_found"] = stats.get("bodies_found", 0) + 1
 	hud.toast("Bir asker ceset buldu!")
 	make_noise(p, 350.0, null)
+	# sireni olan bolumde ceset bulan asker alarma kosar
+	if not level.sirens.is_empty() and by != null and alert_level < 2:
+		_dispatch_runner(p, null)
 
 
 func _process(delta: float) -> void:
 	level.update_z()
+	players = get_tree().get_nodes_in_group("player")
 	if game_over:
 		return
 	# alarm sayaci: catisma surdukce kirmizi kalir, sonra sariya duser
@@ -229,8 +404,18 @@ func _spawn_reinforcements(bk: Array, n: int, target: Vector2) -> void:
 	hud.toast("Takviye birlik geldi: %d asker" % n)
 
 
+func is_locked(i: int) -> bool:
+	var lk: String = level.interiors[i]["locked"]
+	return lk != "" and not mission.items.has(lk)
+
+
 func enter_building(i: int) -> void:
 	var it: Dictionary = level.interiors[i]
+	if is_locked(i):
+		pending_enter = -1
+		commando.move_to(commando.global_position)
+		hud.toast("%s kilitli: %s gerekli" % [it["name"], it["locked"].replace("_", " ")])
+		return
 	_move_party(it["int_door"])
 	cur_interior = i
 	pending_enter = -1
@@ -299,14 +484,15 @@ func _update_action() -> void:
 		for i in level.interiors.size():
 			if c.global_position.distance_to(level.interiors[i]["ext_door"]) < 46.0:
 				var ii: int = i
-				hud.set_action("Gir: " + level.interiors[i]["name"], true, func(): enter_building(ii))
+				hud.set_action(("Kilitli: " if is_locked(i) else "Gir: ") + level.interiors[i]["name"], true, func(): enter_building(ii))
 				return
 	if c.carrying != null:
 		hud.set_action("Cesedi Bırak", true, func(): c.drop_body())
 		return
 	if mission.plant_target != null:
 		var planting: bool = mission.planting >= 0.0
-		hud.set_action(("Kuruluyor... %d%%" % int(mission.planting / mission.PLANT_TIME * 100.0)) if planting else "Patlayıcı Kur",
+		var sab: bool = mission.plant_target["type"] == "sabotage"
+		hud.set_action(("%s... %d%%" % ["Sabote ediliyor" if sab else "Kuruluyor", int(mission.planting / mission.plant_time() * 100.0)]) if planting else ("Sabote Et" if sab else "Patlayıcı Kur"),
 				not planting, func(): mission.start_planting())
 		return
 	var b = c.body_nearby()
@@ -426,6 +612,11 @@ func _tap(p: Vector2) -> void:
 	var dbl := now - _last_tap_t < 0.35 and p.distance_to(_last_tap_p) < 60.0
 	_last_tap_t = now
 	_last_tap_p = p
+	if throw_mode:
+		throw_mode = false
+		hud.refresh_items()
+		commando.throw_stone(p)
+		return
 	# secili silahla askere saldir (secim kalici; yere dokunmak sadece yurutur)
 	for g in get_tree().get_nodes_in_group("guards"):
 		# govde ayaklarin ustunde cizildigi icin oraya da bak

@@ -5,6 +5,8 @@ extends Node2D
 ## Ilke 3: `footprints` zeminlerinde ayak izi kalir, askerler fark eder.
 ## Ilke 4: haritalar koddan ayri veri dosyalarinda.
 
+signal changed_map                # harita degisti (kopru yikildi): mini harita yeniden cizilsin
+
 const Prop = preload("res://scripts/prop.gd")
 const Roof = preload("res://scripts/roof.gd")
 const SpriteSheet = preload("res://scripts/sprite_sheet.gd")
@@ -28,7 +30,10 @@ const TYPES := {
 	"truck":   [true,  true,  26.0, Color(0.31, 0.34, 0.25), Color(0.2, 0.22, 0.16)],
 	"tank":    [true,  true,  24.0, Color(0.37, 0.39, 0.34), Color(0.24, 0.26, 0.22)],
 	"rock":    [true,  true,  18.0, Color(0.52, 0.52, 0.5),  Color(0.36, 0.36, 0.34)],
+	"tower":   [false, false, 52.0, Color(0.45, 0.33, 0.2),  Color(0.3, 0.22, 0.13)],   # gozetleme kulesi (dekor, ustunde kule nobetcisi)
 }
+# siper: arkasinda comelen karakter daha zor vurulur (Desperados III / Commandos)
+const COVER_TYPES := ["sandbag", "crate", "rock", "truck", "tank", "wall", "fence"]
 const GRID := 128.0
 
 var data := {}
@@ -78,7 +83,10 @@ const ISCALE := 2.0
 const IWALL := 16.0
 const IWALL_H := 64.0
 const IDOOR := 76.0
-var interiors: Array = []         # {name, rect, irect, side, ext_door, int_door, out}
+var interiors: Array = []         # {name, rect, irect, side, ext_door, int_door, out, locked}
+var cover_polys: Array = []       # [PackedVector2Array, Rect2] - siper
+var sirens: Array = []            # Vector2 - alarm sireni (asker kosup calar)
+var siren_on := 0.0               # siren calma suresi (gorsel)
 var soft_from := 0                # view_segments icinde calilik (yumusak) kenarlarin isareti
 
 
@@ -112,12 +120,19 @@ func load_level(path: String, world: Node2D, roofs: Node2D) -> bool:
 	for r in data.get("roads", []):
 		roads.append(Rect2(r[0], r[1], r[2], r[3]))
 	for pk in data.get("pickups", []):
-		pickups.append({"type": pk.get("type", "medkit"), "pos": _v(pk["pos"]), "taken": false})
+		pickups.append({"type": pk.get("type", "medkit"), "pos": _v(pk["pos"]), "taken": false,
+			"item": pk.get("item", ""), "count": int(pk.get("count", 1))})
 	for r in data.get("bridges", []):
 		bridges.append(Rect2(r[0], r[1], r[2], r[3]))
+	for sp in data.get("sirens", []):
+		sirens.append(_v(sp))
 	for s in data.get("surfaces", []):
-		var col := Color(0.4, 0.3, 0.18) if s.get("type", "") == "mud" else Color(0.9, 0.92, 0.95)
-		surfaces.append({"points": _poly(s["points"]), "color": col, "footprints": s.get("footprints", false)})
+		var col := Color(0.9, 0.92, 0.95)
+		match s.get("type", ""):
+			"mud": col = Color(0.4, 0.3, 0.18)
+			"beton": col = Color(0.52, 0.52, 0.5)
+		surfaces.append({"points": _poly(s["points"]), "color": col, "footprints": s.get("footprints", false),
+			"slow": float(s.get("slow", 1.0))})
 
 	# harita kenarlari: gorusu keser
 	var border := PackedVector2Array([Vector2.ZERO, Vector2(size.x, 0), size, Vector2(0, size.y)])
@@ -152,6 +167,11 @@ func _build_obstacle(o: Dictionary, world: Node2D) -> void:
 	var blocks_move: bool = o.get("move", t[0])
 	var blocks_view: bool = o.get("view", t[1])
 	_add_solid(pts, blocks_move, blocks_view)
+	if o.get("type", "wall") in COVER_TYPES:
+		var bb := Rect2(pts[0], Vector2.ZERO)
+		for q in pts:
+			bb = bb.expand(q)
+		cover_polys.append([pts, bb])
 	if blocks_view and not blocks_move:
 		if o.has("circle"):
 			var cc: Array = o["circle"]
@@ -265,7 +285,27 @@ func _plan_interiors() -> void:
 		var edge := c + Vector2(out.x * rect.size.x / 2, out.y * rect.size.y / 2)
 		var iedge := ic + Vector2(out.x * ir.size.x / 2, out.y * ir.size.y / 2)
 		interiors.append({"name": bd.get("name", "Bina"), "rect": rect, "irect": ir, "side": side, "out": out,
-			"ext_door": edge + out * 26.0, "int_door": iedge - out * 40.0, "specials": []})
+			"ext_door": edge + out * 26.0, "int_door": iedge - out * 40.0, "specials": [],
+			"locked": str(bd.get("locked", ""))})
+
+
+func in_cover(p: Vector2, from: Vector2) -> bool:
+	## p noktasi, from yonunden gelen atisa karsi alcak bir siperin (kum torbasi, sandik...) arkasinda mi?
+	var seg := PackedVector2Array([from, p])
+	for cv in cover_polys:
+		var bb: Rect2 = cv[1]
+		if not bb.grow(46.0).has_point(p):
+			continue
+		if bb.has_point(from):
+			continue
+		if Geometry2D.intersect_polyline_with_polygon(seg, cv[0]).size() > 0:
+			return true
+	return false
+
+
+func add_pickup(pk: Dictionary) -> void:
+	pickups.append(pk)
+	queue_redraw()
 
 
 func interior_of_ext(p: Vector2) -> int:
@@ -712,6 +752,9 @@ func _build_navigation(use_cache := true) -> void:
 		return
 	var navpoly := NavigationPolygon.new()
 	navpoly.agent_radius = 11.0
+	# buyuk haritada cok yakin kose noktalari ayni hucreye dusup "merge edge" hatasi veriyordu:
+	# birlestirme izgarasini incelt (2D harita 4.3'te 3D sunucunun haritasidir)
+	NavigationServer3D.map_set_merge_rasterizer_cell_scale(get_world_2d().navigation_map, 0.001)
 	var src := NavigationMeshSourceGeometryData2D.new()
 	src.add_traversable_outline(PackedVector2Array([Vector2.ZERO, Vector2(size.x, 0), size, Vector2(0, size.y)]))
 	for it in interiors:
@@ -736,6 +779,7 @@ func destroy_bridge(i: int) -> void:
 	_add_solid(_rect_poly(r.grow_individual(-30, 6, -30, 6)), true, false)
 	_build_navigation(false)
 	queue_redraw()
+	changed_map.emit()
 
 
 func add_scorch(p: Vector2, r: float) -> void:
@@ -809,6 +853,14 @@ func leaves_footprints(p: Vector2) -> bool:
 	return false
 
 
+func speed_mul(p: Vector2) -> float:
+	## derin kar / camur: yavaslatir
+	for s in surfaces:
+		if s["slow"] < 1.0 and Geometry2D.is_point_in_polygon(p, s["points"]):
+			return s["slow"]
+	return 1.0
+
+
 func add_footprint(p: Vector2, rot: float) -> void:
 	footprints.append({"pos": p, "rot": rot, "age": 0.0, "noticed": false})
 
@@ -821,6 +873,9 @@ func _process(delta: float) -> void:
 			footprints.remove_at(i)
 		i -= 1
 	_redraw_t -= delta
+	if siren_on > 0.0:
+		siren_on -= delta
+		_redraw_t = minf(_redraw_t, 0.12)
 	if _redraw_t <= 0.0:
 		_redraw_t = 0.25
 		queue_redraw()
@@ -863,7 +918,11 @@ func _draw() -> void:
 
 
 func _draw_plain_ground() -> void:
-	draw_rect(Rect2(Vector2.ZERO, size), Color(0.36, 0.45, 0.26))
+	var gcol := Color(0.36, 0.45, 0.26)
+	match data.get("theme", ""):
+		"kar": gcol = Color(0.8, 0.83, 0.88)
+		"liman": gcol = Color(0.38, 0.42, 0.32)
+	draw_rect(Rect2(Vector2.ZERO, size), gcol)
 	for r in roads:
 		draw_rect(r, Color(0.55, 0.47, 0.34))
 	for s in surfaces:
@@ -894,7 +953,13 @@ func _draw_overlays(font: Font) -> void:
 		if pk["taken"]:
 			continue
 		var pp: Vector2 = pk["pos"]
-		if pk["type"] == "medkit":
+		if pk["type"] == "key":
+			_draw_key(pp)
+		elif pk["type"] == "item":
+			draw_rect(Rect2(pp - Vector2(10, 6), Vector2(20, 12)), Color(0.55, 0.15, 0.1))
+			draw_rect(Rect2(pp - Vector2(10, 6), Vector2(20, 12)), Color(1, 0.8, 0.3), false, 1.5)
+			draw_line(pp + Vector2(6, -6), pp + Vector2(12, -14), Color(0.9, 0.9, 0.8), 1.5)
+		elif pk["type"] == "medkit":
 			draw_rect(Rect2(pp - Vector2(9, 7), Vector2(18, 14)), Color(0.92, 0.92, 0.88))
 			draw_rect(Rect2(pp - Vector2(2, 5), Vector2(4, 10)), Color(0.8, 0.1, 0.1))
 			draw_rect(Rect2(pp - Vector2(5, 2), Vector2(10, 4)), Color(0.8, 0.1, 0.1))
@@ -923,9 +988,41 @@ func _draw_overlays(font: Font) -> void:
 	draw_rect(exit_rect, Color(0.3, 0.9, 0.4, 0.22))
 	draw_rect(exit_rect, Color(0.3, 0.9, 0.4, 0.8), false, 3.0)
 	draw_string(font, exit_rect.position + Vector2(40, 30), "ÇIKIŞ", HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color.WHITE)
-	if not document_taken:
+	# calinacak esyalar (belge, planlar, anahtar, kodlar...): gorev listesinden
+	var m = get_parent().get("mission")
+	if m != null:
+		for o in m.objectives:
+			if o["type"] != "take" or o["done"] or not o.has("pos"):
+				continue
+			var dp := _v(o["pos"])
+			if "anahtar" in str(o.get("item", "")):
+				_draw_key(dp)
+			else:
+				draw_rect(Rect2(dp - Vector2(12, 9), Vector2(24, 18)), Color(1, 0.9, 0.3))
+				draw_rect(Rect2(dp - Vector2(12, 9), Vector2(24, 18)), Color(0.4, 0.3, 0), false, 2.0)
+	elif not document_taken:
 		draw_rect(Rect2(document_pos - Vector2(12, 9), Vector2(24, 18)), Color(1, 0.9, 0.3))
-		draw_rect(Rect2(document_pos - Vector2(12, 9), Vector2(24, 18)), Color(0.4, 0.3, 0), false, 2.0)
+	# alarm sirenleri: direk + kirmizi lamba (calinca yanip soner)
+	var blink: bool = siren_on > 0.0 and int(Time.get_ticks_msec() / 250) % 2 == 0
+	for sp in sirens:
+		draw_rect(Rect2(sp + Vector2(-3, -46), Vector2(6, 46)), Color(0.25, 0.25, 0.27))
+		draw_rect(Rect2(sp + Vector2(-11, -58), Vector2(22, 14)), Color(0.3, 0.3, 0.32))
+		draw_circle(sp + Vector2(0, -51), 6.0, Color(1, 0.15, 0.1) if blink else Color(0.45, 0.08, 0.06))
+		if blink:
+			draw_circle(sp + Vector2(0, -51), 26.0, Color(1, 0.2, 0.1, 0.25))
+	# kilitli kapilar: asma kilit
+	for it in interiors:
+		if it["locked"] != "" and not (m != null and m.items.has(it["locked"])):
+			var dp2: Vector2 = it["ext_door"] - it["out"] * 20.0
+			draw_rect(Rect2(dp2 - Vector2(7, 3), Vector2(14, 11)), Color(0.75, 0.6, 0.2))
+			draw_arc(dp2 + Vector2(0, -3), 5.0, PI, TAU, 8, Color(0.6, 0.6, 0.62), 2.0)
+
+
+func _draw_key(p: Vector2) -> void:
+	draw_circle(p + Vector2(-6, 0), 5.0, Color(1, 0.85, 0.2))
+	draw_circle(p + Vector2(-6, 0), 2.0, Color(0.3, 0.25, 0.1))
+	draw_rect(Rect2(p + Vector2(-2, -1.5), Vector2(12, 3)), Color(1, 0.85, 0.2))
+	draw_rect(Rect2(p + Vector2(7, 0), Vector2(3, 5)), Color(1, 0.85, 0.2))
 
 
 # ---------------- Yardimcilar ----------------

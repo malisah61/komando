@@ -73,19 +73,20 @@ func _process(_d: float) -> bool:
 			check(main.hud.dialog_panel.visible, "Pierre ile konusma acildi (oyun durdu: %s)" % main.get_tree().paused)
 			_skip_dialog()
 			check(m.items.get("patlayici", 0) == 2, "2 patlayici alindi")
+			m.items["belediye_anahtari"] = 1     # Tur 2: belediye kilitli (anahtar subayda)
 			_tp(m.npcs["carter"].global_position + Vector2(24, 0))
 			step = 2
 			wait = 0.17
 		2:
 			_skip_dialog()
 			check(m.npcs["carter"].following, "pilot takip ediyor")
-			_tp(m.objectives[2]["pos"][0] * Vector2.RIGHT + m.objectives[2]["pos"][1] * Vector2.DOWN)
+			_tp(_ob("planlar")["pos"][0] * Vector2.RIGHT + _ob("planlar")["pos"][1] * Vector2.DOWN)
 			step = 3
 			wait = 0.17
 		3:
 			_skip_dialog()
-			check(m.objectives[2]["done"], "planlar alindi")
-			var bp: Vector2 = Vector2(m.objectives[3]["pos"][0], m.objectives[3]["pos"][1])
+			check(_ob("planlar")["done"], "planlar alindi")
+			var bp: Vector2 = Vector2(_ob("kopru")["pos"][0], _ob("kopru")["pos"][1])
 			_tp(bp + Vector2(-60, 0))
 			main.mission.npcs["carter"].global_position = bp + Vector2(-400, 300)
 			step = 4
@@ -107,7 +108,7 @@ func _process(_d: float) -> bool:
 			wait = 9.33
 		6:
 			_skip_dialog()
-			check(m.objectives[3]["done"], "kopru havaya ucuruldu")
+			check(_ob("kopru")["done"], "kopru havaya ucuruldu")
 			var map: RID = main.commando.navigation_agent.get_navigation_map()
 			var p := NavigationServer2D.map_get_path(map, Vector2(1500, 745), Vector2(2100, 745), true)
 			var len := 0.0
@@ -125,3 +126,10 @@ func _process(_d: float) -> bool:
 			print("SONUC: ", "BASARILI" if fails == 0 else "%d HATA" % fails)
 			quit(1 if fails > 0 else 0)
 	return false
+
+
+func _ob(id: String) -> Dictionary:
+	for o in main.mission.objectives:
+		if o["id"] == id:
+			return o
+	return {}

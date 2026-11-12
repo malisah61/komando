@@ -71,11 +71,26 @@ func _draw() -> void:
 		var br: Rect2 = lvl.bridges[i]
 		var broken: bool = lvl.broken_bridges.has(br)
 		_label(o + br.get_center() * k + Vector2(0, -12), "Köprü" + (" (yıkık)" if broken else ""), Color(0.85, 0.85, 1), 12)
+	# alarm sirenleri, kilitli kapilar, gozetleme kuleleri
+	for sp in lvl.sirens:
+		draw_circle(o + sp * k, 6, Color(1, 0.2, 0.15))
+		_label(o + sp * k + Vector2(0, -10), "Siren", Color(1, 0.55, 0.5), 11)
+	for it in lvl.interiors:
+		if it["locked"] != "" and not main.mission.items.has(it["locked"]):
+			_label(o + it["rect"].get_center() * k + Vector2(0, 16), "kilitli", Color(1, 0.8, 0.4), 11)
+	for g in main.get_tree().get_nodes_in_group("guards"):
+		if g.alive and g.kind == "kule":
+			draw_rect(Rect2(o + g.global_position * k - Vector2(5, 5), Vector2(10, 10)), Color(1, 0.4, 0.2), false, 2.0)
 	# esyalar
 	for pk in lvl.pickups:
 		if pk["taken"] or pk["pos"].y > lvl.size.y:
 			continue
-		draw_circle(o + pk["pos"] * k, 5, Color(1, 1, 1) if pk["type"] == "medkit" else Color(0.85, 0.75, 0.3))
+		var pcol := Color(0.85, 0.75, 0.3)
+		match pk["type"]:
+			"medkit": pcol = Color(1, 1, 1)
+			"key": pcol = Color(1, 0.9, 0.1)
+			"item": pcol = Color(0.9, 0.3, 0.2)
+		draw_circle(o + pk["pos"] * k, 5, pcol)
 	# cikis + baslangic
 	_label(o + lvl.exit_rect.get_center() * k, "ÇIKIŞ", Color(0.5, 1, 0.5), 14)
 	# gorevler (bitmemis olanlar, numarali)

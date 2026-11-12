@@ -6,6 +6,8 @@ extends Node
 ##   take     - bir esyayi al (planlar)
 ##   rescue   - esiri kurtar, seni izlemeye baslar ("npc")
 ##   destroy  - patlayici kur ve havaya uçur ("bridge": kopru indeksi istege bagli)
+##   have     - bir esyayi edin ("item": askerden dusen anahtar gibi)
+##   sabotage - sessiz sabotaj: noktada "time" sn hareketsiz kal (kablo kes); "disables_barracks": kisla indeksi
 ##   exit     - cikisa don (kurtarilanlar yaninda olmali)
 ## "optional": true olanlar bitis icin zorunlu degil.
 
@@ -67,7 +69,12 @@ func _process(delta: float) -> void:
 	for pk in main.level.pickups:
 		if not pk["taken"] and cp.distance_to(pk["pos"]) < 26.0:
 			pk["taken"] = true
-			if pk["type"] == "medkit":
+			if pk["type"] == "key" or pk["type"] == "item":
+				var it: String = pk.get("item", "anahtar")
+				items[it] = items.get(it, 0) + int(pk.get("count", 1))
+				main.hud.refresh_items()
+				main.hud.toast(main.hud.ITEM_NAMES.get(it, it.to_upper()) + " alındı")
+			elif pk["type"] == "medkit":
 				c.medkits += 1
 				main.hud.toast("Sağlık çantası alındı")
 			else:
@@ -93,9 +100,14 @@ func _process(delta: float) -> void:
 			"take":
 				if cp.distance_to(_v(o["pos"])) < 28.0:
 					items[o.get("item", "belge")] = 1
-					main.level.document_taken = true
+					if _v(o["pos"]).distance_to(main.level.document_pos) < 2.0:
+						main.level.document_taken = true
 					main.level.queue_redraw()
 					main.hud.refresh_items()
+					_complete(o)
+			"have":
+				# bir esyaya sahip ol (anahtar: askerden dusen ya da yerde)
+				if items.get(o["item"], 0) > 0:
 					_complete(o)
 			"rescue":
 				var n = npcs.get(o["npc"])
@@ -104,6 +116,9 @@ func _process(delta: float) -> void:
 					_complete(o)
 					if o.has("say"):
 						main.hud.show_dialog(o["say"])
+			"sabotage":
+				if cp.distance_to(_v(o["pos"])) < float(o.get("radius", 60)) and c.carrying == null:
+					plant_target = o
 			"destroy":
 				var tp := _v(o["pos"])
 				var planted := false
@@ -130,7 +145,11 @@ func _process(delta: float) -> void:
 			planting = -1.0
 		else:
 			planting += delta
-			if planting >= PLANT_TIME:
+			if plant_target["type"] == "sabotage":
+				if planting >= float(plant_target.get("time", 4.0)):
+					planting = -1.0
+					_sabotage(plant_target)
+			elif planting >= PLANT_TIME:
 				planting = -1.0
 				items["patlayici"] = items["patlayici"] - 1
 				main.hud.refresh_items()
@@ -147,6 +166,22 @@ func _process(delta: float) -> void:
 			bombs.remove_at(i)
 		i -= 1
 	main.hud.set_timer_text(status)
+
+
+func plant_time() -> float:
+	if plant_target != null and plant_target["type"] == "sabotage":
+		return float(plant_target.get("time", 4.0))
+	return PLANT_TIME
+
+
+func _sabotage(o: Dictionary) -> void:
+	## sessiz sabotaj: alarm yok. Telsiz kesilirse o kisla kirmizi alarmda takviye gonderemez.
+	if o.has("disables_barracks"):
+		var bi: int = int(o["disables_barracks"])
+		if bi >= 0 and bi < main.barracks.size():
+			main.barracks[bi][1] = 0
+	main.hud.toast("Sabotaj tamam: " + o["text"])
+	_complete(o)
 
 
 func start_planting() -> void:

@@ -37,6 +37,7 @@ var hp_bar: ProgressBar
 var pistol_btn: Button
 var med_btn: Button
 var crouch_btn: Button
+var stone_btn: Button
 var alarm_label: Label
 var _edges: Array = []
 var _pulse := 0.0
@@ -281,6 +282,13 @@ func _ready() -> void:
 		if on:
 			crouch_btn.button_pressed = false)
 	abil.add_child(run_btn)
+	stone_btn = _button("Taş", true)
+	stone_btn.toggled.connect(func(on):
+		main.throw_mode = on and main.commando.stones > 0
+		if on and main.commando.stones > 0:
+			toast("Taşı atacağın yere dokun (askerler bakmaya gelir)")
+		refresh_items())
+	abil.add_child(stone_btn)
 	cone_btn = _button("Koni", true)
 	cone_btn.button_pressed = true
 	cone_btn.toggled.connect(func(on): show_cones = on)
@@ -353,7 +361,12 @@ func show_menu(levels: Array) -> void:
 	st.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(st)
 	for lv in levels:
-		var b := _button("%s\n%s" % [lv[1], lv[2]], false)
+		var best: Dictionary = main.best_of(lv[0])
+		var extra := ""
+		if not best.is_empty():
+			var bt: float = best["time"]
+			extra = "   %s %s · %d puan · %d:%02d" % ["★".repeat(best["stars"]) + "☆".repeat(3 - best["stars"]), best["rank"], best["points"], int(bt) / 60, int(bt) % 60]
+		var b := _button("%s%s\n%s" % [lv[1], extra, lv[2]], false)
 		b.custom_minimum_size = Vector2(520, 84)
 		b.add_theme_font_size_override("font_size", 20)
 		var path: String = lv[0]
@@ -401,7 +414,8 @@ func _process(delta: float) -> void:
 
 
 # ---------------- Disaridan cagrilanlar ----------------
-const ITEM_NAMES := {"patlayici": "PATLAYICI", "belge": "BELGE", "planlar": "PLANLAR"}
+const ITEM_NAMES := {"patlayici": "PATLAYICI", "belge": "BELGE", "planlar": "PLANLAR", "hucre_anahtari": "HÜCRE ANAHT.",
+	"kodlar": "KODLAR", "liman_anahtari": "LİMAN ANAHT.", "sevkiyat": "SEVKİYAT", "anahtar": "ANAHTAR", "belediye_anahtari": "BELEDİYE ANAHT."}
 
 
 func refresh_objectives() -> void:
@@ -409,9 +423,22 @@ func refresh_objectives() -> void:
 		ch.queue_free()
 	obj_box.add_child(_label("GÖREVLER", 13, ACCENT))
 	var current := ""
+	# uzun gorev zincirinde liste tasmasin: biten gorevler tek satirda sayilir, en fazla 5 acik gorev
+	var ndone := 0
+	var shown := 0
+	for o in main.mission.objectives:
+		if o["done"]:
+			ndone += 1
+	if ndone > 0 and main.mission.objectives.size() > 5:
+		obj_box.add_child(_label("[X] %d görev tamamlandı" % ndone, 13, Color(0.55, 0.85, 0.55)))
 	for o in main.mission.objectives:
 		var done: bool = o["done"]
 		var opt: bool = o.get("optional", false)
+		if main.mission.objectives.size() > 5 and (done or shown >= 5):
+			if current == "" and not done and not opt:
+				current = o["text"]
+			continue
+		shown += 1
 		var txt: String = ("[X] " if done else "[  ] ") + o["text"] + (" (isteğe bağlı)" if opt else "")
 		var col := Color(0.55, 0.85, 0.55) if done else (Color(0.8, 0.8, 0.7) if opt else Color.WHITE)
 		var l := _label(txt, 14, col)
@@ -424,6 +451,10 @@ func refresh_objectives() -> void:
 
 
 func refresh_items() -> void:
+	if stone_btn != null:
+		stone_btn.text = "Taş\n%d" % main.commando.stones
+		stone_btn.set_pressed_no_signal(main.throw_mode)
+		stone_btn.disabled = main.commando.stones <= 0
 	var i := 1
 	for k in main.mission.items:
 		var n: int = main.mission.items[k]
@@ -604,6 +635,7 @@ func set_alert(text: String) -> void:
 
 func show_end(text: String, col: Color) -> void:
 	msg_label.text = text
+	msg_label.add_theme_font_size_override("font_size", 56 if text.count("\n") < 2 else 34)
 	msg_label.add_theme_color_override("font_color", col)
 	msg_label.visible = true
 	restart_btn.visible = true

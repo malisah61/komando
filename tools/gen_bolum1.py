@@ -71,8 +71,10 @@ def ob(kind, pts=None, circle=None, **kw):
     O.append(o)
 
 
-def guard(path, facing=None, kind=None):
+def guard(path, facing=None, kind=None, drops=None):
     g = {"path": path}
+    if drops:
+        g["drops"] = drops
     if facing is not None:
         g["facing"] = facing
     if kind:
@@ -149,6 +151,7 @@ house("Ev 2", 2050, 1300, 220, 150, "N")
 house("Ev 3", 2050, 1520, 180, 170, "E")
 house("Ev 4", 2520, 1300, 200, 170, "W")
 house("Belediye", 2520, 1530, 260, 190, "W", [0.32, 0.36, 0.42])
+B[-1]["locked"] = "belediye_anahtari"      # Tur 2: kilitli kapi, anahtar meydan devriyesindeki subayda
 house("Ev 5", 2780, 1290, 160, 140, "N")
 ob("wall", rect(2300, 1450, 70, 16))
 ob("crate", rect(2290, 1300, 36, 36))
@@ -201,10 +204,10 @@ guard([[1560, 1980]], 0)                                           # guney kopru
 guard([[2000, 680]], 180, "subay")                                 # kontrol noktasi subayi
 guard([[2000, 830]], 180)
 guard([[2420, 840], [2420, 1900]])                                 # ana cadde devriyesi
-guard([[1980, 1220], [2960, 1220]])                                # meydan devriyesi
+guard([[1980, 1220], [2960, 1220]], None, "subay", "belediye_anahtari")  # meydan devriyesi: belediye anahtari onda
 guard([[2330, 1280]], 0)                                           # meydan nobetcisi
 guard([[2300, 1760]], 270)                                         # camur nobetcisi
-guard([[2000, 1960]], 180)                                         # guney kopru dogu
+guard([[2000, 1990], [2180, 2120]])                                # guney kopru dogu (Tur 2: devriye, kopruye bakmayan anlar var)
 # karargah
 guard([[gate0 - 20, cy1 + 70]], 90)                                # kapi
 guard([[gate1 + 20, cy1 + 70]], 90)                                # kapi
@@ -229,6 +232,8 @@ lvl["objectives"] = [
      "say": [["Pierre Lemaire", "Sonunda geldiniz! Almanlar kuzey köprüsünü yarın sabah tank takviyesi için kullanacak."],
              ["Pierre Lemaire", "İşte iki patlayıcı. Biri köprü için. Diğeri... güneydoğudaki yakıt deposu da güzel yanar."],
              ["Pierre Lemaire", "Bir şey daha: dün düşen İngiliz pilotu köydeki belediye binasında tutuyorlar. Onu geride bırakmayın."]]},
+    {"id": "anahtar", "type": "have", "item": "belediye_anahtari",
+     "text": "Meydanda devriye gezen subaydan belediye anahtarını al (sessizce bıçakla)"},
     {"id": "pilot", "type": "rescue", "npc": "carter", "text": "Belediye binasında tutulan pilot Carter'ı kurtar",
      "say": [["Yzb. James Carter", "Tanrıya şükür! Richter'in haritalarını gördüm, kuzeydoğudaki duvarlı karargâhta duruyorlar."],
              ["Çvş. Reilly", "Arkamda kal, çalılıklardan ayrılma. Seni görürlerse ikimiz de biteriz."]]},
@@ -242,6 +247,20 @@ lvl["objectives"] = [
      "pos": [3045, 2130], "radius": 95},
     {"id": "kacis", "type": "exit", "text": "Pilot Carter ile birlikte sahildeki botlara dön"},
 ]
+
+# ------------------------------------------------------------ Tur 2: bot bulgulari icin gizli yollar
+# guney yaya koprusu (en cok yakalanilan yer): iki yakada saz/cali, dogu yakada sandik siperi
+for c in ([1610, 1780, 30], [1660, 1730, 28], [1985, 2075, 30], [1960, 2140, 30], [2060, 1790, 32], [2010, 1740, 30]):
+    ob("bush", circle=c)
+ob("crate", rect(1930, 1860, 36, 36))
+# Ev 3 yakini: cali seridi + alcak duvar
+for c in ([2000, 1600, 30], [2000, 1660, 30], [2260, 1520, 28]):
+    ob("bush", circle=c)
+# karargah kapisi (2900,700): koruluktan duvar boyunca calilar
+for c in ([2760, 560, 30], [2760, 470, 30], [2760, 380, 30]):
+    ob("bush", circle=c)
+lvl["sirens"] = [[2330, 1180], [2930, 700], [2660, 1990]]
+lvl["stones"] = 5
 
 # ------------------------------------------------------------ KISLALAR (kirmizi alarmda takviye) VE ESYALAR
 lvl["barracks"] = [

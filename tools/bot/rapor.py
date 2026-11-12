@@ -18,26 +18,33 @@ limit = opt("--limit", "2400")
 out_md = opt("--out", "docs/BOT_RAPORU.md")
 os.makedirs("build/bot", exist_ok=True)
 
-runs = []
-for lv in levels:
-    for st in styles:
-        for sd in range(1, seeds + 1):
-            out = f"build/bot/{lv}_{st}_{sd}.json"
-            cmd = [GODOT, "--headless", "--fixed-fps", "60", "-s", "res://tests/bot.gd", "--",
-                   f"--level=res://levels/{lv}.json", f"--style={st}", f"--seed={sd}", f"--limit={limit}", f"--out={out}"]
-            t0 = time.time()
-            try:
-                subprocess.run(cmd, timeout=1200, capture_output=True)
-            except subprocess.TimeoutExpired:
-                pass
-            if os.path.exists(out):
-                r = json.load(open(out))
-                r["_real"] = round(time.time() - t0, 1)
-                r["_lv"] = lv
-                runs.append(r)
-                print(f"{lv:8s} {st:8s} {sd} -> {r['result']:12s} {r['time']:5.0f}s tespit {r['detections']:3d}", flush=True)
-            else:
-                print(f"{lv} {st} {sd} -> rapor yok (cokme?)", flush=True)
+jobs = int(opt("--jobs", str(os.cpu_count() or 2)))
+plan = [(lv, st, sd) for lv in levels for st in styles for sd in range(1, seeds + 1)]
+
+def play(job):
+    lv, st, sd = job
+    out = f"build/bot/{lv}_{st}_{sd}.json"
+    if os.path.exists(out):
+        os.remove(out)
+    cmd = [GODOT, "--headless", "--fixed-fps", "60", "-s", "res://tests/bot.gd", "--",
+           f"--level=res://levels/{lv}.json", f"--style={st}", f"--seed={sd}", f"--limit={limit}", f"--out={out}"]
+    t0 = time.time()
+    try:
+        subprocess.run(cmd, timeout=2400, capture_output=True)
+    except subprocess.TimeoutExpired:
+        pass
+    if not os.path.exists(out):
+        print(f"{lv} {st} {sd} -> rapor yok (cokme?)", flush=True)
+        return None
+    r = json.load(open(out))
+    r["_real"] = round(time.time() - t0, 1)
+    r["_lv"] = lv
+    print(f"{lv:8s} {st:8s} {sd} -> {r['result']:12s} {r['time']:5.0f}s tespit {r['detections']:3d}  ({r['_real']} sn)", flush=True)
+    return r
+
+from concurrent.futures import ThreadPoolExecutor
+with ThreadPoolExecutor(max_workers=jobs) as ex:
+    runs = [r for r in ex.map(play, plan) if r is not None]
 
 def mmss(s):
     return "%d:%02d" % (int(s) // 60, int(s) % 60)
@@ -51,15 +58,22 @@ for lv in levels:
     rs = [r for r in runs if r["_lv"] == lv]
     if not rs:
         continue
-    L += [f"## {lv}", "", "| Tarz | Tohum | Sonuç | Süre | Tespit | Hasar | Bıçak/Tabanca | Takviye | Bekleme/Geri | Takılma | Biten görevler |",
-          "|---|---|---|---|---|---|---|---|---|---|---|"]
+    L += [f"## {lv}", "", "| Tarz | Tohum | Sonuç | Süre | Tespit | Hasar | Bıçak/Tabanca | Takviye | Bekleme/Geri | Ceset sakl./bulundu | Taş | Takılma | Puan | Biten görevler |",
+          "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|"]
     for r in rs:
         res = r["result"] + (f" ({r['reason']})" if r["reason"] else "")
         L.append(f"| {r['style']} | {r['seed']} | {res} | {mmss(r['time'])} | {r['detections']} | {int(r['damage_taken'])} | "
-                 f"{r['kills_knife']}/{r['kills_pistol']} | {r['reinforcements']} | {r.get('waits',0)}/{r.get('retreats',0)} | {r['stuck']} | "
+                 f"{r['kills_knife']}/{r['kills_pistol']} | {r['reinforcements']} | {r.get('waits',0)}/{r.get('retreats',0)} | "
+                 f"{r.get('bodies_hidden',0)}/{r.get('bodies_found',0)} | {r.get('stones',0)} | {r['stuck']} | {r.get('points','-')} | "
                  f"{', '.join(o['id'] for o in r['objectives'])} |")
     wins = [r for r in rs if r["result"] == "zafer"]
     L.append("")
+    for st in styles:
+        q = [r for r in rs if r["style"] == st]
+        if q:
+            w = [r for r in q if r["result"] == "zafer"]
+            L.append(f"- {st}: {len(w)}/{len(q)} zafer" + (f", ortalama zafer süresi {mmss(statistics.mean(r['time'] for r in w))}" if w else "")
+                     + f", ortalama tespit {statistics.mean(r['detections'] for r in q):.1f}")
     L.append(f"Kazanma oranı: **{len(wins)}/{len(rs)}**" + (f", en hızlı zafer {mmss(min(r['time'] for r in wins))}" if wins else ""))
     # olum ve tespit noktalari
     spots = {}

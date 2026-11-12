@@ -30,6 +30,11 @@ const KNIFE_FRONT_DMG := 35.0
 var weapon := "knife"             # "knife" / "pistol" - secim kalicidir
 var ammo := 12
 var medkits := 1
+var stones := 4
+var _slow := 1.0                 # derin kar
+var _slow_t := 0.0                  # atilabilir tas (dikkat dagitma)
+const THROW_RANGE := 320.0
+const STONE_NOISE := 200.0
 var hp := 100.0
 var max_hp := 100.0
 var carrying = null               # tasinan ceset
@@ -115,7 +120,7 @@ func cur_speed() -> float:
 		s *= 1.6
 	if carrying != null:
 		s *= 0.6
-	return s
+	return s * _slow
 
 
 func _physics_process(delta: float) -> void:
@@ -142,6 +147,10 @@ func _physics_process(delta: float) -> void:
 	_play(&"walk")
 	facing = lerp_angle(facing, direction.angle(), minf(1.0, delta * 12.0))
 	var before := global_position
+	_slow_t -= delta
+	if _slow_t <= 0.0:
+		_slow_t = 0.2
+		_slow = main.level.speed_mul(global_position)
 	move_and_slide()
 	_carry_follow()
 
@@ -192,7 +201,10 @@ func _attack_step(delta: float) -> void:
 			ammo -= 1
 			_cool = PISTOL_COOLDOWN
 			_play(&"shoot", true)
-			var hit := randf() < clampf(0.95 - d / 900.0, 0.5, 0.95)
+			var acc := clampf(0.95 - d / 900.0, 0.5, 0.95)
+			if main.level.in_cover(g.global_position, global_position):
+				acc *= 0.6          # asker siperde
+			var hit := randf() < acc
 			var aim: Vector2 = g.global_position + Vector2(0, -16)
 			if not hit:
 				aim += Vector2(randf_range(-28, 28), randf_range(-28, 28))
@@ -220,6 +232,25 @@ func take_damage(amount: float, _from: Vector2) -> void:
 		drop_body()
 		_play(&"death", true)
 		main.lose("Çvş. Reilly vuruldu!")
+
+
+func throw_stone(p: Vector2) -> bool:
+	## tasi at: dustugu yerin cevresindeki askerler alarm vermeden bakmaya gider
+	if stones <= 0 or not alive:
+		return false
+	if main.level.interior_at(p) != main.level.interior_at(global_position):
+		return false
+	var to := p
+	if to.distance_to(global_position) > THROW_RANGE:
+		to = global_position + (p - global_position).normalized() * THROW_RANGE
+	to = main.level.ray_end(global_position, to).move_toward(global_position, 6.0)
+	stones -= 1
+	facing = (to - global_position).angle()
+	_play(&"action", true)
+	Fx.stone(main.world, global_position + Vector2(0, -20), to)
+	main.hud.refresh_items()
+	get_tree().create_timer(0.45, false).timeout.connect(func(): main.distract(to, STONE_NOISE))
+	return true
 
 
 func use_medkit() -> void:

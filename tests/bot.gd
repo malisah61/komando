@@ -32,6 +32,24 @@ var flee_from = null
 var last_weapon := "knife"
 var wait_t := 0.0
 var safe_pos := Vector2.ZERO
+var key_guard = null           # anahtari tasiyan asker
+var hide_spot = null           # cesedi saklayacagi cali
+var _thrown_at := {}           # hangi izleyiciye tas atildi
+var _carry_t := 0.0
+var _wait_on := {}             # izleyici -> toplam bekleme
+var chase_t := 0.0
+var flee_t := 0.0
+var flee_to := Vector2.ZERO
+# gizli rota planlayici (Tur 2): 50 px izgarada A*, nobetci konileri ve devriye hatlari pahali, calilar ucuz
+const CELL := 50.0
+var astar: AStarGrid2D
+var _danger_t := 0.0
+var _route: PackedVector2Array = PackedVector2Array()
+var _route_i := 0
+var _route_dest := Vector2(INF, INF)
+var _route_t := 0.0
+var _dead_n := -1
+var _want := Vector2(INF, INF)    # _go_dest'in istedigi nokta (rota ara noktasindan ayri)
 
 
 func _initialize() -> void:
@@ -49,7 +67,8 @@ func _initialize() -> void:
 		"time": 0.0, "objectives": [], "detections": 0, "detected_by": {}, "alarm_yellow": 0, "alarm_red": 0,
 		"reinforcements": 0, "damage_taken": 0.0, "kills_knife": 0, "kills_pistol": 0, "kills_other": 0,
 		"shots": 0, "medkits_used": 0, "stuck": 0, "stuck_spots": [], "detect_spots": [], "death_pos": null,
-		"hp_end": 0.0, "waits": 0, "retreats": 0, "guards": 0, "time_crouched": 0.0, "time_in_combat": 0.0, "interior_visits": 0}
+		"hp_end": 0.0, "waits": 0, "retreats": 0, "guards": 0, "time_crouched": 0.0, "time_in_combat": 0.0, "interior_visits": 0,
+		"stones": 0, "bodies_hidden": 0, "runners_shot": 0}
 
 
 func _place(p: Vector2) -> String:
@@ -80,7 +99,8 @@ func _measure(dt: float) -> void:
 			rep["detections"] += 1
 			rep["detected_by"][g.kind] = rep["detected_by"].get(g.kind, 0) + 1
 			if rep["detect_spots"].size() < 40:
-				rep["detect_spots"].append([int(c.global_position.x), int(c.global_position.y), _place(c.global_position), round(t)])
+				rep["detect_spots"].append([int(c.global_position.x), int(c.global_position.y), _place(c.global_position), round(t),
+					"%s@%d,%d" % [g.kind, int(g.global_position.x), int(g.global_position.y)], g.waypoints.size()])
 		prev_state[id] = st
 		var was: bool = prev_alive.get(id, true)
 		if was and not g.alive:
@@ -115,7 +135,38 @@ func _measure(dt: float) -> void:
 			rep["objectives"].append({"id": o["id"], "text": o["text"], "t": round(t)})
 
 
+func _key_for(p: Vector2) -> Variant:
+	## hedef kilitli bir binadaysa once anahtar: yerdeki anahtar, onu tasiyan asker ya da anahtar gorevi
+	var bi: int = main.level.interior_at(p)
+	if bi < 0 or not main.is_locked(bi):
+		return null
+	return _key_item(main.level.interiors[bi]["locked"])
+
+
+func _key_item(key: String) -> Variant:
+	for pk in main.level.pickups:
+		if not pk["taken"] and pk.get("item", "") == key:
+			return ["anahtar", pk["pos"]]
+	for g in _guards():
+		if g.alive and g.drops == key:
+			key_guard = g
+			return ["anahtar_asker", g.global_position]
+	for o in main.mission.objectives:
+		if not o["done"] and o["type"] == "take" and o.get("item", "") == key:
+			return ["anahtar_gorev", Vector2(o["pos"][0], o["pos"][1])]
+	return null
+
+
 func _goal() -> Variant:
+	var g = _goal0()
+	if g != null:
+		var k = _key_for(g[1])
+		if k != null:
+			return k
+	return g
+
+
+func _goal0() -> Variant:
 	## siradaki gorev noktasi (null: yapacak bir sey yok)
 	var m = main.mission
 	for o in m.objectives:
@@ -131,6 +182,10 @@ func _goal() -> Variant:
 				var n = m.npcs.get(o["npc"])
 				if n != null:
 					return [o["id"], n.global_position]
+			"have":
+				var k = _key_item(o["item"])
+				if k != null:
+					return k
 			"destroy":
 				if m.items.get("patlayici", 0) > 0 or m.bombs.size() > 0:
 					return [o["id"], Vector2(o["pos"][0], o["pos"][1])]
@@ -140,7 +195,143 @@ func _goal() -> Variant:
 	return null
 
 
+func _build_astar() -> void:
+	var lvl = main.level
+	var map: RID = main.commando.navigation_agent.get_navigation_map()
+	astar = AStarGrid2D.new()
+	var n := Vector2i(ceili(lvl.size.x / CELL), ceili(lvl.size.y / CELL))
+	astar.region = Rect2i(Vector2i.ZERO, n)
+	astar.cell_size = Vector2(CELL, CELL)
+	astar.offset = Vector2(CELL, CELL) * 0.5
+	astar.diagonal_mode = AStarGrid2D.DIAGONAL_MODE_ONLY_IF_NO_OBSTACLES
+	astar.update()
+	for x in n.x:
+		for y in n.y:
+			var c := Vector2(x + 0.5, y + 0.5) * CELL
+			var q: Vector2 = NavigationServer2D.map_get_closest_point(map, c)
+			if q.distance_to(c) > CELL * 0.45:
+				astar.set_point_solid(Vector2i(x, y), true)
+	_danger_t = 0.0
+
+
+func _update_danger() -> void:
+	## her hucrenin tehlikesi: sabit nobetcinin bakis konisi (en pahali), devriye hatti, askerin yakini
+	var lvl = main.level
+	var n: Vector2i = astar.region.size
+	var w := PackedFloat32Array()
+	w.resize(n.x * n.y)
+	w.fill(2.0)
+	for hz in lvl.hide_zones:
+		if typeof(hz) == TYPE_ARRAY:
+			var ci := Vector2i(hz[0] / CELL)
+			if astar.is_in_boundsv(ci):
+				w[ci.y * n.x + ci.x] = 1.0
+	for g in _guards():
+		if not g.alive or g.carried or lvl.interior_at(g.global_position) >= 0:
+			continue
+		var gp: Vector2 = g.global_position
+		var static_post: bool = g.waypoints.size() <= 1 and g.state == &"patrol"
+		var rng: float = g.view_range() * 1.05
+		var r := ceili(rng / CELL) + 1
+		var gc := Vector2i(gp / CELL)
+		for dx in range(-r, r + 1):
+			for dy in range(-r, r + 1):
+				var ci := gc + Vector2i(dx, dy)
+				if not astar.is_in_boundsv(ci):
+					continue
+				var cpos := (Vector2(ci) + Vector2(0.5, 0.5)) * CELL
+				var d := cpos.distance_to(gp)
+				if d > rng:
+					continue
+				var k := ci.y * n.x + ci.x
+				if d < 90.0:
+					w[k] += 14.0
+				var face: float = g.base_facing if static_post else g.facing
+				var half: float = g.VIEW_HALF + (0.95 if static_post else 0.6)
+				if absf(wrapf((cpos - gp).angle() - face, -PI, PI)) < half and lvl.has_los(gp, cpos):
+					w[k] += 26.0 if static_post else 9.0
+		# devriye hatti boyunca
+		if g.waypoints.size() > 1:
+			for i in g.waypoints.size():
+				var a: Vector2 = g.waypoints[i]
+				var b: Vector2 = g.waypoints[(i + 1) % g.waypoints.size()]
+				var steps := int(a.distance_to(b) / CELL) + 1
+				for j in steps + 1:
+					var pc := Vector2i(a.lerp(b, float(j) / steps) / CELL)
+					for dx in range(-2, 3):
+						for dy in range(-2, 3):
+							var ci := pc + Vector2i(dx, dy)
+							if astar.is_in_boundsv(ci):
+								w[ci.y * n.x + ci.x] += 5.0
+	for x in n.x:
+		for y in n.y:
+			astar.set_point_weight_scale(Vector2i(x, y), w[y * n.x + x])
+
+
+func _path_danger(from: Vector2, to: Vector2) -> float:
+	var map: RID = main.commando.navigation_agent.get_navigation_map()
+	var p := NavigationServer2D.map_get_path(map, from, to, true)
+	var worst := 0.0
+	for i in range(p.size() - 1):
+		var n := int(p[i].distance_to(p[i + 1]) / (CELL * 0.5)) + 1
+		for j in n:
+			var ci := Vector2i(p[i].lerp(p[i + 1], float(j) / n) / CELL)
+			if astar.is_in_boundsv(ci) and not astar.is_point_solid(ci):
+				worst = maxf(worst, astar.get_point_weight_scale(ci))
+	return worst
+
+
+func _plan(from: Vector2, to: Vector2) -> void:
+	_route = PackedVector2Array()
+	_route_i = 0
+	_route_dest = to
+	_route_t = 6.0
+	var a := Vector2i(from / CELL)
+	var b := Vector2i(to / CELL)
+	if not astar.is_in_boundsv(a) or not astar.is_in_boundsv(b) or astar.is_point_solid(a) or astar.is_point_solid(b):
+		return
+	_route = astar.get_point_path(a, b)
+	if _route.size() > 0:
+		_route[_route.size() - 1] = to
+
+
+func _route_next(c) -> Vector2:
+	## rotadaki siradaki ara nokta (yakindakileri atla)
+	while _route_i < _route.size() - 1 and c.global_position.distance_to(_route[_route_i]) < 60.0:
+		_route_i += 1
+	# biraz ileriye bak: kose kesme
+	var j := mini(_route_i + 1, _route.size() - 1)
+	return _route[j]
+
+
 func _go(target: Vector2) -> void:
+	_go_dest(target)
+	# gizli tarz: dis haritada uzun yolda tehlike haritali rota kullan
+	var c = main.commando
+	if opts["style"] == "saldiri" or main.cur_interior >= 0 or astar == null:
+		return
+	var dest: Vector2 = _want
+	if dest.x == INF or main.level.interior_at(dest) >= 0:
+		return
+	if c.global_position.distance_to(dest) < 160.0:
+		return
+	_route_t -= 1.0 / 60.0
+	if _route_dest.distance_to(dest) > 40.0 or _route_t <= 0.0:
+		# dogrudan yol tehlikeli mi? (sabit nobetci konisinden geciyor) - degilse dogrudan git
+		_route = PackedVector2Array()
+		_route_dest = dest
+		_route_t = 4.0
+		if _path_danger(c.global_position, dest) >= 10.0:
+			_plan(c.global_position, dest)
+			_route_t = 6.0
+	if _route.size() < 2:
+		return
+	var wp: Vector2 = _route_next(c)
+	if c.navigation_agent.target_position.distance_to(wp) > 20.0:
+		c.navigation_agent.target_position = wp
+
+
+func _go_dest(target: Vector2) -> void:
 	## kapilardan gecerek hedefe git
 	var lvl = main.level
 	var c = main.commando
@@ -161,14 +352,72 @@ func _go(target: Vector2) -> void:
 				rep["interior_visits"] += 1
 				repath_t = 0.0
 				return
-	if repath_t <= 0.0 or c.navigation_agent.target_position.distance_to(dest) > 30.0:
+	if repath_t <= 0.0 or _want.distance_to(dest) > 30.0:
 		repath_t = 1.0
+		_want = dest
 		c.move_to(dest)
 
 
 func _sees_me(g) -> bool:
 	var c = main.commando
 	return g.can_see(c.global_position, c.is_crouching())
+
+
+func _flee(dt: float) -> bool:
+	## gizli tarz: cok kisi ates ediyorsa savasma, gorus hattini kir ve calilikta saklan (Commandos: kac ve saklan)
+	var c = main.commando
+	if opts["style"] == "saldiri":
+		return false
+	if flee_t > 0.0:
+		flee_t -= dt
+		if c.global_position.distance_to(flee_to) < 14.0:
+			c.crouch = true
+			c.navigation_agent.target_position = c.global_position
+			# kimse gormuyorsa saklanmaya devam (biraz bekle)
+			return flee_t > 0.0
+		if repath_t <= 0.0:
+			repath_t = 0.6
+			c.move_to(flee_to)
+			c.run_once = true
+		return true
+	var hostile: Array = []
+	for g in _guards():
+		if g.alive and g.state == &"combat" and g.global_position.distance_to(c.global_position) < 380.0 \
+				and main.level.has_los(g.global_position, c.global_position):
+			hostile.append(g)
+	if hostile.size() < 3 and not (hostile.size() >= 2 and c.hp < 50.0):
+		return false
+	var cen := Vector2.ZERO
+	for g in hostile:
+		cen += g.global_position
+	cen /= hostile.size()
+	var away: Vector2 = (c.global_position - cen).normalized()
+	var best = null
+	var bs := -INF
+	for hz in main.level.hide_zones:
+		if typeof(hz) != TYPE_ARRAY or main.level.interior_at(hz[0]) != main.cur_interior:
+			continue
+		var v: Vector2 = hz[0] - c.global_position
+		var dd := v.length()
+		if dd < 80.0 or dd > 520.0:
+			continue
+		var sc: float = v.normalized().dot(away) * 2.0 - dd / 400.0
+		for g in hostile:
+			if main.level.has_los(g.global_position, hz[0]):
+				sc -= 0.6
+		if sc > bs:
+			bs = sc
+			best = hz[0]
+	if best == null:
+		return false
+	rep["flees"] = rep.get("flees", 0) + 1
+	flee_to = best
+	flee_t = 14.0
+	c.target_guard = null
+	c.move_to(best)
+	c.run_once = true
+	repath_t = 0.6
+	return true
 
 
 func _fight(dt: float) -> bool:
@@ -183,6 +432,23 @@ func _fight(dt: float) -> bool:
 	var best = null
 	var bd := INF
 	var mode := ""
+	# once sirene kosan askeri durdur (Commandos: alarm verilmeden sustur)
+	for g in _guards():
+		if g.alive and g.state == &"alarm_run" and main.level.interior_at(g.global_position) == main.cur_interior:
+			var d0: float = g.global_position.distance_to(c.global_position)
+			if d0 <= c.PISTOL_RANGE and c.ammo > 0 and main.level.has_los(c.global_position, g.global_position):
+				c.weapon = "pistol"
+				last_weapon = "pistol"
+				rep["shots"] += 1
+				rep["runners_shot"] += 1
+				c.attack(g)
+				return true
+			elif d0 < 600.0 and chase_t < 8.0:
+				chase_t += dt
+				c.move_to(g.global_position)
+				c.run_once = true
+				return true
+	chase_t = 0.0
 	for g in _guards():
 		if not g.alive or g.carried:
 			continue
@@ -214,6 +480,92 @@ func _fight(dt: float) -> bool:
 	return true
 
 
+func _blocker(target: Vector2) -> Variant:
+	## hedef noktayi (bina hedefinde dis kapiyi) goren sabit nobetci: arkasindaki noktayi dondur
+	var lvl = main.level
+	var c = main.commando
+	var dest := target
+	var ti: int = lvl.interior_at(target)
+	if ti != main.cur_interior:
+		dest = lvl.interiors[ti]["ext_door"] if ti >= 0 else lvl.interiors[main.cur_interior]["int_door"]
+	if c.global_position.distance_to(dest) > 700.0:
+		return null
+	var map: RID = c.navigation_agent.get_navigation_map()
+	for g in _guards():
+		if not g.alive or g.kind == "kule" or g.state != &"patrol" or g.waypoints.size() > 1:
+			continue
+		if lvl.interior_at(g.global_position) != main.cur_interior:
+			continue
+		var gp: Vector2 = g.global_position
+		var dd: Vector2 = dest - gp
+		if dd.length() > 170.0 or absf(wrapf(dd.angle() - g.base_facing, -PI, PI)) > g.VIEW_HALF + 1.0:
+			continue
+		for side in [PI, PI * 0.75, -PI * 0.75]:
+			var q: Vector2 = NavigationServer2D.map_get_closest_point(map, gp + Vector2.from_angle(g.base_facing + side) * 46.0)
+			if q.distance_to(gp) > 20.0 and q.distance_to(gp) < 80.0:
+				return q
+	return null
+
+
+func _in_way(g) -> bool:
+	## gizli tarz gereksiz oldurmez: sadece yolu kesen ya da bize donebilecek yakin askeri bicaklar
+	var c = main.commando
+	if g.global_position.distance_to(c.global_position) < 60.0:
+		return true
+	var path: PackedVector2Array = c.navigation_agent.get_current_navigation_path()
+	var i0: int = c.navigation_agent.get_current_navigation_path_index()
+	for i in range(i0, mini(i0 + 4, path.size())):
+		if path[i].distance_to(g.global_position) < 110.0:
+			return true
+	return false
+
+
+func _hide_body(dt: float) -> bool:
+	## gizli tarz: cesedi en yakin caliya tasir (Commandos: ceset saklama)
+	var c = main.commando
+	if opts["style"] == "saldiri":
+		return false
+	if c.carrying != null:
+		for g in _guards():
+			if g.alive and g.state == &"combat" and g.global_position.distance_to(c.global_position) < 300.0:
+				c.drop_body()
+				hide_spot = null
+				return false
+		_carry_t += dt
+		if hide_spot == null or c.global_position.distance_to(hide_spot[0]) < maxf(8.0, hide_spot[1] * 0.45) \
+				or _carry_t > 25.0 or (c.navigation_agent.is_navigation_finished() and repath_t < 0.5):
+			var b = c.carrying
+			c.drop_body()
+			if b.hidden_body:
+				rep["bodies_hidden"] += 1
+			hide_spot = null
+			return false
+		if repath_t <= 0.0:
+			repath_t = 0.8
+			c.move_to(hide_spot[0])
+		return true
+	var b = c.body_nearby()
+	if b == null or b.hidden_body or b.discovered:
+		return false
+	var best = null
+	var bd := 300.0
+	for hz in main.level.hide_zones:
+		if typeof(hz) != TYPE_ARRAY:
+			continue
+		var d: float = hz[0].distance_to(b.global_position)
+		if d < bd and main.level.interior_at(hz[0]) == main.cur_interior:
+			bd = d
+			best = hz
+	if best == null:
+		return false
+	c.pick_body(b)
+	_carry_t = 0.0
+	hide_spot = best
+	c.move_to(best[0])
+	repath_t = 0.8
+	return true
+
+
 func _watcher(p: Vector2):
 	var c = main.commando
 	for g in _guards():
@@ -222,11 +574,16 @@ func _watcher(p: Vector2):
 		if main.level.interior_at(g.global_position) != main.cur_interior:
 			continue
 		var d: Vector2 = p - g.global_position
-		if d.length() > g.view_range() * 1.05:
+		var cr: bool = c.is_crouching()
+		if d.length() > g.view_range() * (g.NEAR_FRAC * 1.25 if cr else 1.05):
 			continue
 		if absf(wrapf(d.angle() - g.facing, -PI, PI)) > g.VIEW_HALF + 0.25:
 			continue
 		if main.level.has_los(g.global_position, p):
+			return g
+		# calidan da yakindan gorur (alarmda daha uzaktan)
+		var br: float = g.BUSH_SEE * 1.25 * [1.0, 1.35, 1.75][clampi(main.alert_level, 0, 2)]
+		if d.length() < br and main.level.has_los(g.global_position, p, true):
 			return g
 	return null
 
@@ -249,10 +606,42 @@ func _stealth_hold(dt: float) -> bool:
 	if i >= path.size():
 		return false
 	var ahead: Vector2 = c.global_position + (path[i] - c.global_position).limit_length(70.0)
-	if _watcher(ahead) != null and wait_t < 7.0:
+	var wa = _watcher(ahead)
+	if wa == null and _route.size() > _route_i + 1 and main.cur_interior < 0:
+		var ahead2: Vector2 = c.global_position + (_route[mini(_route_i + 1, _route.size() - 1)] - c.global_position).limit_length(140.0)
+		wa = _watcher(ahead2)
+	# yol ustundeki sabit nobetciyi tasla uzaklastir (Commandos: dikkat dagit, arkadan gec)
+	if c.stones > 0 and main.alert_level < 2 and wait_t > 0.8:
+		for g in _guards():
+			if not g.alive or g.state != &"patrol" or g.waypoints.size() > 1 or g.kind == "kule" or _thrown_at.has(g.get_instance_id()):
+				continue
+			var dg: float = g.global_position.distance_to(c.global_position)
+			if dg > 260.0 or dg < 90.0 or main.level.interior_at(g.global_position) != main.cur_interior:
+				continue
+			var on_route := false
+			for j in range(_route_i, mini(_route_i + 5, _route.size())):
+				if _route[j].distance_to(g.global_position) < 130.0:
+					on_route = true
+			if on_route or (main.cur_interior >= 0 and dg < 200.0):
+				_thrown_at[g.get_instance_id()] = true
+				var dir: Vector2 = (g.global_position - c.global_position).normalized()
+				var to: Vector2 = g.global_position + dir.rotated(0.6) * 150.0
+				if c.throw_stone(to):
+					rep["stones"] += 1
+					wait_t = 0.1
+				break
+	if wa != null and wait_t < 7.0:
 		if wait_t == 0.0:
 			rep["waits"] += 1
 		wait_t += dt
+		# 1.2 sn bekledikten sonra izleyicinin arkasina tas at: o tarafa donup bakar
+		var wid: int = wa.get_instance_id()
+		_wait_on[wid] = _wait_on.get(wid, 0.0) + dt
+		if _wait_on[wid] > 1.2 and c.stones > 0 and not _thrown_at.has(wid):
+			_thrown_at[wid] = true
+			var away: Vector2 = wa.global_position + (wa.global_position - c.global_position).normalized() * 130.0
+			if c.throw_stone(away):
+				rep["stones"] += 1
 		c.navigation_agent.target_position = c.global_position
 		repath_t = 0.0
 		return true
@@ -290,7 +679,19 @@ func _process(dt: float) -> bool:
 		return false
 	var c = main.commando
 	var m = main.mission
+	if opts.has("trace") and int(t * 2.0) != int((t - dt) * 2.0):
+		print("T %.1f pos %s goal %s carry %s alert %d hp %d wait %.1f tgt %s" % [t, c.global_position.round(), goal_key, c.carrying != null, main.alert_level, c.hp, wait_t, c.target_guard != null])
 	repath_t -= dt
+	if astar == null and opts["style"] != "saldiri":
+		_build_astar()
+		main.level.changed_map.connect(func(): _build_astar())
+	if astar != null:
+		_danger_t -= dt
+		if _danger_t <= 0.0 or main.bodies.size() != _dead_n:
+			_danger_t = 2.0
+			_dead_n = main.bodies.size()
+			_update_danger()
+			_route = PackedVector2Array()
 	# saglik
 	if c.hp < 45.0 and c.medkits > 0:
 		c.use_medkit()
@@ -316,10 +717,14 @@ func _process(dt: float) -> bool:
 		return false
 	if m.planting >= 0.0:
 		return false
-	if m.plant_target != null and m.bombs.is_empty():
+	if m.plant_target != null and m.bombs.is_empty() and m.plant_target["id"] == goal_key:
 		m.start_planting()
 		return false
+	if _flee(dt):
+		return false
 	if _fight(dt):
+		return false
+	if _hide_body(dt):
 		return false
 	# comelme: yakinda devriye varsa
 	var near := false
@@ -337,7 +742,12 @@ func _process(dt: float) -> bool:
 	if gl[0] != goal_key:
 		goal_key = gl[0]
 		repath_t = 0.0
-	_go(gl[1])
+	# hedefi (ya da kapisini) bekleyen sabit nobetci varsa once onun arkasina dolan ve bicakla
+	var blk = _blocker(gl[1]) if opts["style"] != "saldiri" else null
+	if blk != null:
+		_go(blk)
+	else:
+		_go(gl[1])
 	# takilma
 	stuck_t += dt
 	if stuck_t > 6.0:
@@ -374,6 +784,13 @@ func _finish() -> void:
 			alive += 1
 	rep["reinforcements"] = _guards().size() - rep["guards"]
 	rep["guards_alive_end"] = alive
+	rep["bodies_found"] = main.stats.get("bodies_found", 0)
+	rep["missed_noticed"] = main.stats.get("missed", 0)
+	rep["runners_stopped"] = main.stats.get("runners_stopped", 0)
+	if main.game_over and c.alive:
+		var sc: Dictionary = main.score()
+		rep["points"] = sc["points"]
+		rep["rank"] = sc["rank"]
 	var js := JSON.stringify(rep, "  ")
 	print("BOT_RAPOR ", JSON.stringify(rep))
 	if opts["out"] != "":

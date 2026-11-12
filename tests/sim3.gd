@@ -53,7 +53,7 @@ func _process(d: float) -> bool:
 			hp0 = main.commando.hp
 			n0 = main.get_tree().get_nodes_in_group("guards").size()
 			step = 2
-			wait = 6.0
+			wait = 12.0      # Tur 2: once bir asker sirene kosar, sonra takviye cikar
 		2:
 			check(not main.game_over or main.commando.hp <= 0.0, "fark edilince oyun bitmedi")
 			check(g0.state == &"combat", "asker catismaya girdi")

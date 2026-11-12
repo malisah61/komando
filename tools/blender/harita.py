@@ -440,10 +440,22 @@ def build(level, quick=False):
     M["olive"] = tex_mat("t_olive", "metal", 80, P["olive"], (0.55, 0.62, 0.42), 0.6, 0.3)
     M["grey"] = tex_mat("t_grey", "metal", 80, P["grey"], (0.6, 0.62, 0.58), 0.55, 0.3)
     M["beam"] = tex_mat("t_beam", "planks", 40, mat("beam", (0.24, 0.16, 0.10)), (0.45, 0.35, 0.28), 0.7, 0.3)
+    theme = level.get("theme", "")
+    snow = mat("kar", (0.74, 0.77, 0.83), (0.60, 0.65, 0.74), 0.7, 0.012, 0.45)
+    M["snow"] = snow
+    M["beton"] = tex_mat("t_beton", "stone", 120, mat("beton", (0.55, 0.55, 0.53), (0.45, 0.45, 0.44), 0.85, 0.05, 0.2),
+                         (0.75, 0.75, 0.74), 0.85, 0.2, desat=0.1)
+    if theme == "kar":
+        # kis: zemin kar, yollar camurlu kar, agac/cali karla kapli
+        M["dirt"] = tex_mat("t_dirt_kar", "dirt", 220, P["dirt"], (1.35, 1.35, 1.45), 0.9, 0.4, 0.2, desat=0.3)
+        M["leaf"] = mat("leaf_kar", (0.70, 0.74, 0.78), (0.16, 0.27, 0.17), 0.8, 0.05, 0.6)
+        M["leaf2"] = mat("leaf2_kar", (0.66, 0.70, 0.75), (0.13, 0.22, 0.13), 0.8, 0.05, 0.6)
+        M["hedge"] = mat("hedge_kar", (0.66, 0.70, 0.75), (0.15, 0.25, 0.14), 0.8, 0.07, 0.7)
+        M["tuft"] = mat("tuft_kar", (0.82, 0.85, 0.9), (0.6, 0.65, 0.7))
 
     # ------------------------------------------------ zemin
-    flat_poly("cimen", [[0, 0], [W, 0], [W, H], [0, H]], 0.0,
-              tex_mat("t_grass", "grass", 260, grass_mat(), (0.78, 1.0, 0.68), 0.95, 0.5, 0.9), g_coll)
+    ground_m = snow if theme == "kar" else tex_mat("t_grass", "grass", 260, grass_mat(), (0.78, 1.0, 0.68), 0.95, 0.5, 0.9)
+    flat_poly("cimen", [[0, 0], [W, 0], [W, H], [0, H]], 0.0, ground_m, g_coll)
     for ri, r in enumerate(level.get("roads", [])):
         x, y, w, h = r
         # ust uste binen yollar ayni yukseklikte olmasin (golge hatasi)
@@ -467,7 +479,8 @@ def build(level, quick=False):
                        for a in [i * math.tau / 10 for i in range(10)]]
                 flat_poly("birikinti", pts, 0.7, puddle, g_coll)
     for s in level.get("surfaces", []):
-        m = M["mud"] if s.get("type") == "mud" else mat("snow", (0.92, 0.93, 0.95), (0.82, 0.85, 0.9), 0.6, 0.05, 0.2)
+        st = s.get("type")
+        m = M["mud"] if st == "mud" else (M["beton"] if st == "beton" else mat("snow", (0.82, 0.84, 0.89), (0.68, 0.72, 0.80), 0.6, 0.05, 0.3))
         flat_poly("camur", s["points"], 0.6, m, g_coll)
     for o in level.get("obstacles", []):
         if o.get("type") == "water":
@@ -507,7 +520,7 @@ def build(level, quick=False):
             q = rng.random()
             if q < 0.25:
                 pebbles.append(blob("cakil", (x, y), rng.uniform(1.5, 3.5), 0.5, M["pebble"], g_coll, rng, 1, 0.5, 0.3))
-            elif q < 0.33:
+            elif q < 0.33 and theme != "kar":
                 flowers.append(blob("cicek", (x, y), 1.6, 1.0, M["flower"], g_coll, rng, 1, 0.8, 0.1))
             else:
                 tufts.append(blob("tutam", (x, y), rng.uniform(2.5, 5), 0.5, M["tuft"], g_coll, rng, 1, 1.1, 0.35))
@@ -717,6 +730,19 @@ def build(level, quick=False):
             objs.append(box("namlu", cx + w * 0.38, cy, 30, w * 0.6, 5, 5, M["grey"], o_coll))
         elif t == "rock":
             objs.append(blob("kaya", (cx, cy), r, r * 0.15, M["rock"], o_coll, rng, 2, 0.6, 0.25))
+            if theme == "kar":
+                objs.append(blob("kar", (cx, cy - r * 0.1), r * 0.8, r * 0.5, M["snow"], o_coll, rng, 2, 0.4, 0.2))
+        elif t == "tower":
+            # gozetleme kulesi: 4 dikme, platform (z=46, oyundaki kule nobetcisi burada durur), korkuluk, cati
+            x0, y0, x1, y1 = bb
+            for px in (x0 + 3, x1 - 3):
+                for py in (y0 + 3, y1 - 3):
+                    objs.append(box("dikme", px, py, 0, 5, 5, 74, M["wood"], o_coll))
+            objs.append(box("platform", cx, cy, 42, w + 8, h + 8, 4, M["plank"], o_coll))
+            for (ax, ay, sx, sy) in ((cx, y0 - 4, w + 8, 3), (cx, y1 + 4, w + 8, 3), (x0 - 4, cy, 3, h + 8), (x1 + 4, cy, 3, h + 8)):
+                objs.append(box("korkuluk", ax, ay, 46, sx, sy, 12, M["wood"], o_coll))
+            objs.append(box("cati", cx, cy, 74, w + 14, h + 14, 5, M["beam"], o_coll))
+            objs.append(box("capraz", cx, y1 - 3, 14, w, 3, 3, M["wood"], o_coll))
         else:
             objs.append(prism("nesne", pts, 28, M["wood"], o_coll))
         add(objs, {"kind": "obstacle", "index": oi, "base": list(bb)})
