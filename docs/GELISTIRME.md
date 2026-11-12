@@ -231,3 +231,103 @@ Hedefler: **APK ≤ 200 MB**, **PC zip ≤ 120 MB**, **yeni bölüm ≤ 15 MB** 
 | karakter sprite'ları | | | | | 56,0 |
 
 Önce (Tur 2, açı başına bölüm 3'te ~27 MB) → sonra (5,4 MB). Bölüm 3'te zemin açı başına 2048² DXT1/ETC2 yerine 1024 px WebP.
+
+## Tur 3 – Gece turu (12 Kasım 2026)
+
+### 0. Boyut, akıcılık ve düzen (öncelik)
+Sebep: haritaların 4 açısı VRAM sıkıştırmayla (DXT/ETC2, 4–8 bit/piksel) paketleniyordu; Web paketine iki biçim birden giriyordu; `kaynak/*.glb` ve testler de export ediliyordu.
+
+| Paket | Önce (Tur 2) | Sonra (Tur 3, CI ölçümü) |
+|---|---|---|
+| APK | 723,7 MiB | **148,9 MiB** (debug → release şablonu, yalnız ETC2) |
+| Windows zip | 267,8 MiB | **88,3 MiB** |
+| Linux zip | 262,0 MiB | **82,6 MiB** |
+| Web .pck | 1342 MiB (iki doku biçimi) | **106,0 MiB** |
+| Bölüm 3, açı başına | ~27 MB | **5,4 MB** |
+
+(Bölüm 4–5'in render'ı CI'da sürüyor; render sonrası paket boyutu `build.yml` sürüm notunda.)
+
+Yapılanlar:
+- Harita atlasları ve zemin **kayıplı WebP** (Godot Lossy 0,82), zemin 1024 px karolar, atlasların boş sağ/alt kenarı kırpıldı, mipmap kapalı. Karakter sprite'ları VRAM'de kaldı (telefonda 4× az bellek).
+- `levels/<bölüm>_art/v0..v3` tek düzen (v0 artık kökte değil). `harita.py` kayıpsız PNG verir, `hat.py sikistir` WebP'ye çevirir, `hat.py ayarla` import ayarlarını tek dosyadan (`tools/varlik_ayarlari.json`) yazar.
+- `harita.yml` artık sadece değişen bölümleri render eder; render işinde sıkıştırma adımı var. `build.yml` her derlemede bölüm × açı MB'ını ve paket boyutlarını yazar, bütçe aşılırsa uyarır.
+- **Bellek:** görünmeyen açının dokuları tutulmuyor. Açı değişince eskisi bırakılır, yenisi `ResourceLoader.load_threaded_request` ile arka planda yüklenir, bu sırada "Çevriliyor…" ve zemin önizlemesi görünür. Zemin karoları kamera yakınında akışla yüklenir, uzaktakiler bırakılır (0,1 sn'de en fazla 3 karo).
+
+Ölçüm (`tests/perf.gd`, Bölüm 3, 56 asker, xvfb + llvmpipe yazılım GPU; gerçek GPU'da kare süreleri çok daha kısa, oranlar önemli):
+
+| | Önce | Sonra |
+|---|---|---|
+| Bölüm açılışı (sahne kurulumu + ilk kare) | 1081 ms | **747 ms** |
+| Ortalama / en yavaş kare (sabit kamera) | 51,8 / 78,8 ms | 50,2 / 75,8 ms |
+| Açı değişimi: en yavaş kare | 351 ms (tek karede donma) | **92 ms** (yükleme arka planda, toplam 689 ms) |
+| Kamera kaydırma: en yavaş kare | 60 ms | 79 ms (karo GPU'ya yüklenirken; yazılım GPU'da abartılı) |
+| Doku belleği başlangıç / en yüksek | 236 / 325 MB (her gezilen açı +~90 MB, birikir) | 268 / **352 MB** (birikmez) |
+
+Telefonda doku belleği: bu ortamda gerçek telefon yok; GL Compatibility sürücüsünde aynı ölçüm sprite'lar ETC2 olduğu için telefonla aynı büyüklükte (~270–350 MB). Gerçek cihaz ölçümü sonraki tura not.
+
+Görüntü: 4 açıdan aynı yerlerden önce/sonra (yakınlaştırma 2,0) yan yana karşılaştırıldı (`docs/ekran/tur3_sikistirma_*.jpg`). Bantlaşma ya da kenar halesi yok; kardaki ince doku çok az yumuşadı, eski DXT/ETC2 blok gürültüsü kayboldu.
+
+### 1. Bot analizi (turun başı)
+Turun başında rapor (Tur 2 sonu ile aynı): Bölüm 0 saldırı 0:34'te kazanıyor; Bölüm 1 "Ev 3 yakını" darboğazı (44 tespit); Bölüm 2 gizli 1/3 (5:02); Bölüm 3 Gölge kaçışta ölüyor (3/3); "tam" tarzı isteğe bağlı görev yapmıyor. CI "Bot oyun testi" son çalışması başarılıydı.
+Geliştirme listesi bu bulgulardan: takipçiyi koruyan bot, Bölüm 0'a siren + 2. kışla, Ev 3 darboğazında kapı nöbetçisinin yönü, yeni bölümlerde birden çok yaklaşım (tel kesme, çalı şeritleri).
+
+### 2. Yapay zekâ v4
+- **Tetikte kalma (Shadow Tactics):** şüphelenen, ceset ya da iz bulan asker 45 sn boyunca %20 daha geniş bakar, %25 daha hızlı fark eder; arama nokta sayısı artar.
+- **İz sürme (Commandos 2):** fark edilen ayak izinden sonra daha yeni izleri takip eder (8 adıma kadar).
+- **Tanık + boğuşma sesi:** bıçak/yumruk sırasında komandoyu gören asker anında çatışmaya girer; 70 px içindekiler sesi duyar.
+- **El bombası:** SS ve subay, siperde kaybolan hedefe 110–300 px'ten el bombası atar (70 px, siper korumaz, arkadaşına atmaz).
+- **Kule gözcüsü:** kule nöbetçisi çatışmaya girince 2× uzaklıktaki askerleri çağırır; projektör operatörü ışığı hedefe çevirir.
+- **Paylaşımlı arama:** yakında arayan askerler birbirinin baktığı noktaya bakmaz, alanı bölüşür.
+- **Kılık tanıma:** üniformalı komandoyu erler ancak çok yakından ya da koşarken, SS/subay koninin yakın kısmında tanır.
+- **Ayılma:** bayıltılan asker ~40 sn sonra ayılır, çevreyi arar, yakındakileri uyarır; baygını bulan asker onu ayıltır.
+
+Ölçüm (aynı bölümler, gizli bot, 3 tohum, ortalama tespit): Bölüm 1 13,0 → 17,3 (+%33), Bölüm 2 4,3 → 7,0 (+%63), Bölüm 3 8,7 → 12,3 (+%41). Bölüm 2'de gizli bot zaferi 1/3 → 0/3. Artış hedeflenen %25'in üstünde; bir sonraki turda denge ayarı gerekiyor.
+
+### 3. 5 yeni özellik
+1. **Üniforma (kılık değiştirme, Commandos 2 casusu):** er/kış askerinin cesedinden "Üniforma Giy"; komandonun sprite'ı Alman eri olur.
+2. **Yumruk + Bağla:** öldürmeden bayılt, ip ile bağla (3 ip); bayıltma puan kazandırır.
+3. **Islık:** 190 px içindeki askerleri bulunduğun yere çeker (5 sn bekleme).
+4. **Dikenli tel + tel makası:** yeni `tel` engeli (Blender'da kazık + sarmal tel), "Teli Kes" 3 sn; navigasyon yeniden hesaplanır, kesilen parça 4 açıda da gizlenir.
+5. **Projektör:** yeni `projektor` engeli + `searchlights` bölüm alanı; ışık yol boyunca gidip gelir, 0,5 sn içinde kalanı operatör görür; operatör düşerse ışık söner, alarmda ışık hedefi kovalar.
+
+### 4. 5 iyileştirilen özellik
+1. **4 yönlü bakış:** arka planda yükleme, "Çevriliyor…", açı başına bellek bırakma, zemin akışı (yukarıda).
+2. **Mini harita / büyük harita:** 88 zemin karosunu çizmek yerine tek 2048 px önizleme (daha hızlı, açı değişince de bozulmaz).
+3. **Bölüm 0:** 2 siren, 2. kışla, ek devriye (saldırı tarzı sirene koşanı durdurmak zorunda).
+4. **Bölüm 1:** belediye kapısı nöbetçisi güneybatıya bakıyor; kuzeyden (Ev 2 tarafı) arkasından yaklaşılabilir.
+5. **Bot:** takipçi geride kalırsa bekler; projektör ışığı yaklaşırsa yolundan çekilir (Bölüm 4'te ışığa yakalanma 11–12 → 0); tel makasıyla rotasındaki teli keser; yumrukla bayıltıp bağlar; duvar arkasındaki askere saldırmaya çalışıp takılma hatası giderildi. Puan: öldürülen/bayıltılan ayrı, tanık cezası.
+
+### 5. Yeni bölümler
+| | Bölüm 3 | **Bölüm 4 – Gece Treni** | **Bölüm 5 – Kartal Yuvası** |
+|---|---|---|---|
+| Harita | 5400x3800 | 6000x3800 | 6400x4200 |
+| Asker | 56 | 61 | 76 |
+| Kule / projektör | 5 / 0 | 6 / 4 | 7 / 5 |
+| Kışla / siren | 5 / 6 | 6 / 7 | 7 / 8 |
+| Görev | 11 | 9 | 9 |
+| Yeni öğeler | | gece, tel çevrili manevra sahası, mühimmat treni, kilitli baraka, Kıvılcım | şato (kilitli), havaalanı (telli), bocage çit labirenti, nehir + 2 köprü, Richter esir |
+
+Üreticiler `tools/gen_bolum4.py`, `tools/gen_bolum5.py` (`bolum_lib.py`). `sim_bolum.gd` erişim testi ikisinde de başarılı, "merge edge" yok. Boyut bütçesi için zemin 1,5 px/birim (`bolum_ozel`), nesne/çatı 2 px/birim.
+
+### 6. Bot önce / sonra (3 tohum)
+| Bölüm | Gizli (önce → sonra) | Saldırı (önce → sonra) | Not |
+|---|---|---|---|
+| Bölüm 0 | 3/3, 1:01, 0 tespit → 3/3, 1:01, 0 | 3/3 (0:34) → 3/3 (0:34) | sirenler saldırı botunu durdurmadı: kışla takviyesi gelmeden bitiyor |
+| Bölüm 1 | 0/3, 13,0 tespit → 0/3, 17,3 | 0/3 → 0/3 | "Ev 3 yakını" 44 → 24 tespit; "Ev 5" ve güney köprüsü öne çıktı |
+| Bölüm 2 | 1/3 (5:02) → 0/3, 6/9 görev | 0/3 → 0/3 | AI v4 sonrası kodlar/radar sonrası dönüşte ölüyor |
+| Bölüm 3 | 0/3 → 0/3, 7/11 görev | 0/3 → 0/3 | Gölge ölümü 3/3 → 2/3 (takipçi bekleme); "(2300,1200)" darboğazı |
+| Bölüm 4 (yeni) | 0/3, 4/9 görev (3:45), 4,7 tespit | 0/3 (0:37–1:41) | saldırı zorlanıyor ✔, gizli kazanamıyor ✘ (saha güneybatı köşesi) |
+| Bölüm 5 (yeni) | 0/3, 2–4/9 görev (~3:00) | 0/3 (~1:30) | saldırı zorlanıyor ✔, gizli kazanamıyor ✘ (radyo kulesi çevresi) |
+
+### 7. Sonraki tur için öncelikler
+1. **Denge:** AI v4 gizli botu fazla cezalandırıyor. Bölüm 2–5'te gizli botun kazanabilmesi için tanık mesafesi/tetikte kalma çarpanı ya da darboğazlara ikinci yol.
+2. Bot: Bölüm 4 saha güneybatısı (kule + kapı) ve Bölüm 5 radyo kulesi için yaklaşım; üniforma ve ıslık kullanımı.
+3. Bölüm 0 saldırı tarzı: takviye gecikmesi kısalt ya da belge kilitli dolapta.
+4. Gerçek telefonda doku belleği ve kare süresi ölçümü.
+
+### Kaynaklar
+- Commandos 2 (casus kılığı, tel makası, bayıltma/bağlama, projektörler): https://commandos.shoutwiki.com/wiki/Commandos_2 · https://www.gamespot.com/reviews/commandos-2-men-of-courage-review/1900-2879150/ · https://download.gamestar.de/public/31600/31689/11_2001_tipps_commandos2.pdf
+- Shadow Tactics düşman türleri (tetikte kalma, arama): https://www.gamepressure.com/shadowtactics/types-of-enemies/z4941f
+- Desperados III (nöbet yeri, dikkat dağıtma): https://www.gamepressure.com/desperados-iii/enemy-why-does-not-leave-the-post/z9d04a · https://www.player2.net.au/2020/06/14-darn-tootin-tips-for-desperados-iii/
+- Godot görüntü içe aktarma (Lossy / VRAM / Basis): https://docs.godotengine.org/en/4.3/tutorials/assets_pipeline/importing_images.html
+- Godot web/mobil sanat hattı: https://forum.godotengine.org/t/godot-4-web-export-stutters-on-mobile-its-probably-your-art-pipeline-not-your-code-31fps-to-60fps-benchmarks-inside/143268

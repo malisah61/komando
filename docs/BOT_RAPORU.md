@@ -1,6 +1,6 @@
 # Bot oyun testi raporu
 
-Tarih: 2026-11-12 08:41 — 54 oyun (gizli, saldiri, tam × 3 tohum).
+Tarih: 2026-11-12 08:57 — 54 oyun (gizli, saldiri, tam × 3 tohum).
 Bot `tests/bot.gd`: gizli = çömel, devriye bakıyorsa bekle, şüphelenirse geri çekil, arkadan bıçakla; saldırı = tabancayla temizle; tam = gizli + isteğe bağlı görevler.
 
 ## bolum0
@@ -90,22 +90,22 @@ En çok yakalanılan yerler: açık arazi (2300,1200) (28), açık arazi (2600,1
 
 | Tarz | Tohum | Sonuç | Süre | Tespit | Hasar | Bıçak/Tabanca | Takviye | Bekleme/Geri | Ceset sakl./bulundu | Taş | Takılma | Puan | Biten görevler |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| gizli | 1 | kayip (Çvş. Reilly vuruldu!) | 4:15 | 11 | 200 | 5/5 | 6 | 12/12 | 3/5 | 0 | 0 | - | temas, anahtar, kivilcim, sinyal |
-| gizli | 2 | kayip (Onb. Sam 'Kıvılcım' Kowalski öldü! Görev başarısız.) | 4:04 | 7 | 26 | 5/3 | 6 | 12/12 | 3/3 | 0 | 0 | - | temas, anahtar, kivilcim, sinyal |
-| gizli | 3 | kayip (Onb. Sam 'Kıvılcım' Kowalski öldü! Görev başarısız.) | 4:05 | 3 | 68 | 5/3 | 6 | 12/12 | 3/3 | 0 | 0 | - | temas, anahtar, kivilcim, sinyal |
+| gizli | 1 | kayip (Onb. Sam 'Kıvılcım' Kowalski öldü! Görev başarısız.) | 3:42 | 4 | 66 | 5/3 | 6 | 1/0 | 3/1 | 0 | 0 | - | temas, anahtar, kivilcim, sinyal |
+| gizli | 2 | kayip (Onb. Sam 'Kıvılcım' Kowalski öldü! Görev başarısız.) | 3:45 | 5 | 0 | 5/3 | 6 | 1/0 | 3/1 | 0 | 0 | - | temas, anahtar, kivilcim, sinyal |
+| gizli | 3 | kayip (Onb. Sam 'Kıvılcım' Kowalski öldü! Görev başarısız.) | 3:44 | 5 | 41 | 5/3 | 6 | 1/0 | 3/1 | 0 | 0 | - | temas, anahtar, kivilcim, sinyal |
 | saldiri | 1 | kayip (Çvş. Reilly vuruldu!) | 0:37 | 13 | 150 | 5/2 | 6 | 0/0 | 0/3 | 0 | 0 | - | temas |
 | saldiri | 2 | kayip (Çvş. Reilly vuruldu!) | 1:41 | 22 | 150 | 13/3 | 6 | 0/0 | 0/8 | 0 | 0 | - | temas, anahtar, kivilcim, sinyal |
 | saldiri | 3 | kayip (Çvş. Reilly vuruldu!) | 1:23 | 19 | 150 | 11/4 | 6 | 0/0 | 0/5 | 0 | 0 | - | temas, anahtar, kivilcim, sinyal |
-| tam | 1 | kayip (Çvş. Reilly vuruldu!) | 4:15 | 11 | 200 | 5/5 | 6 | 12/12 | 3/5 | 0 | 0 | - | temas, anahtar, kivilcim, sinyal |
-| tam | 2 | kayip (Onb. Sam 'Kıvılcım' Kowalski öldü! Görev başarısız.) | 4:04 | 7 | 26 | 5/3 | 6 | 12/12 | 3/3 | 0 | 0 | - | temas, anahtar, kivilcim, sinyal |
-| tam | 3 | kayip (Onb. Sam 'Kıvılcım' Kowalski öldü! Görev başarısız.) | 4:05 | 3 | 68 | 5/3 | 6 | 12/12 | 3/3 | 0 | 0 | - | temas, anahtar, kivilcim, sinyal |
+| tam | 1 | kayip (Onb. Sam 'Kıvılcım' Kowalski öldü! Görev başarısız.) | 3:42 | 4 | 66 | 5/3 | 6 | 1/0 | 3/1 | 0 | 0 | - | temas, anahtar, kivilcim, sinyal |
+| tam | 2 | kayip (Onb. Sam 'Kıvılcım' Kowalski öldü! Görev başarısız.) | 3:45 | 5 | 0 | 5/3 | 6 | 1/0 | 3/1 | 0 | 0 | - | temas, anahtar, kivilcim, sinyal |
+| tam | 3 | kayip (Onb. Sam 'Kıvılcım' Kowalski öldü! Görev başarısız.) | 3:44 | 5 | 41 | 5/3 | 6 | 1/0 | 3/1 | 0 | 0 | - | temas, anahtar, kivilcim, sinyal |
 
-- gizli: 0/3 zafer, ortalama tespit 7.0
+- gizli: 0/3 zafer, ortalama tespit 4.7
 - saldiri: 0/3 zafer, ortalama tespit 18.0
-- tam: 0/3 zafer, ortalama tespit 7.0
+- tam: 0/3 zafer, ortalama tespit 4.7
 Kazanma oranı: **0/9**
-En çok yakalanılan yerler: Depo ofisi yakını (25), açık arazi (2800,1100) (14), Lamba evi yakını (14), Kamp karargâhı yakını (14), açık arazi (2900,1100) (6), açık arazi (3000,1300) (2)
-Ölüm yerleri: açık arazi (2800,1100) (4), açık arazi (2700,1100) (3), Kamp karargâhı yakını (1), açık arazi (3100,1200) (1)
+En çok yakalanılan yerler: açık arazi (1700,2400) (16), Lamba evi yakını (14), Kamp karargâhı yakını (14), açık arazi (2000,2500) (12), Depo ofisi yakını (9), açık arazi (600,1100) (2)
+Ölüm yerleri: açık arazi (1700,2400) (6), Kamp karargâhı yakını (1), açık arazi (3100,1200) (1), açık arazi (2700,1100) (1)
 
 ## bolum5
 
@@ -139,7 +139,7 @@ En çok yakalanılan yerler: açık arazi (5200,600) (18), Telsiz binası yakın
 - bolum1: 'Ev 3 yakını' tespit noktası — buraya alternatif gizli yol (çalı, siper, arka kapı) ekle ya da kasıtlı darboğaz olduğunu belgele.
 - bolum2: 'açık arazi (2600,1200)' tespit noktası — buraya alternatif gizli yol (çalı, siper, arka kapı) ekle ya da kasıtlı darboğaz olduğunu belgele.
 - bolum3: 'açık arazi (2300,1200)' tespit noktası — buraya alternatif gizli yol (çalı, siper, arka kapı) ekle ya da kasıtlı darboğaz olduğunu belgele.
-- bolum4: 'Depo ofisi yakını' tespit noktası — buraya alternatif gizli yol (çalı, siper, arka kapı) ekle ya da kasıtlı darboğaz olduğunu belgele.
+- bolum4: 'açık arazi (1700,2400)' tespit noktası — buraya alternatif gizli yol (çalı, siper, arka kapı) ekle ya da kasıtlı darboğaz olduğunu belgele.
 - bolum5: 'açık arazi (5200,600)' tespit noktası — buraya alternatif gizli yol (çalı, siper, arka kapı) ekle ya da kasıtlı darboğaz olduğunu belgele.
 
 Ham veriler: `build/bot/*.json` (CI'da `bot-raporu` artefaktı).
