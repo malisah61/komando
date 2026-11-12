@@ -1005,11 +1005,14 @@ func _draw_overlays(font: Font) -> void:
 	# alarm sirenleri: direk + kirmizi lamba (calinca yanip soner)
 	var blink: bool = siren_on > 0.0 and int(Time.get_ticks_msec() / 250) % 2 == 0
 	for sp in sirens:
-		draw_rect(Rect2(sp + Vector2(-3, -46), Vector2(6, 46)), Color(0.25, 0.25, 0.27))
-		draw_rect(Rect2(sp + Vector2(-11, -58), Vector2(22, 14)), Color(0.3, 0.3, 0.32))
-		draw_circle(sp + Vector2(0, -51), 6.0, Color(1, 0.15, 0.1) if blink else Color(0.45, 0.08, 0.06))
+		# direk her bakis acisinda ekranda dik durur (4 yonlu kamera)
+		draw_set_transform(sp, view_rot, Vector2.ONE)
+		draw_rect(Rect2(Vector2(-3, -46), Vector2(6, 46)), Color(0.25, 0.25, 0.27))
+		draw_rect(Rect2(Vector2(-11, -58), Vector2(22, 14)), Color(0.3, 0.3, 0.32))
+		draw_circle(Vector2(0, -51), 6.0, Color(1, 0.15, 0.1) if blink else Color(0.45, 0.08, 0.06))
 		if blink:
-			draw_circle(sp + Vector2(0, -51), 26.0, Color(1, 0.2, 0.1, 0.25))
+			draw_circle(Vector2(0, -51), 26.0, Color(1, 0.2, 0.1, 0.25))
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 	# kilitli kapilar: asma kilit
 	for it in interiors:
 		if it["locked"] != "" and not (m != null and m.items.has(it["locked"])):

@@ -180,9 +180,15 @@ Blender: `harita.py` artık `theme: "kar"` (kar zemin, karlı ağaç/kaya, çamu
 | Bölüm 0 | 3/3, 0:40, 4,7 tespit → **3/3, 1:01, 0 tespit** | 3/3 (0:33) → 3/3 (0:34) | bot artık hiç görülmeden bitiriyor; eğitim bölümü kısa kalıyor |
 | Bölüm 1 | 1/3 (2:31), 16 tespit → **0/3**, 13 tespit; en uzun oyun 8:22 | 0/3 (0:33) → 0/3 (0:30) | anahtar + kilitli belediye + siren + kayıp nöbetçi bölümü zorlaştırdı; tespit "Ev 3 yakını"nda toplanıyor |
 | Bölüm 2 (yeni) | **1/3 zafer (5:02)**, ort. 4,3 tespit; diğer ikisi 4:22–4:43'te 6–8 görevle | 0/3 (0:59–1:12) | saldırı zorlanıyor ✔; gizli kazanabiliyor ✔; süre hedefi (≥10 dk) henüz değil ✘ |
-| Bölüm 3 (yeni) | 0/3, 7 görev bitiyor (4:28–4:59), Gölge kaçışta ölüyor | 0/3 (1:16–2:20) | takipçiyi koruyan bot davranışı eksik |
+| Bölüm 3 (yeni) | 0/3, 7 görev bitiyor (4:28–4:59), Gölge kaçışta ölüyor | 0/3 (0:40–0:55) | takipçiyi koruyan bot davranışı eksik |
 
 Bot zaferinin süresi insan süresi değildir: bot mükemmel yolu bilir ve hiç keşif yapmaz. Oyuncu bölüm 1'i 6:50'de bitirmişti (bot 2:31). Bölüm 2 için tahmini insan süresi 20–30 dk.
+
+### Ekran görüntüleri (render sonrası, xvfb)
+- Bölüm 2 kuzey açı: `docs/ekran/tur2_bolum2_kuzey.jpg` · doğu (döndürülmüş): `docs/ekran/tur2_bolum2_dogu.jpg`
+- Bölüm 3 güney (döndürülmüş, alarm koşucusu): `docs/ekran/tur2_bolum3_guney.jpg`
+- Bölüm 1 batı (döndürülmüş, siren direği dik): `docs/ekran/tur2_bolum1_bati.jpg`
+Render: Bölüm 1–3 × 4 açı paralel (Bölüm 2 ~95 dk, Bölüm 3 ~120 dk). Siren direği döndürülmüş açıda yan yatıyordu, düzeltildi.
 
 ### 9. Sonraki tur için öncelikler (bot raporundan)
 1. Bot: takip eden karakteri (Şahin/Gölge) koruma ve çalılardan geçirme; Bölüm 1 "Ev 3" ve Bölüm 3 "Trafo" darboğazlarına ek gizli yol.
