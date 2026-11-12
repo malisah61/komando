@@ -111,7 +111,7 @@ G = L.guard
 G([[500, 2100], [500, 2500], [1100, 2500]], None, "er")
 G([[300, 1700], [1500, 1700]], None, "er")
 G([[900, 1420], [900, 1900]], None, "er")
-G([[590, 845]], 20, "subay")                                          # kafe onu
+G([[1000, 870]], 0, "subay")                                          # kafe onu
 G([[690, 690]], 0, "er")                                              # kafe ici
 G([[1000, 520], [1600, 520], [1600, 900]], None, "er")
 G([[300, 520], [800, 520]], None, "er")
@@ -123,7 +123,7 @@ G([[1580, 2200]], 0, "er")                                            # giris ko
 G([[1580, 2400]], 0, "er")
 G([[1860, 600], [1860, 2150]], None, "er")                            # liman caddesi
 # liman
-G([[2130, 1445]], 270, "subay")                                        # liman ofisi kapisi
+G([[2265, 1470]], 0, "subay")                                        # liman ofisi kapisi
 G([[2080, 1580], [2150, 1600]], None, "subay")                        # liman ofisi ici
 G([[2360, 1300], [3900, 1300]], None, "elit")                         # ust yol devriyesi
 G([[2400, 1950], [2400, 2900]], None, "er")                           # bati rihtim
@@ -182,6 +182,11 @@ d["objectives"] = [
     {"id": "sevkiyat", "type": "take", "item": "sevkiyat", "text": "Kontrol odasından Richter'in sevkiyat defterini çal",
      "pos": [4180, 1600],
      "done_say": [["Çvş. Reilly", "Bütün denizaltıların rotaları... ve Richter'in imzası."]]},
+    {"id": "tarife", "type": "take", "item": "tarife", "text": "İstasyondan denizaltıların ikmal treni tarifesini çal",
+     "pos": [4330, 330]},
+    {"id": "makas", "type": "sabotage", "text": "Demiryolu makasını sessizce boz (ikmal treni raydan çıkacak)",
+     "pos": [5300, 800], "radius": 60, "time": 6.0,
+     "done_say": [["Henri Duval", "Sabah gelen ikmal treni bunkere asla ulaşmayacak. Şimdi kapılar!"]]},
     {"id": "kapi1", "type": "destroy", "text": "Bunkerdeki 1. denizaltı kapısının mekanizmasını uçur", "pos": [3050, 1800],
      "radius": 95},
     {"id": "kapi2", "type": "destroy", "text": "Bunkerdeki 2. denizaltı kapısının mekanizmasını uçur", "pos": [3750, 1800],
@@ -201,6 +206,7 @@ d["barracks"] = [
     {"pos": [4800, 2700], "count": 6, "type": "elit", "delay": 6},    # dogu rihtim
 ]
 d["sirens"] = [[1200, 1400], [1750, 2160], [2650, 1450], [3800, 1950], [4300, 1100], [4700, 2650]]
+# Tur 2: istasyon ve makas icin ek nobetciler (dolgudan once eklenirse geometri degisir: sona eklenir)
 d["pickups"] = [
     {"type": "medkit", "pos": [400, 2200]},
     {"type": "medkit", "pos": [1450, 1500]},
@@ -234,4 +240,6 @@ L.scatter(10, 2000, 2400, 2420, 3000, "bush", 24, 32)
 L.scatter(10, 1900, 250, 3300, 1150, "bush", 24, 32)
 L.scatter(8, 4700, 1300, 5350, 2700, "bush", 24, 32)
 
+L.guard([[5020, 1180], [5300, 1180]], None, "er")                       # makas guneyi
+L.guard([[4600, 800]], 0, "er")                                         # raylar dogu
 L.save("levels/bolum3.json")

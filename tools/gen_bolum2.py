@@ -105,7 +105,7 @@ L.bushes([[3120, 1300], [3420, 1060], [2700, 1250], [3880, 1300]], 28)
 L.tower(2700, 1880, 200)
 L.tower(3900, 1880, 75)
 L.tower(2700, 800, 160)
-L.tower(3900, 800, 20)
+L.tower(3900, 800, 80)
 
 # ------------------------------------------------------------ RADAR (kuzeydogu tepe)
 L.ob("sandbag", rect(4180, 440, 26, 120))
@@ -133,10 +133,10 @@ G = L.guard
 G([[400, 2650], [1100, 2650], [1100, 2950]], None, "kis")              # guney orman devriyesi
 G([[900, 2100], [900, 1800], [1300, 1800]], None, "kis")              # kulube kuzeyi
 G([[1000, 2360]], 180, "kis")                                         # kulubeye bakan nobetci
-G([[350, 1400], [1150, 1400]], None, "kis")                           # koy guney devriyesi
+G([[350, 1400], [1150, 1400]], None, "kis")                           # koy guney devriyesi (dolgudan sonra kisaltilir)
 G([[640, 900], [1000, 900]], None, "kis")                             # koy ici
 G([[540, 1190]], 0, "subay")                                          # telsiz kulubesi onu (disari bakar)
-G([[389, 1158]], 0, "kis")                                            # telsiz ici
+G([[360, 1150]], 180, "kis")                                            # telsiz ici
 G([[1100, 700]], 90, "kis")                                           # koy dogu
 G([[200, 560], [1250, 560]], None, "kis")                             # kiyi devriyesi
 # nehir gecitleri
@@ -160,13 +160,13 @@ G([[2560, 1600]], 180, "elit")                                        # bati kap
 G([[2560, 1720]], 180, "elit")
 G([[3180, 2080]], 90, "kis")                                          # guney kapi
 G([[3340, 2080]], 90, "kis")
-G([[2900, 1150], [3800, 1150], [3800, 1330], [2900, 1330]], None, "subay", "hucre_anahtari")  # gardiyan
+G([[2900, 1150], [3450, 1150], [3450, 1330], [2900, 1330]], None, "subay", "hucre_anahtari")  # gardiyan
 G([[2800, 1700], [3400, 1700], [3400, 1950]], None, "elit")           # avlu guney
 G([[2930, 1100]], 90, "kis")                                          # komutanlik kapisi
 G([[3670, 1100]], 90, "elit")                                         # hapishane kapisi
 G([[2850, 900], [3000, 980]], None, "subay")                          # komutanlik ici
 G([[3600, 880]], 0, "kis")                                            # hapishane ici
-G([[3730, 650]], 90, "kis")                                           # arka kapi disi
+G([[3790, 655]], 0, "kis")                                           # arka kapi disi
 G([[3600, 1600]], 180, "kis")                                         # garaj
 # radar
 G([[4250, 650], [4650, 650], [4650, 380]], None, "elit")
@@ -198,8 +198,11 @@ d["objectives"] = [
      "pos": [2900, 880], "done_say": [["Çvş. Reilly", "Frekans kodları... Londra bununla bütün ağı körleştirebilir."]]},
     {"id": "radar", "type": "destroy", "text": "Tepedeki radar antenini havaya uçur", "pos": [4352, 600], "radius": 95,
      "done_say": [["Yzb. Edward Blake", "Radar gitti! Şimdi bütün kale peşimizde. Fiyorda, tekneye!"]]},
-    {"id": "flak", "type": "destroy", "optional": True, "text": "Doğu yakadaki uçaksavar topunu uçur", "pos": [2230, 1372],
+    {"id": "flak", "type": "destroy", "text": "Doğu yakadaki uçaksavar topunu uçur (kaçış uçağının yolu)", "pos": [2230, 1372],
      "radius": 90},
+    {"id": "teslim", "type": "reach", "text": "Kodları av kulübesindeki Lars'a teslim et", "pos": [760, 2350], "radius": 70,
+     "after": ["kodlar", "radar"],
+     "say": [["Lars", "Kodlar elimde. Bu gece Londra'ya telsizle geçeceğim. Şimdi fiyorda, tekne sizi bekliyor!"]]},
     {"id": "yakit", "type": "destroy", "optional": True, "text": "Kale avlusundaki yakıt varillerini uçur", "pos": [3150, 1800],
      "radius": 95},
     {"id": "kacis", "type": "exit", "text": "Şahin ile birlikte fiyorttaki balıkçı teknesine dön"},
@@ -245,4 +248,16 @@ L.scatter(10, 2700, 2100, 3600, 2650, "bush", 26, 34)
 L.scatter(8, 4050, 1000, 4700, 1600, "bush", 26, 34)
 L.scatter(10, 2800, 360, 4700, 620, "rock", 18, 30)
 
+# (dolgudan sonra eklenir: harita geometrisi ve render degismesin)
+# Tur 2 bot bulgusu (gizli bot 5:11'de 0 tespitle kazandi): ek devriyeler, rotalari kesen
+L.guard([[1250, 450], [1250, 1000], [1550, 1000]], None, "kis")              # buz gecidi bati
+L.guard([[2650, 664], [3450, 664]], None, "elit")                           # kale kuzey duvari
+L.guard([[3150, 1080], [3450, 1080], [3450, 1250]], None, "elit")           # avlu kuzey
+L.guard([[700, 1700], [1300, 1700], [1300, 2100]], None, "kis")             # kulube-koy arasi
+L.guard([[1700, 2000], [2000, 1900], [2400, 1900]], None, "kis")            # dogu yaka orta
+
+# bot bulgusu: koy guney devriyesi telsize giden bati yolunu tamamen kesiyordu -> kisaltildi (dolgu ayni kalsin diye burada)
+for g in d["guards"]:
+    if g["path"] == [[350, 1400], [1150, 1400]]:
+        g["path"] = [[700, 1430], [1150, 1430]]
 L.save("levels/bolum2.json")

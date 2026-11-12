@@ -149,7 +149,7 @@ func _think(delta: float) -> void:
 		&"patrol":
 			if waypoints.size() <= 1:
 				if _walk(delta, 0.6):
-					var amp := 1.5 if kind == "kule" else 0.9
+					var amp := 0.8 if kind == "kule" else 0.9
 					facing = lerp_angle(facing, base_facing + sin(t * (0.45 if kind == "kule" else 0.7)) * amp, minf(1.0, delta * 4.0))
 			elif timer > 0.0:
 				timer -= delta

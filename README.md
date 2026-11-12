@@ -17,6 +17,16 @@ Kampanya, karakterler ve bölüm planı: [docs/SENARYO.md](docs/SENARYO.md)
 - Sağ üstteki "Çevir" (PC: Q / E): haritayı 90° çevir, binaların öbür yüzünü gör (4 açı Blender'da ayrı render).
 - Bot testi: `GODOT=godot python3 tools/bot/rapor.py` → `docs/BOT_RAPORU.md`.
 
+## Tur 2 mekanikleri
+- **Taş at** (HAREKET → Taş, sonra yere dokun): düştüğü yerin 200 px çevresindeki askerler alarm vermeden bakmaya gider.
+- **Alarm sireni:** Sireni olan bölümlerde seni gören ya da ceset bulan asker sirene koşar ("ALARM" yazar). Yolda durdurursan kırmızı alarm ve takviye olmaz.
+- **Kilitli bina + anahtar:** Kilitli kapıda asma kilit görünür. Anahtar bir subayda (öldürünce düşer) ya da bir masada.
+- **Gözetleme kulesi:** Kule nöbetçisi çok uzağı görür, yerinden ayrılmaz; taşla çevrilebilir.
+- **Sessiz sabotaj:** Telsiz/trafo/makas gibi hedeflerde birkaç saniye hareketsiz kal; alarm çalmaz. Telsiz kesilince o kışla takviye gönderemez.
+- **Siper:** Kum torbası, sandık, kaya, araç arkasında (özellikle çömelikken) daha zor vurulursun; askerler için de geçerli.
+- **Kayıp nöbetçi:** Yanındaki nöbetçi kaybolursa (ceset saklansa bile) arkadaşı fark eder ve çevreyi arar.
+- **Puan ve kayıt:** Bölüm sonunda süre, alarm, bulunan ceset, öldürülen asker ve rütbe (Hayalet / Usta / Komando / Çaylak). En iyi sonuç menüde görünür.
+
 ## Bina içleri ve harita
 - Binaya dokun: komando kapıya yürür ve içeri girer. Bina içi ayrı bir haritadır (2 kat büyük, binaya özel eşyalar).
 - İçeride "Kapıdan Bak" ile anahtar deliğinden dışarıdaki askerleri izle. "Dışarı Çık" ile çık.
@@ -30,7 +40,11 @@ Bölüm dosyasındaki `objectives` listesi: `reach` (buluş/konuş, eşya ver), 
 
 ## Bölümler
 - **Bölüm 0 – Normandiya Köyü** (eğitim): küçük köy, 6 asker.
-- **Bölüm 1 – Nehir Operasyonu**: 3600x2600 geniş harita, 25 asker. Direnişçi Pierre'den patlayıcı al, belediyede tutulan pilot Carter'ı kurtar, karargâhtan planları çal, kuzey köprüsünü uçur (isteğe bağlı: yakıt deposu), pilotla botlara dön. Hedef süre 25–45 dk. Harita `tools/gen_bolum1.py` ile üretilir.
+- **Bölüm 1 – Nehir Operasyonu**: 3600x2600 geniş harita, 25 asker. Direnişçi Pierre'den patlayıcı al, meydandaki subaydan belediye anahtarını al, kilitli belediyedeki pilot Carter'ı kurtar, karargâhtan planları çal, kuzey köprüsünü uçur (isteğe bağlı: yakıt deposu), pilotla botlara dön. Hedef süre 25–45 dk. Harita `tools/gen_bolum1.py` ile üretilir.
+- **Bölüm 2 – Karlı Kale** (Tur 2): 4800x3400 Norveç fiyordu, ~50 asker (kış askeri, SS, subay), 4 gözetleme kulesi, 4 kışla, 5 siren. Lars ile buluş, köy telsizini sessizce kes, gardiyandan hücre anahtarını al, Şahin'i kurtar, kodları çal, uçaksavarı ve radarı uçur, kodları Lars'a teslim et, fiyorttaki tekneye kaç. Derin kar yavaşlatır ve iz bırakır. `tools/gen_bolum2.py`
+- **Bölüm 3 – Denizaltı Üssü** (Tur 2): 5400x3800 Atlantik limanı, ~56 asker (SS ağırlıklı), 5 kule, 5 kışla, 6 siren, 13 bina. Gölge seni izler; trafoyu sabote et, liman anahtarıyla kilitli kontrol odasından sevkiyat defterini al, istasyondan tarifeyi çal, makası boz, bunkerdeki iki denizaltı kapısını uçur, doğu rıhtımına kaç. `tools/gen_bolum3.py`
+
+Yeni bölüm üreticileri `tools/bolum_lib.py` yardımcılarını kullanır (bina, asker, kule, çalı şeridi, nehir, duvarlı alan). Her bölüm için erişim testi: `godot --headless --script res://tests/sim_bolum.gd -- --level=res://levels/bolum2.json`.
 
 ## Harita render hattı (Blender)
 `tools/blender/harita.py` bölüm dosyasından 3D sahneyi kurar (kiremit çatılı evler, pencereler, ağaçlar, çitler, kum torbaları, çadırlar, kamyonlar, tank, nehir, köprüler, çimen detayları) ve oyunun eğik bakış açısıyla render alır:

@@ -3604,7 +3604,7 @@
      823
     ]
    ],
-   "facing": 20,
+   "facing": 80,
    "type": "kule"
   },
   {
@@ -3664,12 +3664,12 @@
   {
    "path": [
     [
-     350,
-     1400
+     700,
+     1430
     ],
     [
      1150,
-     1400
+     1430
     ]
    ],
    "type": "kis"
@@ -3700,11 +3700,11 @@
   {
    "path": [
     [
-     389,
-     1158
+     360,
+     1150
     ]
    ],
-   "facing": 0,
+   "facing": 180,
    "type": "kis"
   },
   {
@@ -3942,11 +3942,11 @@
      1150
     ],
     [
-     3800,
+     3450,
      1150
     ],
     [
-     3800,
+     3450,
      1330
     ],
     [
@@ -4020,11 +4020,11 @@
   {
    "path": [
     [
-     3730,
-     650
+     3790,
+     655
     ]
    ],
-   "facing": 90,
+   "facing": 0,
    "type": "kis"
   },
   {
@@ -4090,6 +4090,87 @@
     [
      4100,
      1800
+    ]
+   ],
+   "type": "kis"
+  },
+  {
+   "path": [
+    [
+     1250,
+     450
+    ],
+    [
+     1250,
+     1000
+    ],
+    [
+     1550,
+     1000
+    ]
+   ],
+   "type": "kis"
+  },
+  {
+   "path": [
+    [
+     2650,
+     664
+    ],
+    [
+     3450,
+     664
+    ]
+   ],
+   "type": "elit"
+  },
+  {
+   "path": [
+    [
+     3150,
+     1080
+    ],
+    [
+     3450,
+     1080
+    ],
+    [
+     3450,
+     1250
+    ]
+   ],
+   "type": "elit"
+  },
+  {
+   "path": [
+    [
+     700,
+     1700
+    ],
+    [
+     1300,
+     1700
+    ],
+    [
+     1300,
+     2100
+    ]
+   ],
+   "type": "kis"
+  },
+  {
+   "path": [
+    [
+     1700,
+     2000
+    ],
+    [
+     2000,
+     1900
+    ],
+    [
+     2400,
+     1900
     ]
    ],
    "type": "kis"
@@ -4220,13 +4301,32 @@
   {
    "id": "flak",
    "type": "destroy",
-   "optional": true,
-   "text": "Doğu yakadaki uçaksavar topunu uçur",
+   "text": "Doğu yakadaki uçaksavar topunu uçur (kaçış uçağının yolu)",
    "pos": [
     2230,
     1372
    ],
    "radius": 90
+  },
+  {
+   "id": "teslim",
+   "type": "reach",
+   "text": "Kodları av kulübesindeki Lars'a teslim et",
+   "pos": [
+    760,
+    2350
+   ],
+   "radius": 70,
+   "after": [
+    "kodlar",
+    "radar"
+   ],
+   "say": [
+    [
+     "Lars",
+     "Kodlar elimde. Bu gece Londra'ya telsizle geçeceğim. Şimdi fiyorda, tekne sizi bekliyor!"
+    ]
+   ]
   },
   {
    "id": "yakit",

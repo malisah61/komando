@@ -99,3 +99,103 @@ Oyuncu Bölüm 1'i bıçakla 6:50'de bitirdi. Çalıdan yaptığı bıçak sald�
 - Bölüm 1: gizli bot 2:31'de kazanıyor, saldırı tarzı 30 sn'de ölüyor.
 - Kazanan oyunlarda askerlerin çoğu öldürülüyor; gizlilik yeterince ödüllendirilmiyor.
 - Gece geliştirmesi bu bulgulardan başlayacak.
+
+## Tur 2 – Gece turu (12 Kasım 2026)
+
+### 1. Bot analizi (turun başı)
+Önceki rapor (`--seeds 3`, Tur 1c sonu):
+
+| Bölüm | Gizli | Saldırı | Tam | Öne çıkan bulgu |
+|---|---|---|---|---|
+| Bölüm 0 | 3/3 zafer, 0:38–0:41, ort. 4,7 tespit | 3/3 zafer, 0:33 | 3/3 | çok kısa; saldırı kazanıyor; "Kilise yakını" darboğazı |
+| Bölüm 1 | 1/3 zafer (2:31), ort. 16 tespit | 0/3 (0:32–0:34'te ölüm) | 2/3 (3:18) | "Ev 3 yakını" (29) ve güney yaya köprüsü (21) tespit noktaları; kazanan oyunlarda askerlerin çoğu öldürülüyor |
+
+Son "Bot oyun testi" CI çalışması da aynı tabloyu verdi (başarılı, 12 oyun). Bulgulara göre geliştirme listesi:
+1. **Gizlilik ödüllendirilmiyor** (her şeyi öldürüp kazanıyor) → kayıp nöbetçiyi fark etme, ceset bulana sirene koşturma, puan tablosu.
+2. **Darboğazlar** (Ev 3, yaya köprüsü, karargâh kapısı) → Bölüm 1'e çalı/sandık siperi ve devriye değişikliği; dikkat dağıtmak için taş.
+3. **Bölüm çok kısa** → kilitli kapı + anahtar ara adımı (Bölüm 1 belediyesi), yeni bölümlerde uzun zincir.
+4. **Saldırı tarzı 30 sn'de ölüyor** → siper sistemi (kum torbası/sandık arkası).
+5. **Bot zayıf** (her yere düz gidiyor) → tehlike haritalı A* rota, kapı nöbetçisinin arkasına dolanma, taş, ceset saklama, sirene koşanı vurma, kaçıp saklanma.
+
+### 2. Yapay zekâ v3 (~%25)
+- **Kayıp nöbet arkadaşı (Shadow Tactics):** Her nöbetçi en yakın arkadaşını bilir. Arkadaşı öldükten 6 sn sonra yerine bakınca orada yoksa (ceset saklansa bile) sarı alarm verir, yakındaki devriyeleri çağırır ve çevreyi arar.
+- **Alarm sireni koşucusu (Commandos/Desperados III):** Sireni olan bölümde çatışma başlayınca ya da ceset bulununca bir asker en yakın sirene koşar. Ulaşırsa kırmızı alarm + takviye; yolda durdurursan alarm çalmaz.
+- **Kuşatma:** Hedefi kaybeden askerler son görülen noktaya değil, her biri farklı yandan (±80 px) yaklaşır.
+- **Siper alma:** Canı %40'ın altına düşen asker bir kez hedefin göremediği bir noktaya çekilir, 3 sn bekleyip yeniden çatışır.
+- **Tahminli arama:** Arama ilk önce hedefin kaçtığı yöne (son hareket yönü ×160 px) bakar.
+- **Subay düdüğü:** Subay çatışmaya girince 1,6 kat uzaktaki askerleri çağırır.
+- **Gözetleme kulesi nöbetçisi:** 1,55× görüş, yerinden ayrılmaz, yavaş tarar.
+- **Taşa tepki:** Taş düşen yere alarm vermeden bakmaya gider (Desperados III'teki dikkat dağıtma).
+- **Kapı/alan:** Askerler kilitli kapılardan geçebilir (anahtarları var).
+- **Performans LOD'u:** Her oyuncudan 1500 px uzaktaki asker algıyı 5 Hz'de yapar.
+
+Ölçüm (aynı bot, Bölüm 0): gizli bot artık 0 tespitle kazanıyor (önce ort. 4,7 tespit), saldırı yine 34 sn. Bölüm 1'de anahtar + kilitli belediye + kayıp nöbetçi + siren ile gizli bot 0/3'e düştü. Botun ilk tespiti 2:12–8:22 arasında; öncesinde ilk tespit ~0:30–1:10 idi. Bölüm 1 artık daha zor bir bölüm; bot iyileştirmesi sürecek.
+
+### 3. 5 yeni özellik
+1. **Taş atma (dikkat dağıtma):** "Taş" düğmesi + dokunuş. 320 px menzil, 200 px ses. Bölüm başına 4–6 taş.
+2. **Alarm sireni + koşucu:** Haritada direk ve kırmızı lamba, çalınca yanıp söner. Koşan askerin üstünde "ALARM" yazar.
+3. **Kilitli bina + anahtar düşüren subay:** `"locked": "anahtar"` bina alanı, `"drops"` asker alanı, `have` görev türü. Kapıda asma kilit, büyük haritada "kilitli".
+4. **Gözetleme kulesi:** `tower` engel türü (Blender'da 4 dikmeli kule, platform z=46) ve üstünde `kule` nöbetçisi.
+5. **Sessiz sabotaj:** `sabotage` görev türü (N sn hareketsiz kal). `disables_barracks` ile o kışla alarmda takviye gönderemez (köy telsizi, trafo, makas).
+
+Ek olarak: **derin kar** (`slow` zemin: ×0,72 hız, iz bırakır), **görev önkoşulu** (`after`), **bölüm sonu puanı ve kayıt** (Hayalet/Usta/Komando/Çaylak, menüde en iyi sonuç).
+
+### 4. 5 iyileştirilen özellik
+1. **Çatışma/siper:** Kum torbası, sandık, kaya, araç, duvar arkasındaki hedefe isabet ×0,7 (çömelikse ×0,45); komandonun tabancası için de ×0,6.
+2. **Ceset sistemi:** Ceset bulan asker sirene koşar; ceset saklamak kayıp nöbetçi fark edilmesini engellemez (sadece geciktirir). Tüm askerlerin tüm askerleri taraması yerine tek ceset listesi.
+3. **Bölüm 1:** Bot tespit noktalarına çalı/siper (yaya köprüsü iki yaka, Ev 3, karargâh kapısı), güney köprü nöbetçisi devriyeye çevrildi, 3 siren, belediye kilitli (anahtar meydan subayında).
+4. **Arayüz:** Uzun görev listesi sıkışık (biten görevler tek satır, en fazla 5 açık), önkoşullu görev gri "(sonra)", sabotaj ilerleme düğmesi, büyük haritada siren/kilit/kule/anahtar, menüde en iyi puan.
+5. **Bot oyuncu:** tehlike haritalı A* gizli rota (sabit nöbetçi konileri ve devriye hatları pahalı, çalılar ucuz), kapı nöbetçisinin arkasına dolanma, taşla çevirme, ceset saklama, sirene koşanı vurma, çok kişi ateş ederken kaçıp çalıya saklanma, alarmda koşarak kaçış. `rapor.py` paralel çalışıyor (CI'da 4 iş).
+
+### 5. Yeni bölümler
+| | Bölüm 1 | **Bölüm 2 – Karlı Kale** | **Bölüm 3 – Denizaltı Üssü** |
+|---|---|---|---|
+| Harita | 3600x2600 | 4800x3400 | 5400x3800 |
+| Asker | 25 | 49 (kış, SS, subay, 4 kule) | 56 (SS ağırlıklı, 5 kule) |
+| Kışla / siren | 3 / 3 | 4 / 5 | 5 / 6 |
+| Bina (iç harita) | 12 | 10 | 13 |
+| Görev | 7 | 10 | 11 |
+| Yeni öğeler | | fiyort, nehir + buz geçidi, duvarlı kale, radar tepesi, derin kar, kilitli hapishane | iç havuz, beton rıhtım, bunker iç haritası, demiryolu deposu, takip eden Gölge |
+
+Üreticiler: `tools/gen_bolum2.py`, `tools/gen_bolum3.py` ortak `tools/bolum_lib.py` ile. Dolgu (ağaç/çalı/kaya) askerlerden sonra hesaplanıyor; sonradan eklenen devriyeler dolgudan sonra eklenir ki render edilen geometri değişmesin.
+Blender: `harita.py` artık `theme: "kar"` (kar zemin, karlı ağaç/kaya, çamurlu kar yollar), `beton` zemin ve `tower` nesnesi destekliyor.
+
+### 6. Performans
+- `tests/perf.gd` artık oyun mantığını (process + physics) ve asker başına maliyeti ölçüyor.
+- Bölüm 1, köy (25 asker): `_process` **1,29 ms → 0,79 ms** (mini harita statik katmanı: zemin ve engeller sadece köprü yıkılınca yeniden çizilir).
+- Asker yapay zekâsı toplamı **0,62 → 0,47 ms/kare** (sakin devriyede koni 9 Hz, ışın 30 → 24, ceset listesi, uzak askerde 5 Hz algı). Bölüm 3'te 56 askerle 0,41 ms/kare.
+- Navigasyon: büyük haritada "merge edge" hatası `map_set_merge_rasterizer_cell_scale(0.001)` ile giderildi (2D harita 4.3'te 3D sunucunun haritası). Bütün bölümler hatasız.
+
+### 7. Testler
+- `tests/sim.gd`, `sim1–4.gd` geçiyor (sim2 görev kimliğiyle, sim3 siren gecikmesine göre güncellendi).
+- `tests/sim_bolum.gd`: yeni bölümler için `Level.reach` erişim testi (başlangıç → her görev sırayla → çıkış, bütün devriye noktaları, eşya, kışla, siren, bina kapıları). Bölüm 2 ve 3 başarılı.
+- `tests/shot_bolum.gd`: xvfb ile 4 açıdan ekran görüntüsü.
+
+### 8. Bot önce / sonra
+(Tablo `docs/BOT_RAPORU.md` sonu ile aynı; bot da bu turda değişti.)
+
+| Bölüm | Gizli (önce → sonra) | Saldırı (önce → sonra) | Not |
+|---|---|---|---|
+| Bölüm 0 | 3/3, 0:40, 4,7 tespit → **3/3, 1:01, 0 tespit** | 3/3 (0:33) → 3/3 (0:34) | bot artık hiç görülmeden bitiriyor; eğitim bölümü kısa kalıyor |
+| Bölüm 1 | 1/3 (2:31), 16 tespit → **0/3**, 13 tespit; en uzun oyun 8:22 | 0/3 (0:33) → 0/3 (0:30) | anahtar + kilitli belediye + siren + kayıp nöbetçi bölümü zorlaştırdı; tespit "Ev 3 yakını"nda toplanıyor |
+| Bölüm 2 (yeni) | **1/3 zafer (5:02)**, 6,7 tespit; diğer ikisi 4:22–4:43'te 6–8 görevle | 0/3 (0:59–1:12) | saldırı zorlanıyor ✔; gizli kazanabiliyor ✔; süre hedefi (≥10 dk) henüz değil ✘ |
+| Bölüm 3 (yeni) | 0/3, 7 görev bitiyor (4:28–4:59), Gölge kaçışta ölüyor | 0/3 (1:16–2:20) | takipçiyi koruyan bot davranışı eksik |
+
+Bot zaferinin süresi insan süresi değildir: bot mükemmel yolu bilir ve hiç keşif yapmaz. Oyuncu bölüm 1'i 6:50'de bitirmişti (bot 2:31). Bölüm 2 için tahmini insan süresi 20–30 dk.
+
+### 9. Sonraki tur için öncelikler (bot raporundan)
+1. Bot: takip eden karakteri (Şahin/Gölge) koruma ve çalılardan geçirme; Bölüm 1 "Ev 3" ve Bölüm 3 "Trafo" darboğazlarına ek gizli yol.
+2. Bölüm 2/3'ü bot için ≥10 dk yap: dönüş yolunda ek ara görev, kaçışta devriye artışı.
+3. Bölüm 0: saldırı tarzı hâlâ kazanıyor (eğitim bölümü) → siren ve 2. kışla.
+4. Bölüm 2–3 render'ı bittikten sonra 4 açıdan görsel kontrol (z sırası, kule platformu).
+
+### Kaynaklar
+- Desperados III gerçek zamanlı gizlilik ve çatışma tasarımı (Mimimi): https://gamedeveloper.com/design/designing-the-real-time-stealth-and-combat-of-i-desperados-iii-i-
+- Desperados III alarm ve keşif rehberi (alarm askeri, dikkat dağıtma): https://www.gamepressure.com/desperados-iii/exploration-and-sneaking/zdd045
+- Desperados III – nöbetçinin yerinden ayrılmaması: https://www.gamepressure.com/desperados-iii/enemy-why-does-not-leave-the-post/z9d04a
+- Shadow Tactics düşman türleri ve davranışları: https://www.gamepressure.com/shadowtactics/types-of-enemies/z4941f
+- Shadow Tactics düşman analizi: https://vigaroeentertainment.blogspot.com/2024/11/shadow-tactics-blades-of-shogun-enemy.html
+- Stealth oyunlarında alarm sistemi (tartışma): https://forums.unrealengine.com/t/tips-for-implementing-an-ai-alarm-system-in-a-stealth-game/2325182
+- Commandos 2 (kışla, iç mekân, 4 yönlü kamera): https://commandos.shoutwiki.com/wiki/Commandos_2
+- Partisans 1941 (siper, takım, gizlilik + çatışma dengesi): https://www.pcgamer.com/partisans-1941-review/
+- Godot AStarGrid2D (bot rota planlayıcısı) ve NavigationServer merge rasterizer ayarı: Godot 4.3 belgeleri

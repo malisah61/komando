@@ -33,8 +33,8 @@
 |---|---|---|---|---|
 | 0 | Normandiya Köyü (eğitim) | Küçük köy | Belgeyi çal, geri dön | 5–10 dk |
 | 1 | **Nehir Operasyonu** | Orne nehri vadisi | Direnişle buluş, pilotu kurtar, planları çal, köprüyü uçur, kaç | 25–45 dk |
-| 2 | Karlı Kale | Norveç fiyordu, kış | Şahin'i hapishaneden çıkar, radar istasyonunu sustur | 30–50 dk |
-| 3 | Denizaltı Üssü | Saint-Nazaire benzeri liman | Gölge ile sızma, denizaltı kapılarını sabote et | 35–55 dk |
+| 2 | **Karlı Kale** | Norveç fiyordu, kış | Lars ile buluş, telsizi sustur, Şahin'i hapishaneden çıkar, kodları çal, radarı ve uçaksavarı uçur | 30–50 dk |
+| 3 | **Denizaltı Üssü** | Saint-Nazaire benzeri liman | Gölge ile sızma, trafoyu sabote et, kontrol odasından sevkiyat defterini çal, denizaltı kapılarını uçur | 35–55 dk |
 | 4 | Gece Treni | Demiryolu ve kavşak | Mühimmat trenini havaya uçur, Richter'i yakala | 40–60 dk |
 
 ## Bölüm 1 – Nehir Operasyonu (ayrıntılı)
@@ -55,6 +55,42 @@
 - Çamurda ayak izi kalıyor. Güney köprüsünün iki yakası çamur, dönüşte iz bırakma riski var.
 
 **Kapanış:** Bot sahilden uzaklaşırken arkada köprünün enkazı yanıyor. Carter: *"Richter bunu affetmez."* Reilly: *"Ben de ona affetmesi için bir sebep bırakmadım."* (Bölüm 2'ye geçiş)
+
+## Bölüm 2 – Karlı Kale (Tur 2)
+
+**Açılış:** Mayıs 1944, Skarvik fiyordu. Carter'ın getirdiği planlar Richter'in Kuzey Denizi'nde çıkarma filosunu izleyecek bir radar ağı kurduğunu gösteriyor. Ağın kalbi eski bir kalede. Keskin nişancı Yzb. Edward "Şahin" Blake radarı gözetlerken yakalandı.
+
+**Görev akışı:**
+1. **Temas:** Güneybatıdaki av kulübesinde Norveçli direnişçi **Lars**: 3 patlayıcı ve bilgi.
+2. **Telsiz (sessiz sabotaj):** Balıkçı köyündeki telsiz kulübesinde 5 sn kablo kes. Köy kışlası artık alarmda takviye gönderemez.
+3. **Anahtar:** Kale avlusunda devriye gezen gardiyan subayı sessizce öldür, hücre anahtarı yere düşer.
+4. **Şahin:** Kilitli hapishaneden Blake'i çıkar (seni izler).
+5. **Kodlar:** Komutanlıktan radar frekans kodları.
+6. **Uçaksavar:** Doğu yakadaki topu uçur.
+7. **Radar:** Arka kapıdan çıkan patikanın sonundaki anteni uçur. Bütün kale ayağa kalkar.
+8. **Teslim:** Kodları av kulübesindeki Lars'a götür (uzun ve tehlikeli dönüş).
+9. **Kaçış:** Fiyort kıyısındaki balıkçı teknesi.
+
+**Zorluk:** 50 asker (kış askeri, SS, subay), 4 gözetleme kulesi, 4 kışla, 5 siren. Derin kar yavaşlatır ve iz bırakır. Kuzeydeki donmuş buz geçidi en sessiz yol.
+
+**Kapanış:** Blake: *"Tüfeğimi geri alacağım, Reilly. Richter'in kafasına nişan almak için."*
+
+## Bölüm 3 – Denizaltı Üssü (Tur 2)
+
+**Açılış:** Haziran 1944, Atlantik kıyısında bir liman. Richter'in son kozu beton bunkerdeki denizaltılar.
+
+**Görev akışı:**
+1. **Temas:** Eski kasabadaki kafede **Henri "Gölge" Duval** (3 patlayıcı). Gölge artık ekiple: seni izler, askerler onu da görebilir. Ölürse görev biter.
+2. **Trafo (sessiz sabotaj):** Sigortaları sök, liman kışlasının telsiz hattı kesilir.
+3. **Anahtar:** Liman ofisinden kontrol odasının anahtarı.
+4. **Sevkiyat:** Kilitli kontrol odasından Richter'in sevkiyat defteri.
+5. **Kapılar:** Bunkerdeki iki denizaltı kapısının mekanizmasını uçur (bina içi harita).
+6. **(İsteğe bağlı) Yakıt tankları:** Demiryolu deposunda.
+7. **Kaçış:** Doğu rıhtımındaki balıkçı teknesi.
+
+**Zorluk:** 54 asker (SS ağırlıklı), 5 kule, 5 kışla, 6 siren, 13 bina; harita 5400x3800.
+
+**Kapanış:** Henri: *"Bunker yanıyor. Richter'in elinde artık sadece trenler kaldı."* (Bölüm 4: Gece Treni)
 
 ## Gelecek mekanikler (öncelik sırasıyla)
 1. İkinci komando (Şahin), birden fazla karakter seçimi ve portreler

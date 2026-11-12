@@ -3331,11 +3331,11 @@
   {
    "path": [
     [
-     590,
-     845
+     1000,
+     870
     ]
    ],
-   "facing": 20,
+   "facing": 0,
    "type": "subay"
   },
   {
@@ -3457,11 +3457,11 @@
   {
    "path": [
     [
-     2130,
-     1445
+     2265,
+     1470
     ]
    ],
-   "facing": 270,
+   "facing": 0,
    "type": "subay"
   },
   {
@@ -3874,6 +3874,29 @@
     ]
    ],
    "type": "elit"
+  },
+  {
+   "path": [
+    [
+     5020,
+     1180
+    ],
+    [
+     5300,
+     1180
+    ]
+   ],
+   "type": "er"
+  },
+  {
+   "path": [
+    [
+     4600,
+     800
+    ]
+   ],
+   "facing": 0,
+   "type": "er"
   }
  ],
  "npcs": [
@@ -3969,6 +3992,33 @@
     [
      "Çvş. Reilly",
      "Bütün denizaltıların rotaları... ve Richter'in imzası."
+    ]
+   ]
+  },
+  {
+   "id": "tarife",
+   "type": "take",
+   "item": "tarife",
+   "text": "İstasyondan denizaltıların ikmal treni tarifesini çal",
+   "pos": [
+    4330,
+    330
+   ]
+  },
+  {
+   "id": "makas",
+   "type": "sabotage",
+   "text": "Demiryolu makasını sessizce boz (ikmal treni raydan çıkacak)",
+   "pos": [
+    5300,
+    800
+   ],
+   "radius": 60,
+   "time": 6.0,
+   "done_say": [
+    [
+     "Henri Duval",
+     "Sabah gelen ikmal treni bunkere asla ulaşmayacak. Şimdi kapılar!"
     ]
    ]
   },

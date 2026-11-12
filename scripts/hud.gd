@@ -415,7 +415,7 @@ func _process(delta: float) -> void:
 
 # ---------------- Disaridan cagrilanlar ----------------
 const ITEM_NAMES := {"patlayici": "PATLAYICI", "belge": "BELGE", "planlar": "PLANLAR", "hucre_anahtari": "HÜCRE ANAHT.",
-	"kodlar": "KODLAR", "liman_anahtari": "LİMAN ANAHT.", "sevkiyat": "SEVKİYAT", "anahtar": "ANAHTAR", "belediye_anahtari": "BELEDİYE ANAHT."}
+	"kodlar": "KODLAR", "liman_anahtari": "LİMAN ANAHT.", "sevkiyat": "SEVKİYAT", "anahtar": "ANAHTAR", "belediye_anahtari": "BELEDİYE ANAHT.", "tarife": "TARİFE"}
 
 
 func refresh_objectives() -> void:
@@ -441,11 +441,14 @@ func refresh_objectives() -> void:
 		shown += 1
 		var txt: String = ("[X] " if done else "[  ] ") + o["text"] + (" (isteğe bağlı)" if opt else "")
 		var col := Color(0.55, 0.85, 0.55) if done else (Color(0.8, 0.8, 0.7) if opt else Color.WHITE)
+		if not done and not main.mission.available(o):
+			col = Color(0.6, 0.6, 0.6)
+			txt += " (sonra)"
 		var l := _label(txt, 14, col)
 		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		l.custom_minimum_size.x = 260
 		obj_box.add_child(l)
-		if current == "" and not done and not opt:
+		if current == "" and not done and not opt and main.mission.available(o):
 			current = o["text"]
 	goal_label.text = ("Hedef: " + current) if current != "" else ""
 

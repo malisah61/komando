@@ -49,6 +49,7 @@ var _route_i := 0
 var _route_dest := Vector2(INF, INF)
 var _route_t := 0.0
 var _dead_n := -1
+var _use_route := false
 var _want := Vector2(INF, INF)    # _go_dest'in istedigi nokta (rota ara noktasindan ayri)
 
 
@@ -170,7 +171,7 @@ func _goal0() -> Variant:
 	## siradaki gorev noktasi (null: yapacak bir sey yok)
 	var m = main.mission
 	for o in m.objectives:
-		if o["done"]:
+		if o["done"] or not m.available(o):
 			continue
 		if o.get("optional", false) and opts["style"] != "tam":
 			continue
@@ -246,10 +247,10 @@ func _update_danger() -> void:
 				var k := ci.y * n.x + ci.x
 				if d < 90.0:
 					w[k] += 14.0
-				var face: float = g.base_facing if static_post else g.facing
-				var half: float = g.VIEW_HALF + (0.95 if static_post else 0.6)
-				if absf(wrapf((cpos - gp).angle() - face, -PI, PI)) < half and lvl.has_los(gp, cpos):
-					w[k] += 26.0 if static_post else 9.0
+				# sadece sabit nobetcinin konisi (devriyenin anlik bakisi rotayi titretir; devriye hatti ayrica pahali)
+				if static_post and absf(wrapf((cpos - gp).angle() - g.base_facing, -PI, PI)) < g.VIEW_HALF + 0.95 \
+						and lvl.has_los(gp, cpos):
+					w[k] += 26.0
 		# devriye hatti boyunca
 		if g.waypoints.size() > 1:
 			for i in g.waypoints.size():
@@ -316,14 +317,15 @@ func _go(target: Vector2) -> void:
 	if c.global_position.distance_to(dest) < 160.0:
 		return
 	_route_t -= 1.0 / 60.0
-	if _route_dest.distance_to(dest) > 40.0 or _route_t <= 0.0:
-		# dogrudan yol tehlikeli mi? (sabit nobetci konisinden geciyor) - degilse dogrudan git
+	if _route_dest.distance_to(dest) > 40.0:
+		# yeni hedef: dogrudan yol tehlikeli mi? (sabit nobetci konisi / devriye hatti) - degilse dogrudan git
 		_route = PackedVector2Array()
 		_route_dest = dest
-		_route_t = 4.0
-		if _path_danger(c.global_position, dest) >= 10.0:
-			_plan(c.global_position, dest)
-			_route_t = 6.0
+		_use_route = _path_danger(c.global_position, dest) >= 10.0
+		_route_t = 0.0
+	if _use_route and _route_t <= 0.0:
+		_plan(c.global_position, dest)
+		_route_t = 8.0
 	if _route.size() < 2:
 		return
 	var wp: Vector2 = _route_next(c)
@@ -363,6 +365,10 @@ func _sees_me(g) -> bool:
 	return g.can_see(c.global_position, c.is_crouching())
 
 
+func _escaping() -> bool:
+	return opts["style"] != "saldiri" and main.alert_level >= 2 and main.commando.hp > 35.0
+
+
 func _flee(dt: float) -> bool:
 	## gizli tarz: cok kisi ates ediyorsa savasma, gorus hattini kir ve calilikta saklan (Commandos: kac ve saklan)
 	var c = main.commando
@@ -385,7 +391,7 @@ func _flee(dt: float) -> bool:
 		if g.alive and g.state == &"combat" and g.global_position.distance_to(c.global_position) < 380.0 \
 				and main.level.has_los(g.global_position, c.global_position):
 			hostile.append(g)
-	if hostile.size() < 3 and not (hostile.size() >= 2 and c.hp < 50.0):
+	if hostile.size() < 2 and not (hostile.size() >= 1 and c.hp < 35.0):
 		return false
 	var cen := Vector2.ZERO
 	for g in hostile:
@@ -458,6 +464,9 @@ func _fight(dt: float) -> bool:
 			continue
 		var d: float = g.global_position.distance_to(c.global_position)
 		var hostile: bool = g.state == &"combat"
+		# kacis modu: kirmizi alarmda hedefe kosarken uzaktakilerle oyalanma (yolu kesmiyorsa)
+		if _escaping() and d > 150.0 and not _in_way(g):
+			continue
 		if opts["style"] == "saldiri" and d < 240.0 and c.ammo > 0 and main.level.has_los(c.global_position, g.global_position):
 			if d < bd:
 				best = g; bd = d; mode = "pistol"
@@ -498,12 +507,12 @@ func _blocker(target: Vector2) -> Variant:
 			continue
 		var gp: Vector2 = g.global_position
 		var dd: Vector2 = dest - gp
-		if dd.length() > 170.0 or absf(wrapf(dd.angle() - g.base_facing, -PI, PI)) > g.VIEW_HALF + 1.0:
+		if dd.length() > 120.0 or absf(wrapf(dd.angle() - g.base_facing, -PI, PI)) > g.VIEW_HALF + 1.0:
 			continue
 		for side in [PI, PI * 0.75, -PI * 0.75]:
 			var q: Vector2 = NavigationServer2D.map_get_closest_point(map, gp + Vector2.from_angle(g.base_facing + side) * 46.0)
 			if q.distance_to(gp) > 20.0 and q.distance_to(gp) < 80.0:
-				return q
+				return [q, g]
 	return null
 
 
@@ -691,7 +700,6 @@ func _process(dt: float) -> bool:
 			_danger_t = 2.0
 			_dead_n = main.bodies.size()
 			_update_danger()
-			_route = PackedVector2Array()
 	# saglik
 	if c.hp < 45.0 and c.medkits > 0:
 		c.use_medkit()
@@ -743,9 +751,20 @@ func _process(dt: float) -> bool:
 		goal_key = gl[0]
 		repath_t = 0.0
 	# hedefi (ya da kapisini) bekleyen sabit nobetci varsa once onun arkasina dolan ve bicakla
-	var blk = _blocker(gl[1]) if opts["style"] != "saldiri" else null
+	if _escaping() and not c.run_once and c.carrying == null:
+		c.run_once = true          # alarmda gurultu onemsiz: kos
+	var blk = _blocker(gl[1]) if opts["style"] != "saldiri" and main.alert_level < 2 else null
 	if blk != null:
-		_go(blk)
+		var bg = blk[1]
+		# onundeysek once tasla yuzunu cevir (Commandos: dikkat dagit, arkadan bicakla)
+		var dme: float = bg.global_position.distance_to(c.global_position)
+		if dme < 280.0 and dme > 70.0 and c.stones > 0 and not _thrown_at.has(bg.get_instance_id()) \
+				and absf(wrapf((c.global_position - bg.global_position).angle() - bg.facing, -PI, PI)) < 1.3:
+			_thrown_at[bg.get_instance_id()] = true
+			var side: Vector2 = (bg.global_position - c.global_position).normalized().rotated(1.2) * 140.0
+			if c.throw_stone(bg.global_position + side):
+				rep["stones"] += 1
+		_go(blk[0])
 	else:
 		_go(gl[1])
 	# takilma

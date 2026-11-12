@@ -40,6 +40,15 @@ func setup(level_data: Dictionary) -> void:
 		objectives.append(d)
 
 
+func available(o: Dictionary) -> bool:
+	## "after": [id...] - once bu gorevler bitmeli (or. kodlari teslim etmek icin once radar)
+	for id in o.get("after", []):
+		for p in objectives:
+			if p["id"] == id and not p["done"]:
+				return false
+	return true
+
+
 func required_left() -> int:
 	var n := 0
 	for o in objectives:
@@ -84,7 +93,7 @@ func _process(delta: float) -> void:
 	var action_text := ""
 	plant_target = null
 	for o in objectives:
-		if o["done"]:
+		if o["done"] or not available(o):
 			continue
 		match o["type"]:
 			"reach":
