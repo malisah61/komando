@@ -35,7 +35,7 @@ void fragment() {
 """
 var _toast_t := 0.0
 var toast_label: Label
-var busy_label: Label             # "Cevriliyor..." (aci dokulari arka planda yuklenirken)
+var busy_label: Label             # genel "bekle" yazisi (Tur 5: aci cevirmede artik kullanilmaz)
 var hp_bar: ProgressBar
 var pistol_btn: Button
 var med_btn: Button

@@ -6,7 +6,7 @@ extends CharacterBody2D
 ## gorus kazanmak icin hareket, yakindakilere seslenme, ses/patlama duyma, cok noktali arama.
 ## Yapay zeka v4 (Tur 3): tetikte kalma (supheden sonra daha genis/hizli bakar), ayak izi takibi (iz surer),
 ## bogusma sesi + cinayete tanik olma, SS/subay el bombasi (siperdeki hedefe), kule gozcusunun isaret
-## vermesi, paylasimli arama noktalari, uniformali komandoyu rutbeye gore tanima, bayilan askerin ayilmasi.
+## vermesi, paylasimli arama noktalari, bayilan askerin ayilmasi.
 
 const SpriteSheet = preload("res://scripts/sprite_sheet.gd")
 const Fx = preload("res://scripts/fx.gd")
@@ -81,7 +81,6 @@ var _grenade_t := 0.0             # el bombasi bekleme (SS/subay)
 var knocked := false              # bayiltildi (yumruk): ayilir, bagli degilse
 var tied := false                 # baglandi: bir daha ayilmaz
 var _wake_t := 0.0
-var stripped := false             # uniformasi alindi
 const VIGIL_TIME := 45.0
 var shout_t := 0.0                # "ALARM!" diye bagiriyor (gorsel)
 const GRENADE_R := 72.0
@@ -156,7 +155,7 @@ func _physics_process(delta: float) -> void:
 			sprite.position = Vector2(0, -46).rotated(SpriteSheet.view_rot)   # kulenin platformunda durur
 	_cone_t -= delta
 	if _cone_t <= 0.0:
-		# sakin devriyede koni daha seyrek guncellenir (mobil/web performansi); tetikteyken akici
+		# sakin devriyede koni daha seyrek guncellenir (telefon performansi); tetikteyken akici
 		_cone_t = 0.06 if (state != &"patrol" or suspicion > 0.0 or velocity.length() > 1.0 and main.alert_level > 0) else 0.11
 		if _near_camera():
 			_update_cone()
@@ -596,14 +595,6 @@ func _watch(delta: float) -> void:
 			continue
 		var cr: bool = u.has_method("is_crouching") and u.is_crouching()
 		var dd := global_position.distance_to(u.global_position)
-		# uniforma (Commandos 2 kilik): erler ancak cok yakindan ya da kosarken fark eder,
-		# SS ve subay koninin yakin kisminda tanir
-		var dis: String = u.get("disguise") if u.get("disguise") != null else ""
-		if dis != "":
-			if kind == "elit" or kind == "subay":
-				cr = true
-			elif not (dd < 52.0 and (u.velocity.length() > 1.0 or cr)) and not u.get("run"):
-				continue
 		# cevresel algi: cok yakinda, ayakta ve hareket ediyorsa arkadan da hisseder
 		var feel: bool = dd < PERIPHERAL and not cr and u.velocity.length() > 1.0
 		if feel or can_see(u.global_position, cr):
@@ -615,9 +606,6 @@ func _watch(delta: float) -> void:
 		var rate := (0.7 + near * 2.6) * _stat(2)
 		if vigilant_t > 0.0:
 			rate *= 1.15   # Tur 4: 1.25 -> 1.15 (AI v4 tespiti hedefin ustundeydi)
-		var sdis = spotted.get("disguise")
-		if sdis != null and sdis != "":
-			rate *= 0.6
 		if main.alert_level == 1:
 			rate *= 1.4
 		elif main.alert_level >= 2:

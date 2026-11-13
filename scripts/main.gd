@@ -19,6 +19,7 @@ const LEVELS := [
 	["res://levels/bolum4.json", "Bölüm 4 – Gece Treni", "Gece, demiryolu kavşağı: projektörler, dikenli tel, mühimmat treni"],
 	["res://levels/bolum5.json", "Bölüm 5 – Kartal Yuvası", "1. perde finali: Richter'in şatosu, havaalanı, bocage çitleri, 76 asker"],
 	["res://levels/bolum6.json", "Bölüm 6 – Çelik Rampa", "2. perde: V-1 orman üssü, baraj gölü, dikenli tel, 6 projektör, 86 asker"],
+	["res://levels/bolum7.json", "Bölüm 7 – Sisli Ada", "Baltık adası: roket deneme kulesi, kanal, sazlık, 7 projektör, 88 asker"],
 ]
 static var level_choice := ""      # sahne yeniden yuklenince de hatirlanir
 static var pending_load = null     # Tur 4: yuklenecek kayit durumu (sahne yeniden kurulunca uygulanir)
@@ -710,9 +711,6 @@ func _update_action() -> void:
 		if b.knocked and not b.tied and c.ropes > 0:
 			t2 = "Bağla (%d)" % c.ropes
 			cb2 = func(): c.tie_up(b)
-		elif not b.stripped and (b.kind == "er" or b.kind == "kis") and c.disguise == "":
-			t2 = "Üniforma Giy"
-			cb2 = func(): c.put_on_uniform(b)
 		hud.set_action("Taşı" if t2 != "" else ("Baygını Taşı" if b.knocked else "Cesedi Taşı"), true, func(): c.pick_body(b), t2, cb2)
 		return
 	hud.set_action("", false)
@@ -832,23 +830,18 @@ func _unhandled_input(e: InputEvent) -> void:
 
 
 func rotate_view(step := 1) -> void:
-	## Commandos 2 gibi haritayi 90 derece cevir (her aci Blender'da ayri render)
+	## Commandos 2 gibi haritayi 90 derece cevir (her aci Blender'da ayri render).
+	## Tur 5: gecis her zaman ayni karede, sert kesmeyle (acilar bellekte; PC'de dordu, telefonda uc + onizleme).
 	var k := posmod(level.view + step, 4)
 	var tries := 0
 	while not level.has_view(k) and tries < 3:
 		k = posmod(k + step, 4)
 		tries += 1
-	if k == level.view or level.view_loading >= 0 or not level.request_view(k):
-		if level.view_loading < 0:
-			hud.toast("Bu bölümün diğer açıları henüz render edilmedi")
-		return
-	if level.view_loading >= 0:
-		# dokular arka planda yukleniyor: hazir olunca _view_done
-		hud.show_busy("Çevriliyor…")
+	if k == level.view or not level.request_view(k):
+		hud.toast("Bu bölümün diğer açıları henüz render edilmedi")
 
 
 func _view_done(k: int) -> void:
-	hud.show_busy("")
 	cam.rotation = level.view_rot
 	cones.z_index = 0 if k == 0 else -3900
 	_clamp_cam()

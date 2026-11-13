@@ -1,4 +1,4 @@
-name: Derle (Web + Android)
+name: Derle (Android + Windows + Linux)
 
 on:
   push:
@@ -10,8 +10,6 @@ on:
 
 permissions:
   contents: write
-  pages: write
-  id-token: write
 
 env:
   GODOT_VERSION: "4.3"
@@ -57,7 +55,7 @@ jobs:
           # varlik hatti: import ayarlari tek yerden (tools/varlik_ayarlari.json)
           python3 tools/varlik/hat.py ayarla
           ~/godot/godot --headless --import || true
-          # karakter sprite'lari: platform bicimi (ETC2 telefon / S3TC PC-Web) zstd sikistirilmis .res
+          # karakter sprite'lari: platform bicimi (ETC2 telefon / S3TC PC) zstd sikistirilmis .res
           # (APK .ctex'i sikistirmadan saklar; 59 MB -> 13 MB). Paket varsa ayarla export filtrelerini ayirir.
           ~/godot/godot --headless -s res://tools/varlik/sprite_paketle.gd
           python3 tools/varlik/hat.py ayarla
@@ -68,31 +66,12 @@ jobs:
           # kaydet -> yukle -> ayni durum; bozuk/gelecek/eski surum dosyalari (Tur 4)
           ~/godot/godot --headless -s res://tests/sim_kayit.gd -- --level=res://levels/bolum2.json
 
-      - name: Web derlemesi
+      - name: Açı çevirme testi (beklemesiz, PC 4 açı / telefon 3 açı bellekte)
         run: |
-          mkdir -p build/web
-          ~/godot/godot --headless --export-release "Web" build/web/index.html
-          touch build/web/.nojekyll
+          ~/godot/godot --headless -s res://tests/sim_aci.gd -- --level=res://levels/bolum5.json --kip=pc
+          ~/godot/godot --headless -s res://tests/sim_aci.gd -- --level=res://levels/bolum5.json --kip=mobil
 
-      - name: Web'i GitHub Pages'e yayınla
-        uses: peaceiris/actions-gh-pages@v4
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: build/web
-          publish_branch: gh-pages
-          force_orphan: true
-          full_commit_message: "Web yayini ${{ github.sha }}"
-        continue-on-error: true
-
-      # Pages kaynagi "GitHub Actions" secildiyse de oyun yayinlansin
-      - name: Pages paketi
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: build/web
-        continue-on-error: true
-
-      - name: PC derlemesi (Windows + Linux)
-        continue-on-error: true
+      - name: PC derlemesi (Windows + Linux, en kaliteli sürüm)
         run: |
           mkdir -p build/windows build/linux build/dist
           ~/godot/godot --headless --export-release "Windows" build/windows/Komando.exe
@@ -127,7 +106,7 @@ jobs:
 
       - name: Boyut bütçesi (APK / zip / bölüm başına MB)
         run: |
-          ls -la build/android build/dist build/web | grep -E "apk|zip|pck|wasm" || true
+          ls -la build/android build/dist | grep -E "apk|zip" || true
           python3 tools/varlik/hat.py butce --build build --md build/boyut.md
           { echo "Otomatik derleme: ${{ github.sha }}"; echo; cat build/boyut.md; } > build/surum_notu.md
 
@@ -164,15 +143,3 @@ jobs:
             build/dist/Komando-Linux.zip
           make_latest: false
 
-  pages:
-    # GitHub Pages kaynagi "GitHub Actions" ise oyunu buradan yayinla (gh-pages dali da guncel kalir)
-    needs: build
-    runs-on: ubuntu-latest
-    continue-on-error: true
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: Pages'e yayınla
-        id: deployment
-        uses: actions/deploy-pages@v4

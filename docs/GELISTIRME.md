@@ -44,7 +44,7 @@ Gece görevi bu dosyaya her turun sonunda yeni bir bölüm ekler.
 - Mini harita saniyede 10 kez çiziliyor (önceden her karede).
 
 ### Platformlar
-- Android APK, Web (GitHub Pages), **Windows** ve **Linux** sürümleri. Hepsi GitHub Release'te.
+- **PC (Windows + Linux)** en kaliteli sürüm, **Android APK** ikinci sürüm. Hepsi GitHub Release'te. (Web sürümü 12 Kasım 2026'da kaldırıldı; web için iş yapılmaz.)
 
 ### Kaynaklar
 - Commandos Fandom – Barracks: https://commandos.fandom.com/wiki/Barracks
@@ -216,11 +216,13 @@ Varlık hattı tek yerde ve belgeli (kod: `tools/varlik/hat.py`, ayarlar: `tools
 1. **Render** – `tools/blender/harita.py <bölüm>.json --view K` → `levels/<bölüm>_art/vK/` (v0..v3 hep aynı düzen; kayıpsız PNG karolar ve atlaslar + `manifest.json`).
 2. **Sıkıştırma** – `python3 tools/varlik/hat.py sikistir levels/<bölüm>_art/vK` → zemin 1024 px WebP karolar (bölüme özel çözünürlük ölçeği), nesne/çatı atlasları saydamlığı koruyan kayıplı WebP (sağ/alt boş alan kırpılır), v0 için 2048 px zemin önizlemesi (`ground_mini.webp`: mini harita, büyük harita, açı yüklenirken yer tutucu).
 3. **Godot import** – `hat.py ayarla` ayarlardan `project.godot [importer_defaults]` ve `.import` dosyalarını yazar: harita = Lossy WebP (kalite 0,82, mipmap yok); karakter sprite'ları = VRAM (ETC2/S3TC; her an ekranda olduklarından telefonda 4 kat az bellek).
-4. **Sprite paketi** – `godot -s res://tools/varlik/sprite_paketle.gd` (CI'da import'tan sonra): karakter sprite'ları platform biçimine (ETC2 telefon, S3TC PC/Web) sıkıştırılıp zstd'li `.res` olarak paketlenir. Godot APK'da `.ctex` dosyalarını sıkıştırmadan saklıyordu (sayfa başına 8,4 MB); paket 1,8 MB. Bellekte yine VRAM biçimi.
-5. **Export** – `export_presets.cfg`: `tests/ tools/ docs/ kaynak/ *.glb *.md` hariç; her platform yalnız kendi sprite biçimini alır (`export_haric_platform`); Android yalnız ETC2/ASTC ve yalnız arm64-v8a, PC yalnız S3TC, Web yalnız masaüstü biçimi; Android release şablonu; proje ikonu.
+4. **Sprite paketi** – `godot -s res://tools/varlik/sprite_paketle.gd` (CI'da import'tan sonra): karakter sprite'ları platform biçimine (ETC2 telefon, S3TC PC) sıkıştırılıp zstd'li `.res` olarak paketlenir. Godot APK'da `.ctex` dosyalarını sıkıştırmadan saklıyordu (sayfa başına 8,4 MB); paket 1,8 MB. Bellekte yine VRAM biçimi.
+5. **Export** – `export_presets.cfg`: `tests/ tools/ docs/ kaynak/ *.glb *.md` hariç; her platform yalnız kendi sprite biçimini alır (`export_haric_platform`); Android yalnız ETC2/ASTC ve yalnız arm64-v8a, PC yalnız S3TC; Android release şablonu; proje ikonu.
 6. **Bütçe** – `hat.py butce` her derlemede bölüm × açı MB'ını ve APK/zip boyutlarını yazar (Actions özeti + sürüm notu); bütçe aşılırsa `::warning::`.
 
-Hedefler: **APK ≤ 200 MB**, **PC zip ≤ 120 MB**, **yeni bölüm ≤ 15 MB** (4 açı toplamı), Web .pck ≤ 150 MB.
+Hedefler (12 Kasım 22:05 kararı): **APK ≤ 200 MB**, **PC zip ≤ 300 MB** (PC en kaliteli sürüm), ana bölüm başına telefonda **≤ 15 MB** (4 açı toplamı), bonus görev ≤ 5 MB. Web yok.
+
+**Açılar bellekte (Tur 5):** PC'de 4 açının atlasları ve sprite'ları yükleme ekranında kurulur (paralel iş parçacığı yükleme); telefonda bulunulan açı + iki komşusu kurulu, karşı açı ilk basışta arka planda sırayla (sayfa sayfa, kare başına 48 sprite) kurulur. Komşu açıların zemin karoları da kamera çevresinde akar (yalnız ekran alanı, 0,1 sn'de 1 karo). Dört açının ortak düşük çözünürlüklü önizlemesi `ground_mini` (v0, dünya yönünde çizilir) her zaman bellekte.
 
 | Bölüm | v0 | v1 | v2 | v3 | Toplam MB (Godot .ctex) |
 |---|---|---|---|---|---|

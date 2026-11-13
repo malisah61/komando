@@ -14,6 +14,11 @@ var opts := {"level": "res://levels/bolum1.json", "style": "gizli", "seed": "1",
 var M
 var max_reloads := 0
 var _save_t := 30.0          # iyi oyuncu sakinken sik kaydeder (Tur 4)
+var _slot_t := 60.0          # Tur 5: elle yuvaya (1/2/3) kaydetme araligi
+var _slot_i := 0
+var _last_death := Vector2(INF, INF)
+var _last_slot := ""
+var _same_deaths := 0
 var t := 0.0
 var started := false
 var finished := false
@@ -309,6 +314,20 @@ func _update_danger() -> void:
 						var ci := pc + Vector2i(dx, dy)
 						if astar.is_in_boundsv(ci):
 							w[ci.y * n.x + ci.x] += 9.0
+	# Tur 5: iyi oyuncu oldugu / yakalandigi yerden ders alir: o cevre pahali (kayittan donunce baska yol dener)
+	var marks: Array = []
+	for dd in rep["deaths"]:
+		marks.append([Vector2(dd[0], dd[1]), 170.0, 18.0])
+	for ds in rep["detect_spots"]:
+		marks.append([Vector2(ds[0], ds[1]), 110.0, 4.0])
+	for mk in marks:
+		var r := ceili(mk[1] / CELL)
+		var mc := Vector2i(mk[0] / CELL)
+		for dx in range(-r, r + 1):
+			for dy in range(-r, r + 1):
+				var ci := mc + Vector2i(dx, dy)
+				if astar.is_in_boundsv(ci) and Vector2(dx, dy).length() * CELL <= mk[1]:
+					w[ci.y * n.x + ci.x] += mk[2]
 	for x in n.x:
 		for y in n.y:
 			astar.set_point_weight_scale(Vector2i(x, y), w[y * n.x + x])
@@ -747,11 +766,21 @@ func _process(dt: float) -> bool:
 		_finish()
 		return false
 	_save_t -= dt
+	_slot_t -= dt
 	if _save_t <= 0.0 and max_reloads > 0:
 		_save_t = 5.0
-		if _calm() and Kayit.save(main, "hizli") == "":
-			rep["saves"] += 1
-			_save_t = 40.0
+		if _calm():
+			# Tur 5: iyi oyuncu gibi hizli kayda ek olarak arada elle yuvalara da kaydeder (1 -> 2 -> 3),
+			# boylece hizli kayit kotu bir ana dustuyse daha eski, guvenli bir kayda donebilir
+			var slot := "hizli"
+			if _slot_t <= 0.0:
+				slot = ["1", "2", "3"][_slot_i % 3]
+			if Kayit.save(main, slot) == "":
+				rep["saves"] += 1
+				_save_t = 40.0
+				if slot != "hizli":
+					_slot_i += 1
+					_slot_t = 75.0
 	var c = main.commando
 	var m = main.mission
 	if opts.has("trace") and int(t * 2.0) != int((t - dt) * 2.0):
@@ -934,12 +963,38 @@ func _calm() -> bool:
 	return Kayit.why_not(main) == ""
 
 
+func _pick_slot(death: Vector2) -> String:
+	## Tur 5: ayni yerde ust uste olduysen (kayit kotu bir ana dusmus) bir onceki, daha eski kayda don
+	var slot: String = Kayit.latest(opts["level"])
+	if death.distance_to(_last_death) < 250.0 and _last_slot != "":
+		_same_deaths += 1
+		var cur := float(Kayit.info(_last_slot).get("sure", 0.0))
+		var best := ""
+		var bs := -1.0
+		for sl in Kayit.SLOTS:
+			var d: Dictionary = Kayit.info(sl)
+			if d.is_empty() or d.get("bozuk", false) or d.get("bolum", "") != opts["level"]:
+				continue
+			var su := float(d.get("sure", 0.0))
+			if su < cur - 5.0 and su > bs:
+				bs = su
+				best = sl
+		if best != "":
+			slot = best
+			rep["older_loads"] = rep.get("older_loads", 0) + 1
+	else:
+		_same_deaths = 0
+	_last_death = death
+	_last_slot = slot
+	return slot
+
+
 func _reload() -> bool:
 	## olum: son kayittan devam (insan oyuncu gibi). Bot durumu yeni sahneye gore sifirlanir.
-	var slot: String = Kayit.latest(opts["level"])
+	var c = main.commando
+	var slot: String = _pick_slot(c.global_position)
 	if slot == "" or M.prepare_load(slot) != "":
 		return false
-	var c = main.commando
 	rep["deaths"].append([int(c.global_position.x), int(c.global_position.y), _place(c.global_position), round(t), main.end_text, slot])
 	rep["reloads"] += 1
 	var t0 := Time.get_ticks_msec()
@@ -972,6 +1027,7 @@ func _reload() -> bool:
 	_dead_n = -1
 	_want = Vector2(INF, INF)
 	_save_t = 20.0
+	_slot_t = 60.0
 	obj_done = {}
 	for o in main.mission.objectives:
 		if o["done"]:
@@ -1015,7 +1071,7 @@ func _finish() -> void:
 	rep["bodies_found"] = main.stats.get("bodies_found", 0)
 	rep["missed_noticed"] = main.stats.get("missed", 0)
 	rep["runners_stopped"] = main.stats.get("runners_stopped", 0)
-	for k in ["knockouts", "witnessed", "lit", "grenades", "wires", "disguises"]:
+	for k in ["knockouts", "witnessed", "lit", "grenades", "wires"]:
 		rep["st_" + k] = main.stats.get(k, 0)
 	if main.game_over and c.alive:
 		var sc: Dictionary = main.score()

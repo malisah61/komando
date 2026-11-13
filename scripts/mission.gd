@@ -87,6 +87,11 @@ func _process(delta: float) -> void:
 				items[it] = items.get(it, 0) + int(pk.get("count", 1))
 				main.hud.refresh_items()
 				main.hud.toast(main.hud.ITEM_NAMES.get(it, it.to_upper()) + " alındı")
+			elif pk["type"] == "stones":
+				var n := int(pk.get("count", 2))
+				c.stones += n
+				main.hud.refresh_items()
+				main.hud.toast("Taş toplandı (+%d)" % n)
 			elif pk["type"] == "medkit":
 				c.medkits += 1
 				main.hud.toast("Sağlık çantası alındı")

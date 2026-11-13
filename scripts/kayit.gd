@@ -54,7 +54,7 @@ static func _guard_state(g) -> Dictionary:
 	return {
 		"pos": g.global_position, "alive": g.alive, "hp": g.hp, "wp_i": g.wp_i, "facing": g.facing,
 		"base_facing": g.base_facing, "state": st, "inv": g.investigate_pos, "knocked": g.knocked, "tied": g.tied,
-		"wake_t": g._wake_t, "stripped": g.stripped, "discovered": g.discovered, "hidden_body": g.hidden_body,
+		"wake_t": g._wake_t, "discovered": g.discovered, "hidden_body": g.hidden_body,
 		"vigilant_t": g.vigilant_t, "kind": g.kind, "drops": g.drops, "waypoints": g.waypoints,
 	}
 
@@ -101,7 +101,7 @@ static func capture(main) -> Dictionary:
 			"stats": main.stats.duplicate(true), "cam": main.cam.position, "zoom": main.cam.zoom.x,
 			"interior": main.cur_interior, "guards_n": main.level.data.get("guards", []).size()},
 		"komando": {"pos": c.global_position, "hp": c.hp, "ammo": c.ammo, "medkits": c.medkits, "stones": c.stones,
-			"ropes": c.ropes, "weapon": c.weapon, "crouch": c.crouch, "disguise": c.disguise, "facing": c.facing},
+			"ropes": c.ropes, "weapon": c.weapon, "crouch": c.crouch, "facing": c.facing},
 		"askerler": level_guards,
 		"takviye": extra,
 		"npc": npcs,
@@ -280,10 +280,7 @@ static func apply(main, st: Dictionary) -> String:
 	c.weapon = cs.get("weapon", c.weapon)
 	c.crouch = cs.get("crouch", false)
 	c.facing = float(cs.get("facing", c.facing))
-	var dg: String = cs.get("disguise", "")
-	if dg != "":
-		c.disguise = dg
-		c._set_outfit("res://assets/sprites/alman_%s_sprite_sheet.png" % dg)
+	# Tur 5: kilik sistemi kaldirildi; eski kayitlardaki "disguise" alani sessizce yok sayilir
 	c.move_to(c.global_position)
 	if carried != null:
 		c.pick_body(carried)
@@ -334,7 +331,7 @@ static func _apply_guard(main, g, d: Dictionary) -> bool:
 	g.facing = float(d.get("facing", g.facing))
 	g.base_facing = float(d.get("base_facing", g.base_facing))
 	g.wp_i = clampi(int(d.get("wp_i", 0)), 0, maxi(g.waypoints.size() - 1, 0))
-	g.stripped = d.get("stripped", false)
+	# eski "stripped" alani (kilik, Tur 5'te kaldirildi) yok sayilir
 	g.vigilant_t = float(d.get("vigilant_t", 0.0))
 	if d.get("alive", true):
 		g.hp = float(d.get("hp", g.hp))

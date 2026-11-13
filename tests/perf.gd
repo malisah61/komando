@@ -2,6 +2,7 @@ extends SceneTree
 ## Performans olcumu:
 ##   LVL=res://levels/bolum3.json CX=2700 CY=1900 xvfb-run godot -s res://tests/perf.gd   (doku bellegi icin xvfb + opengl3)
 ##   (headless da calisir; o zaman doku bellegi 0 gorunur)
+##   KIP=mobil | pc : aci bellegi kipini zorla (Tur 5; varsayilan: bu makinenin kipi = pc)
 ## Olcer: bolum acilisi (sahne kurulumu), ortalama ve EN YAVAS kare, oyun mantigi (process + physics),
 ## aci degisimi (istek -> hazir suresi ve o arada en yavas kare), kamera kaydirmada zemin akisi,
 ## doku bellegi (RENDER_TEXTURE_MEM_USED) ve yuklu zemin karosu sayisi. ALARM=1: kirmizi alarm durumu.
@@ -24,7 +25,17 @@ var load_worst := 0.0
 var cy := 0.0
 
 
+const PRESS := {331: 1, 345: 1, 352: -1, 353: -1, 370: 1, 371: 1, 390: -1, 391: -1, 392: -1, 410: 1}
+var press_worst := 0.0            # basistan sonraki karenin en yavasi
+var press_n := 0
+var press_ready := 0              # basildiginda hedef aci zaten bellekteydi
+var _pressed_last := false
+
+
 func _initialize():
+	var kip := OS.get_environment("KIP")
+	if kip != "":
+		load("res://scripts/level.gd").mode_override = kip
 	load("res://scripts/main.gd").level_choice = OS.get_environment("LVL")
 	load("res://scripts/main.gd").briefed = load("res://scripts/main.gd").level_choice
 	load_ms = Time.get_ticks_usec()
@@ -60,17 +71,34 @@ func _process(_d):
 		n += 1
 	if f == 330:
 		print("ortalama kare: %.2f ms, en yavas kare: %.1f ms" % [(now - t0) / 300000.0, worst])
-	# aci degisimi
-	if f == 331:
-		rot_t = now
-		main.rotate_view(1)
-	if f > 331 and rot_ms < 0.0:
+	# aci degisimi (Tur 5): art arda, ters yonde ve ayni karede iki kez basis; her basis tek karede gecmeli
+	if _pressed_last:
+		press_worst = maxf(press_worst, dt)
+		_pressed_last = false
+	if f >= 331 and f < 430:
 		rot_worst = maxf(rot_worst, dt)
-		if main.level.view == 1 and main.level.view_loading < 0:
-			rot_ms = (now - rot_t) / 1000.0
+		if OS.get_environment("VDEBUG") != "" and dt > 45.0:
+			print("  yavas kare f=%d %.1f ms" % [f, dt])
+	if PRESS.has(f):
+		var want: int = posmod(main.level.view + PRESS[f], 4)
+		if main.level.views_resident().has(want):
+			press_ready += 1
+		var v0: int = main.level.view
+		var _tr := Time.get_ticks_usec()
+		main.rotate_view(PRESS[f])
+		if OS.get_environment("VDEBUG") != "":
+			print("  basis f=%d -> aci %d, rotate_view %.1f ms" % [f, main.level.view, (Time.get_ticks_usec() - _tr) / 1000.0])
+		press_n += 1
+		_pressed_last = true
+		if main.level.view == v0 or main.level.view_loading >= 0:
+			rot_ms = 9999.0      # gecmedi / bekliyor: hata
+		elif rot_ms < 0.0:
+			rot_ms = 0.0
+	if f == 300 or f == 429:
+		print("  bellekteki acilar (f=%d): %s" % [f, str(main.level.views_resident())])
 	# kamera kaydirma: zemin karolari akisla gelir/gider
-	if f > 400 and f <= 640:
-		var u := float(f - 400) / 240.0
+	if f > 430 and f <= 640:
+		var u := float(f - 430) / 210.0
 		main.cam.position = Vector2(lerpf(cx * 0.3, cx * 1.6, u), lerpf(cy * 0.4, cy * 1.5, u))
 		main._clamp_cam()
 		pan_worst = maxf(pan_worst, dt)
@@ -78,7 +106,9 @@ func _process(_d):
 		print("bolum acilisi (sahne kurulumu): %.0f ms" % load_ms)
 		print("oyun mantigi: process %.3f ms + physics %.3f ms (asker %d)" % [proc / n * 1000.0, phys / n * 1000.0,
 			main.get_tree().get_nodes_in_group("guards").size()])
-		print("aci degisimi: %.0f ms (istek -> hazir), o arada en yavas kare %.1f ms" % [rot_ms, rot_worst])
+		print("aci degisimi (kip %s): %d basis, %d'inde hedef aci bellekteydi; gecis %s; basistan sonraki en yavas kare %.1f ms; cevirme suresince en yavas kare %.1f ms" % [
+			"pc" if main.level.pc_mode() else "mobil", press_n, press_ready, "AYNI KAREDE" if rot_ms == 0.0 else "BEKLEDI (hata)",
+			press_worst, rot_worst])
 		print("kamera kaydirma (zemin akisi): en yavas kare %.1f ms, yuklu karo %d / %d" % [pan_worst,
 			main.level.loaded_ground_tiles(), main.level.ground_tiles.size()])
 		print("doku bellegi: baslangic %.1f MB, en yuksek %.1f MB, simdi %.1f MB" % [mem_start, mem_max, _mem()])

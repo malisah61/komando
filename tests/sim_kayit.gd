@@ -65,7 +65,7 @@ func _summary() -> Dictionary:
 	return {"guards": _guards().size(), "dead": dead, "knocked": knocked, "pos": (pos_sum / 5000.0).round(), "cut": cut,
 		"done": done, "items": main.mission.items.duplicate(), "c_pos": main.commando.global_position.round(),
 		"hp": main.commando.hp, "ammo": main.commando.ammo, "stones": main.commando.stones,
-		"disguise": main.commando.disguise, "pickups": main.level.pickups.size(), "taken": taken,
+		"pickups": main.level.pickups.size(), "taken": taken,
 		"alert": main.alert_level, "barracks": main.barracks.map(func(b): return b[1]),
 		"elapsed": snappedf(main.mission.elapsed, 1.0)}
 
@@ -86,9 +86,6 @@ func _physics_process(_delta: float) -> bool:
 		gs[0].kill()
 		gs[1].knock_out()
 		gs[1].tied = true
-		if gs.size() > 3:
-			gs[3].stripped = true
-			c.disguise = "er"
 		gs[2].global_position += Vector2(30, 0)
 		if main.level.wires.size() > 0:
 			main.level.cut_wire(0)
@@ -129,7 +126,8 @@ func _physics_process(_delta: float) -> bool:
 		# eski surum (0): eksik alanlarla bile yuklenir
 		var old = JSON.parse_string(FileAccess.get_file_as_string(Kayit.slot_path("1")))
 		old["surum"] = 0
-		old["durum"] = var_to_str({"komando": {"pos": c.global_position}})
+		# Tur 5: kilik kaldirildi; eski kayittaki "disguise"/"stripped" alanlari sessizce yok sayilmali
+		old["durum"] = var_to_str({"komando": {"pos": c.global_position, "disguise": "er"}})
 		f = FileAccess.open(Kayit.slot_path("hizli"), FileAccess.WRITE)
 		f.store_string(JSON.stringify(old))
 		f.close()
@@ -161,6 +159,7 @@ func _physics_process(_delta: float) -> bool:
 		frame = 0
 	elif phase == 2 and frame == 4:
 		check(main.commando != null and main.mission != null, "eski surum kaydi yuklendi, oyun kuruldu")
+		check(main.commando.get("disguise") == null, "eski 'disguise' alani yok sayildi (kilik sistemi yok)")
 		print("SONUC: ", "BASARILI" if fails == 0 else "%d HATA" % fails)
 		quit(1 if fails > 0 else 0)
 	return false

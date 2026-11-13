@@ -39,7 +39,6 @@ var hp := 100.0
 var max_hp := 100.0
 var carrying = null               # tasinan ceset
 # Tur 3
-var disguise := ""                # giyilen Alman uniformasi (er/kis): erler uzaktan fark etmez
 var ropes := 3                    # bayilan askeri baglamak icin ip
 var _whistle_cd := 0.0
 const WHISTLE_CD := 5.0
@@ -220,7 +219,6 @@ func _attack_step(delta: float) -> void:
 				aim += Vector2(randf_range(-28, 28), randf_range(-28, 28))
 			Fx.tracer(main.world, global_position + Vector2(0, -18), aim)
 			main.make_noise(global_position, PISTOL_NOISE, self)
-			blow_disguise()
 			if hit:
 				g.take_damage(PISTOL_DMG * randf_range(0.85, 1.15), global_position)
 			main.hud.refresh_items()
@@ -272,41 +270,6 @@ func do_whistle() -> void:
 	_whistle_cd = WHISTLE_CD
 	var n: int = main.whistle(global_position)
 	main.hud.toast("Islık çaldın: %d asker geliyor" % n if n > 0 else "Islık çaldın (yakında asker yok)")
-
-
-func put_on_uniform(g) -> void:
-	## Commandos 2: olu/bayilan erin uniformasini giy. Erler uzaktan fark etmez; SS ve subay tanir.
-	if g == null or g.stripped or g.kind == "elit" or g.kind == "subay" or g.kind == "kule":
-		return
-	g.stripped = true
-	disguise = g.kind
-	_set_outfit("res://assets/sprites/alman_%s_sprite_sheet.png" % g.kind)
-	main.stats["disguises"] = main.stats.get("disguises", 0) + 1
-	main.hud.toast("Üniformayı giydin: erler seni uzaktan tanımaz (SS ve subaylara dikkat!)")
-
-
-func blow_disguise() -> void:
-	if disguise == "":
-		return
-	disguise = ""
-	for path in SHEETS:
-		if SpriteSheet.sheet_exists(path):
-			_set_outfit(path)
-			break
-	main.hud.toast("Kılığın açığa çıktı!")
-
-
-func _set_outfit(path: String) -> void:
-	if sprite == null or not SpriteSheet.sheet_exists(path):
-		return
-	var tmp: AnimatedSprite2D = SpriteSheet.attach(self, path)
-	if tmp == null:
-		return
-	sprite.sprite_frames = tmp.sprite_frames
-	if ghost != null:
-		ghost.sprite_frames = tmp.sprite_frames
-	remove_child(tmp)
-	tmp.queue_free()
 
 
 func tie_up(g) -> void:

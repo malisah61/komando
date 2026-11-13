@@ -1,5 +1,5 @@
 extends SceneTree
-## Karakter sprite'larini platforma gore VRAM bicimine (ETC2 = telefon, S3TC = PC/Web) sikistirip
+## Karakter sprite'larini platforma gore VRAM bicimine (ETC2 = telefon, S3TC = PC) sikistirip
 ## zstd ile sikistirilmis .res olarak paketler. Godot APK'da .ctex dosyalarini sikistirmadan sakliyor
 ## (8,4 MB/sayfa); ayni veri .res icinde zstd ile ~1,4 MB. Bellekte yine VRAM bicimi (telefonda 4x az).
 ##   godot --headless -s res://tools/varlik/sprite_paketle.gd      (CI: import'tan sonra, export'tan once)

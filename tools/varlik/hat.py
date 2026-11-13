@@ -428,8 +428,7 @@ def butce(build="build", md=None):
     satirlar.append("| **Toplam varlik** | | | | | **%.1f** |" % (toplam_harita + _mb(spr)))
     paket = [("APK", os.path.join(build, "android", "komando.apk"), B["apk"]),
              ("Windows zip", os.path.join(build, "dist", "Komando-Windows.zip"), B["pc_zip"]),
-             ("Linux zip", os.path.join(build, "dist", "Komando-Linux.zip"), B["pc_zip"]),
-             ("Web .pck", os.path.join(build, "web", "index.pck"), B["web_pck"])]
+             ("Linux zip", os.path.join(build, "dist", "Komando-Linux.zip"), B["pc_zip"])]
     psat = ["", "| Paket | MB | Bütçe |", "|---|---|---|"]
     for ad, p, lim in paket:
         if os.path.exists(p):

@@ -16,7 +16,7 @@
 |---|---|---|---|
 | **Bıçak** (Yeşil Bere) | Çvş. Tom Reilly, İngiliz Komandosu | Bıçak, sessiz öldürme, ceset taşıma, tırmanma | Bölüm 0 |
 | **Şahin** (Keskin Nişancı) | Yzb. Edward Blake | Uzun menzilli tüfek, dürbünle gözetleme | Bölüm 2 |
-| **Gölge** (Casus) | Henri Duval, Fransız direnişçi | Alman üniforması giyer, askerlerin dikkatini dağıtır | Bölüm 3 |
+| **Gölge** (Hırsız / izci) | Henri Duval, Fransız direnişçi | Kilit açar, yolları ve devriye saatlerini bilir, askerlerin dikkatini dağıtır (kılık/üniforma yok) | Bölüm 3 |
 | **Kıvılcım** (İstihkamcı) | Onb. Sam Kowalski | Patlayıcı, mayın, tuzak, kapı kırma | Bölüm 4 |
 
 ### Destek karakterleri
@@ -38,6 +38,7 @@
 | 4 | **Gece Treni** | Demiryolu kavşağı, gece | Kıvılcım'ı kurtar, sinyali boz, mühimmat trenini uçur | 40–60 dk |
 | 5 | **Kartal Yuvası** (1. perde finali) | Richter'in şatosu, havaalanı | Santrali kes, Storch'u ve radyo kulesini uçur, planları çal, Richter'i esir al | 50–70 dk |
 | 6 | **Çelik Rampa** (2. perde açılışı) | Pas-de-Calais ormanı, baraj gölü, V-1 üssü | Baraj santralini kes, Gölge'yi kamptan kurtar, hedef çizelgesini çal, V-1 rampasını ve harp başlıklarını uçur | 55–75 dk |
+| 7 | **Sisli Ada** | Baltık kıyısında roket deneme adası (Usedom benzeri), kanal, sazlık | Jan Nowak ile buluş, trafo hattını kes, laboratuvardan A-4 çizimlerini çal, deneme kulesindeki roketi ve oksijen tesisini uçur, Kowalski'nin motorbotuna kaç | 60–80 dk |
 
 ## Bölüm 1 – Nehir Operasyonu (ayrıntılı)
 
@@ -147,13 +148,33 @@
 9. *(İsteğe bağlı)* T-Stoff yakıt tankları.
 10. **Kaçış:** Gölge ile kuzeybatıdaki Lysander tarlası.
 
-**Zorluk:** ~86 asker (kampta erler, rampada SS), 9 kule, **6 projektör**, dikenli telli V-1 üssü (4 kapı, tel kesilerek kendi kapını açarsın), duvarlı kamp (3 kapı), 8 kışla, 9 siren, 13 bina, iki kilitli bina ve iki anahtar. Nehri üç yerden geçebilirsin: tutulan köprü, projektörlü baraj seddi ya da güneydeki çamurlu sığlık (iz kalır). Kamp ve barajdaki erler sıradan askerler: **üniforma** giyen komando aralarından geçer, rampadaki SS'ler ve subaylar tanır. Gece, ay ışığı.
+**Zorluk:** ~86 asker (kampta erler, rampada SS), 9 kule, **6 projektör**, dikenli telli V-1 üssü (4 kapı, tel kesilerek kendi kapını açarsın), duvarlı kamp (3 kapı), 8 kışla, 9 siren, 13 bina, iki kilitli bina ve iki anahtar. Nehri üç yerden geçebilirsin: tutulan köprü, projektörlü baraj seddi ya da güneydeki çamurlu sığlık (iz kalır). Kampa gizli giriş (Tur 5, kılıksız tasarım): kuzey duvarda gözaltı bunkerinin arkasındaki **yıkık drenaj kanalı** (ormandan çalı şeridi), batı duvar boyunca çalılık ya da kapı nöbetçilerini **taşla** başka yöne baktırmak; kulübenin önünde yedek taş yığını var. Kamp içi devriye bunker önünden düzenli geçer: **zamanlama** ile arkasından kayılır. Gece, ay ışığı.
 
 **Kapanış:** Orman alevler içinde, Lysander tarladan havalanıyor. Henri: *"Brandt rampada değildi, çavuş. Çizelgede bir isim daha var: Peenemünde."* Reilly: *"O zaman bir sonraki durağımız orası."* Kowalski (telsiz): *"Bana daha büyük bir patlayıcı getirin."*
+
+## Bölüm 7 – Sisli Ada (ayrıntılı, Tur 5)
+
+**Açılış:** Ağustos 1944. Brandt'ın çizelgesindeki son isim bir Baltık adasına çıkıyor: A-4 roketinin denendiği beton kuleler. Adadaki zorunlu çalışma kampından kaçan Polonyalı işçi **Jan Nowak**, aylardır roket parçalarını ezberleyip Londra'ya bilgi kaçıran ağın bir parçası. Kowalski (Kıvılcım) motorbotla kuzeybatı kumsalında bekliyor.
+
+**Görev akışı:**
+1. **Temas:** Balıkçı kulübesinde Jan: 3 patlayıcı + tel makası, projektör aralıkları.
+2. **Trafo (sessiz sabotaj):** Kanalın batısındaki trafo istasyonu; deneme sahasının batı kışlası çağrılamaz.
+3. **Anahtar:** Sahada dolaşan subaydan laboratuvar anahtarı.
+4. **Çizimler:** Kilitli laboratuvardan A-4 çizimleri.
+5. **Roket:** VII numaralı deneme kulesindeki roket uçurulur.
+6. **Oksijen:** Sıvı oksijen tesisi uçurulur.
+7. *(İsteğe bağlı)* Ölçüm bunkerindeki telemetri cihazları.
+8. **Kaçış:** Kuzeybatı kumsalı, Kowalski'nin motorbotu.
+
+**Zorluk:** ~88 asker, 9 kule, **7 projektör**, 5 kapılı dikenli telli deneme sahası, duvarlı kamp, 8 kışla, 9 siren. Kanal üç yerden geçilir: demiryolu köprüsü, yol köprüsü, sazlık sığlık (çamurda iz). Kılık yok: kamış şeritleri, kumul çalıları, taş yığınları ve projektör aralıklarını kollamak.
+
+**Kapanış:** Ada arkada alevler içinde. Jan: *"Kamptakiler bu ışığı görünce anlayacak."* Kowalski: *"Söz verdiğim gibi, çavuş: daha büyük patlayıcı."* Blake (telsiz): *"Londra'dan haber var. Brandt kaçmış; trenle güneye, Alplere."* (Bölüm 8'e geçiş)
 
 ## Gelecek mekanikler (öncelik sırasıyla)
 1. İkinci komando (Şahin), birden fazla karakter seçimi ve portreler
 2. Ceset taşıma ve saklama
 3. Ses sistemi: atılan taş, düdük, askerin dikkatini dağıtma
+
+> Kalıcı kural (12 Kasım 2026): oyunda **kılık / üniforma giyme yok**; gelecekte de eklenmeyecek. Gizlilik; çalı, gölge, zamanlama, dikkat dağıtma ve alternatif yollarla sağlanır.
 4. Alarm sonrası takviye askerler ve kaçış süreci
 5. Kayıt ve devam etme, bölüm sonu puan tablosu (süre, alarm sayısı, öldürülen asker)

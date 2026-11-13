@@ -40,7 +40,7 @@ static func load_layout(path: String) -> Dictionary:
 
 static func packed_path(path: String) -> String:
 	## Tur 3: CI'da tools/varlik/sprite_paketle.gd uretir: platformun VRAM bicimi, zstd sikistirilmis .res
-	## (APK .ctex'i sikistirmadan saklar: 8,4 MB -> 1,8 MB). Telefon ETC2, PC/Web S3TC.
+	## (APK .ctex'i sikistirmadan saklar: 8,4 MB -> 1,8 MB). Telefon ETC2, PC S3TC.
 	var base := path.get_base_dir() + "/paket/" + path.get_file().get_basename()
 	var fmts := ["s3tc", "etc2"] if OS.has_feature("s3tc") else ["etc2", "s3tc"]
 	for f in fmts:

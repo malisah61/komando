@@ -5,8 +5,11 @@ harita ureticisi -> levels/bolum6.json
 2. perdenin acilisi, Bolum 5'ten biraz zor: 6400x4200 (sanat butcesi icin ayni boyut), ~82 asker (SS agirlikli rampa),
 9 gozetleme kulesi, 6 projektor, dikenli telli V-1 ussu (4 kapi + tel makasi), duvarli zorunlu calisma kampi
 (kilitli gozalti bunkeri, Golge esir), baraj golu + nehir: 3 gecit (kopru, baraj seddi, camurlu sig gecit),
-iki anahtar (kamp komutani, rampa subayi), 8 kisla, 9 siren. Kamp erleri ve baraj nobetcileri cogunlukla er:
-uniforma giyen komando onlarin arasindan gecebilir, rampadaki SS'ler ve subaylar tanir.
+iki anahtar (kamp komutani, rampa subayi), 8 kisla, 9 siren.
+Tur 5: kilik/uniforma sistemi oyundan kaldirildi. Kampa gizli giris artik uc yoldan: (1) kuzey duvardaki yikik
+drenaj kanali (gozalti bunkerinin arkasi, cali seridiyle ormandan), (2) bati duvar boyunca calilik + kamp ici siperler,
+(3) dikkat dagitma: bati kulubesinde yedek taslar, kuzey kapi nobetcilerini taşla dogu yonune baktir. Zamanlama:
+kamp ici devriye (x=2150) bunker onunden 20 sn'de bir gecer; kanaldan girip onun arkasindan bunkere kayilir.
 
     python3 tools/gen_bolum6.py      (GODOT=... verilirse navigasyon dogrulanir)
 """
@@ -18,7 +21,7 @@ L = Lvl("Bölüm 6 – Çelik Rampa", (W, H), 1946)
 d = L.d
 d["theme"] = ""
 d["ambient"] = [0.66, 0.68, 0.86]          # yaz gecesi, ay isigi
-d["stones"] = 6
+d["stones"] = 8                             # Tur 5: kiliksiz tasarim, dikkat dagitma icin +2
 d["brief"] = ("Ormancı kulübesinde Jeanne ile buluş, baraj santralinin telefon hattını kes, kamp komutanından anahtarı alıp "
               "Gölge'yi gözaltı bunkerinden çıkar, rampa subayından komuta bunkerinin anahtarını al, hedef çizelgesini çal, "
               "V-1 rampasını ve harp başlığı deposunu uçur, Gölge ile kuzeybatıdaki Lysander tarlasına kaç.")
@@ -30,8 +33,9 @@ d["story"] = (
     "zorunlu çalışma kampında, kilitli gözaltı bunkerinde tutuluyor. Anahtar kamp komutanında.\n\n"
     "Pikardi direnişinden Jeanne Morel ormancı kulübesinde bekliyor. Baraj santralinin telefon hattını kesersen rampanın "
     "batı kışlası çağrılamaz. Nehri üç yerden geçebilirsin: köprü, baraj seddi ya da güneydeki çamurlu sığlık.\n\n"
-    "Kamptaki ve barajdaki nöbetçiler sıradan erler; onlardan birinin üniformasını giyersen aralarından geçersin. "
-    "Rampayı ise Brandt'ın SS'leri tutuyor, onlar seni tanır. Hedef çizelgesi komuta bunkerinde, anahtarı rampa subayında. "
+    "Kampın kuzey duvarında, gözaltı bunkerinin hemen arkasında savaşta yıkılmış bir drenaj kanalı var; çalıların "
+    "arasından sürünerek girilebilir. Kanal ağzını iki er bekliyor ama yorgunlar: bir taş ya da ıslık başlarını çevirir. "
+    "Rampayı ise Brandt'ın SS'leri tutuyor; orada gölgeden ayrılma. Hedef çizelgesi komuta bunkerinde, anahtarı rampa subayında. "
     "Rampayı ve harp başlıklarını uçur, Gölge'yi de alıp kuzeybatıdaki Lysander tarlasına koş. Uçak şafakta kalkar.")
 d["start"] = [300, 4020]
 d["exit"] = [60, 120, 260, 240]
@@ -73,7 +77,9 @@ L.ob("fence", rect(1250, 3940, 700, 10))
 
 # ------------------------------------------------------------ ZORUNLU CALISMA KAMPI (bati orta): duvarli
 KX0, KY0, KX1, KY1 = 800, 1500, 2600, 2700
-L.walls_box(KX0, KY0, KX1, KY1, {"N": [(1980, 2090)], "S": [(1980, 2090)], "E": [(2240, 2360)]}, 18, "wall")
+L.walls_box(KX0, KY0, KX1, KY1, {"N": [(1980, 2090), (2470, 2530)], "S": [(1980, 2090)], "E": [(2240, 2360)]}, 18, "wall")
+L.ob("rock", circle=[2455, 1490, 16])                          # Tur 5: yikik drenaj kanali (duvar molozu)
+L.ob("rock", circle=[2548, 1494, 14])
 L.house("Kamp karargâhı", 1000, 1650, 300, 180, "S", [0.34, 0.36, 0.3], style="sade")
 L.house("Kamp kışlası", 1000, 2350, 340, 180, "N", [0.36, 0.34, 0.3], style="sade")
 L.house("Gözaltı bunkeri", 2250, 1650, 240, 160, "W", [0.4, 0.4, 0.4], locked="hucre_anahtari", style="sade")
@@ -243,7 +249,8 @@ d["objectives"] = [
      "radius": 70, "gives": {"patlayici": 3, "tel_makasi": 1},
      "say": [["Jeanne Morel", "Sen Reilly olmalısın. Henri senden çok bahsederdi... yakalanmadan önce."],
              ["Jeanne Morel", "Üç patlayıcı ve bir tel makası. Santralin hattını kes, rampanın batı kışlası çağrılamaz."],
-             ["Jeanne Morel", "Kamptaki erler yorgun ve dikkatsiz. Birinin üniformasını giy; ama SS'lere yaklaşma."],
+             ["Jeanne Morel", "Kampa kapıdan girme. Kuzey duvarda, bunkerin arkasında yıkık bir drenaj kanalı var; çalılardan sürün."],
+             ["Jeanne Morel", "Kapıdaki iki er sıkıldıkça doğuya bakar. Bir taş at, başlarını çevirsinler. Kapının önündeki taşları da al."],
              ["Yzb. Blake (telsiz)", "Tepedeyim, Reilly. Köprü de baraj da tutuluyor. Güneydeki sığlık çamurlu ama boş."]]},
     {"id": "santral", "type": "sabotage", "text": "Baraj santralinde telefon hattını sessizce kes", "pos": [3300, 2500],
      "radius": 60, "time": 6.0, "disables_barracks": 3,
@@ -283,6 +290,7 @@ d["sirens"] = [[1300, 3450], [1450, 1950], [2500, 2550], [3420, 2380], [3540, 10
                [5450, 2150], [5950, 1200], [5000, 3150]]
 d["pickups"] = [
     {"type": "medkit", "pos": [1100, 3950]},
+    {"type": "stones", "count": 3, "pos": [760, 3300]},          # Tur 5: kulube onunde tas yigini
     {"type": "medkit", "pos": [2700, 1700]},
     {"type": "medkit", "pos": [3300, 3050]},
     {"type": "medkit", "pos": [4900, 2950]},
@@ -300,6 +308,8 @@ L.bush_line([700, 2800], [700, 1400], 80, 30)                 # kampin bati duva
 L.bush_line([700, 1300], [700, 500], 80, 28)                  # kuzeye, Lysander tarlasina
 L.bush_line([2750, 3000], [3450, 3380], 75, 28)               # han -> sig gecit
 L.bush_line([2750, 1400], [2750, 2150], 80, 28)               # kamp dogusu -> baraj
+L.bush_line([2500, 1000], [2500, 1420], 70, 28)               # Tur 5: kuzey ormandan drenaj kanalina
+L.bushes([[2560, 1580], [2380, 1560]], 26)                     # kanal agzi icerisi (bunker arkasi)
 L.bush_line([4220, 2550], [4220, 3250], 80, 28)               # dogu kiyi seridi
 L.bush_line([4450, 470], [5650, 470], 80, 28)                 # kuzey ormandan kuzey kapiya
 L.bush_line([4500, 3420], [5050, 3420], 80, 28)               # guney tel boyu

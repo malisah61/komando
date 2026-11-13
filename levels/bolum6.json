@@ -600,6 +600,27 @@
      1500
     ],
     [
+     2470,
+     1500
+    ],
+    [
+     2470,
+     1518
+    ],
+    [
+     2090,
+     1518
+    ]
+   ]
+  },
+  {
+   "type": "wall",
+   "points": [
+    [
+     2530,
+     1500
+    ],
+    [
      2600,
      1500
     ],
@@ -608,7 +629,7 @@
      1518
     ],
     [
-     2090,
+     2530,
      1518
     ]
    ]
@@ -716,6 +737,22 @@
      2582,
      2682
     ]
+   ]
+  },
+  {
+   "type": "rock",
+   "circle": [
+    2455,
+    1490,
+    16
+   ]
+  },
+  {
+   "type": "rock",
+   "circle": [
+    2548,
+    1494,
+    14
    ]
   },
   {
@@ -2856,6 +2893,78 @@
     2750,
     2150,
     28
+   ]
+  },
+  {
+   "type": "bush",
+   "circle": [
+    2500,
+    1000,
+    28
+   ]
+  },
+  {
+   "type": "bush",
+   "circle": [
+    2500,
+    1070,
+    28
+   ]
+  },
+  {
+   "type": "bush",
+   "circle": [
+    2500,
+    1140,
+    28
+   ]
+  },
+  {
+   "type": "bush",
+   "circle": [
+    2500,
+    1210,
+    28
+   ]
+  },
+  {
+   "type": "bush",
+   "circle": [
+    2500,
+    1280,
+    28
+   ]
+  },
+  {
+   "type": "bush",
+   "circle": [
+    2500,
+    1350,
+    28
+   ]
+  },
+  {
+   "type": "bush",
+   "circle": [
+    2500,
+    1420,
+    28
+   ]
+  },
+  {
+   "type": "bush",
+   "circle": [
+    2560,
+    1580,
+    26
+   ]
+  },
+  {
+   "type": "bush",
+   "circle": [
+    2380,
+    1560,
+    26
    ]
   },
   {
@@ -6096,7 +6205,11 @@
     ],
     [
      "Jeanne Morel",
-     "Kamptaki erler yorgun ve dikkatsiz. Birinin üniformasını giy; ama SS'lere yaklaşma."
+     "Kampa kapıdan girme. Kuzey duvarda, bunkerin arkasında yıkık bir drenaj kanalı var; çalılardan sürün."
+    ],
+    [
+     "Jeanne Morel",
+     "Kapıdaki iki er sıkıldıkça doğuya bakar. Bir taş at, başlarını çevirsinler. Kapının önündeki taşları da al."
     ],
     [
      "Yzb. Blake (telsiz)",
@@ -6308,6 +6421,14 @@
    ]
   },
   {
+   "type": "stones",
+   "count": 3,
+   "pos": [
+    760,
+    3300
+   ]
+  },
+  {
    "type": "medkit",
    "pos": [
     2700,
@@ -6417,9 +6538,9 @@
   0.68,
   0.86
  ],
- "stones": 6,
+ "stones": 8,
  "brief": "Ormancı kulübesinde Jeanne ile buluş, baraj santralinin telefon hattını kes, kamp komutanından anahtarı alıp Gölge'yi gözaltı bunkerinden çıkar, rampa subayından komuta bunkerinin anahtarını al, hedef çizelgesini çal, V-1 rampasını ve harp başlığı deposunu uçur, Gölge ile kuzeybatıdaki Lysander tarlasına kaç.",
- "story": "Temmuz 1944, Pas-de-Calais. Çıkarma başardı, Richter Londra'da sorguda. Ama onun lojistik ağı bir şeyi daha besliyordu: ormanlara gizlenmiş V-1 rampaları. Her gece Londra'ya uçan bombalar fırlatılıyor.\n\nRichter'in defterindeki son rampa, baraj gölünün doğusunda dikenli telle çevrili bir orman üssü. Komutanı SS albayı Wilhelm Brandt, Richter'in eski öğrencisi. Henri 'Gölge' Duval üssü keşfederken yakalandı; nehrin batısındaki zorunlu çalışma kampında, kilitli gözaltı bunkerinde tutuluyor. Anahtar kamp komutanında.\n\nPikardi direnişinden Jeanne Morel ormancı kulübesinde bekliyor. Baraj santralinin telefon hattını kesersen rampanın batı kışlası çağrılamaz. Nehri üç yerden geçebilirsin: köprü, baraj seddi ya da güneydeki çamurlu sığlık.\n\nKamptaki ve barajdaki nöbetçiler sıradan erler; onlardan birinin üniformasını giyersen aralarından geçersin. Rampayı ise Brandt'ın SS'leri tutuyor, onlar seni tanır. Hedef çizelgesi komuta bunkerinde, anahtarı rampa subayında. Rampayı ve harp başlıklarını uçur, Gölge'yi de alıp kuzeybatıdaki Lysander tarlasına koş. Uçak şafakta kalkar.",
+ "story": "Temmuz 1944, Pas-de-Calais. Çıkarma başardı, Richter Londra'da sorguda. Ama onun lojistik ağı bir şeyi daha besliyordu: ormanlara gizlenmiş V-1 rampaları. Her gece Londra'ya uçan bombalar fırlatılıyor.\n\nRichter'in defterindeki son rampa, baraj gölünün doğusunda dikenli telle çevrili bir orman üssü. Komutanı SS albayı Wilhelm Brandt, Richter'in eski öğrencisi. Henri 'Gölge' Duval üssü keşfederken yakalandı; nehrin batısındaki zorunlu çalışma kampında, kilitli gözaltı bunkerinde tutuluyor. Anahtar kamp komutanında.\n\nPikardi direnişinden Jeanne Morel ormancı kulübesinde bekliyor. Baraj santralinin telefon hattını kesersen rampanın batı kışlası çağrılamaz. Nehri üç yerden geçebilirsin: köprü, baraj seddi ya da güneydeki çamurlu sığlık.\n\nKampın kuzey duvarında, gözaltı bunkerinin hemen arkasında savaşta yıkılmış bir drenaj kanalı var; çalıların arasından sürünerek girilebilir. Kanal ağzını iki er bekliyor ama yorgunlar: bir taş ya da ıslık başlarını çevirir. Rampayı ise Brandt'ın SS'leri tutuyor; orada gölgeden ayrılma. Hedef çizelgesi komuta bunkerinde, anahtarı rampa subayında. Rampayı ve harp başlıklarını uçur, Gölge'yi de alıp kuzeybatıdaki Lysander tarlasına koş. Uçak şafakta kalkar.",
  "start": [
   300,
   4020

@@ -3,7 +3,8 @@
 Commandos 2: Men of Courage'dan esinlenen, 2. Dünya Savaşı'nda geçen gerçek zamanlı taktik / gizlilik oyunu.
 
 - **Motor:** Godot 4.3 · **Dil:** GDScript
-- **Tarayıcıda oyna:** https://malisah61.github.io/komando/
+- **Platformlar:** PC (Windows + Linux, en kaliteli sürüm) ve Android APK. (Web sürümü 12 Kasım 2026'da kaldırıldı.)
+- **Hepsini indir:** https://github.com/malisah61/komando/releases/tag/son-surum
 - **APK indir:** https://github.com/malisah61/komando/releases/latest/download/komando.apk
 - **Windows:** https://github.com/malisah61/komando/releases/latest/download/Komando-Windows.zip
 - **Linux:** https://github.com/malisah61/komando/releases/latest/download/Komando-Linux.zip
@@ -18,14 +19,13 @@ Kampanya, karakterler ve bölüm planı: [docs/SENARYO.md](docs/SENARYO.md)
 - Bot testi: `GODOT=godot python3 tools/bot/rapor.py` → `docs/BOT_RAPORU.md`.
 
 ## Tur 3 mekanikleri
-- **Üniforma (kılık):** Öldürdüğün ya da bayılttığın erin yanında "Üniforma Giy". Erler seni ancak çok yakından ya da koşarken fark eder; SS ve subaylar tanır. Ateş edersen ya da biri seni yakalarsa kılık açığa çıkar.
 - **Yumruk + Bağla:** SİLAH → Yumruk: arkadan yumruk askeri öldürmeden bayıltır (~40 sn). "Bağla" (ip) ile kalıcı etkisiz kalır; bağlanmazsa ayılır ve çevreyi arar. Öldürmeden etkisiz bırakmak puan kazandırır.
 - **Islık:** 190 px içindeki askerleri bulunduğun yere çeker (5 sn bekleme). Tuzak kurmak için.
 - **Dikenli tel + tel makası:** Tel örgü geçilmez ama görüşü kesmez. Tel makasın varsa telin yanında "Teli Kes" (3 sn): kendi kapını açarsın.
 - **Projektör:** Işık yol boyunca gidip gelir; içinde yarım saniye kalan görülür. Kulesindeki nöbetçiyi susturursan söner. Alarmda ışık seni kovalar.
 - **Asker yapay zekâsı v4:** tetikte kalma, ayak izini takip etme, bıçaklamaya tanık olma, SS/subay el bombası, kule gözcüsünün işareti, paylaşımlı arama.
 - **ALARM!:** Seni gören asker bağırır, alarm hemen kırmızı olur ve yakındaki askerler geniş bir alanı tarar. Takviye ise ancak siren çalınca gelir: sirene koşanı durdur.
-- **Açı değiştirme arka planda:** "Çevriliyor…" yazısı; görünmeyen açıların dokuları bellekten atılır, zemin kamera yakınında akışla yüklenir.
+- **Açı değiştirme beklemesiz (Tur 5):** "Çevir" her basışta aynı karede, sert kesmeyle döner. PC'de 4 açı yükleme ekranında belleğe alınır; telefonda bulunulan açı + iki komşusu bellekte, kalan açıya art arda basılırsa önce zemin önizlemesi görünür, nesneler yarım saniye içinde gelir.
 
 ## Tur 2 mekanikleri
 - **Taş at** (HAREKET → Taş, sonra yere dokun): düştüğü yerin 200 px çevresindeki askerler alarm vermeden bakmaya gider.
@@ -56,6 +56,8 @@ Bölüm dosyasındaki `objectives` listesi: `reach` (buluş/konuş, eşya ver), 
 
 - **Bölüm 4 – Gece Treni** (Tur 3): 6000x3800 gece demiryolu kavşağı, ~62 asker, 6 kule, 4 projektör, dikenli tel çevrili manevra sahası, kilitli nöbet barakası. Marie'den tel makası ve patlayıcı al, Kıvılcım'ı kurtar, sinyal kulübesini sabote et, sevk listesini çal, lokomotifi ve mühimmat vagonlarını uçur. `tools/gen_bolum4.py`
 - **Bölüm 5 – Kartal Yuvası** (Tur 3, final): 6400x4200 şato + havaalanı + bocage çitleri, ~76 asker, 7 kule, 5 projektör, 7 kışla, 8 siren. Santrali kes, Storch'u ve radyo kulesini uçur, kâhyadan şato anahtarını al, planları çal, Richter'i esir alıp nehirdeki tekneye götür. `tools/gen_bolum5.py`
+- **Bölüm 6 – Çelik Rampa** (Tur 4, Tur 5'te kılıksız yeniden düzenlendi): 6400x4200 V-1 orman üssü, baraj gölü, ~86 asker, 6 projektör. Kampa gizli giriş: kuzey duvardaki yıkık drenaj kanalı, taşla dikkat dağıtma, devriye zamanlaması. `tools/gen_bolum6.py`
+- **Bölüm 7 – Sisli Ada** (Tur 5): 6400x4200 Baltık roket deneme adası, kanal (2 köprü + sazlık), ~88 asker, 9 kule, 7 projektör, 5 kapılı tel. `tools/gen_bolum7.py`
 
 Yeni bölüm üreticileri `tools/bolum_lib.py` yardımcılarını kullanır (bina, asker, kule, çalı şeridi, nehir, duvarlı alan). Her bölüm için erişim testi: `godot --headless --script res://tests/sim_bolum.gd -- --level=res://levels/bolum2.json`.
 

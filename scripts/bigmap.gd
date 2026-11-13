@@ -90,6 +90,7 @@ func _draw() -> void:
 			"medkit": pcol = Color(1, 1, 1)
 			"key": pcol = Color(1, 0.9, 0.1)
 			"item": pcol = Color(0.9, 0.3, 0.2)
+			"stones": pcol = Color(0.6, 0.6, 0.58)
 		draw_circle(o + pk["pos"] * k, 5, pcol)
 	# cikis + baslangic
 	_label(o + lvl.exit_rect.get_center() * k, "ÇIKIŞ", Color(0.5, 1, 0.5), 14)
