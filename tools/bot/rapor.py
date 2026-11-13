@@ -59,13 +59,13 @@ for lv in levels:
     rs = [r for r in runs if r["_lv"] == lv]
     if not rs:
         continue
-    L += [f"## {lv}", "", "| Tarz | Tohum | Sonuç | Süre | Tespit | Hasar | Bıçak/Tabanca | Takviye | Bekleme/Geri | Ceset sakl./bulundu | Taş | Takılma | Yükleme | Puan | Biten görevler |",
-          "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|"]
+    L += [f"## {lv}", "", "| Tarz | Tohum | Sonuç | Süre | Tespit | Hasar | Bıçak/Tabanca | Takviye | Bekleme/Geri | Ceset sakl./bulundu | Taş | Takılma | Yükleme | Pencere/Takip | Puan | Biten görevler |",
+          "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|"]
     for r in rs:
         res = r["result"] + (f" ({r['reason']})" if r["reason"] else "")
         L.append(f"| {r['style']} | {r['seed']} | {res} | {mmss(r['time'])} | {r['detections']} | {int(r['damage_taken'])} | "
                  f"{r['kills_knife']}/{r['kills_pistol']} | {r['reinforcements']} | {r.get('waits',0)}/{r.get('retreats',0)} | "
-                 f"{r.get('bodies_hidden',0)}/{r.get('bodies_found',0)} | {r.get('stones',0)} | {r['stuck']} | {r.get('reloads',0)} | {r.get('points','-')} | "
+                 f"{r.get('bodies_hidden',0)}/{r.get('bodies_found',0)} | {r.get('stones',0)} | {r['stuck']} | {r.get('reloads',0)} | {r.get('windows',0)}/{r.get('pursuits',0)} | {r.get('points','-')} | "
                  f"{', '.join(o['id'] for o in r['objectives'])} |")
     wins = [r for r in rs if r["result"] == "zafer"]
     L.append("")

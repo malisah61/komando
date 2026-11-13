@@ -2,6 +2,13 @@ extends RefCounted
 ## Oyun ici "Yenilikler" ekrani: her gece turunda en uste 3-5 satir eklenir (en yeni once).
 
 const LIST := [
+	["Tur 6 – 13 Kasım 2026 (Pencereler ve takip)", [
+		"Pencereden gir / çık: her binada, haritadaki pencerelerin yerinde. Pencereye dokun ya da yanına gel; kapıdan biraz yavaş, kısa tırmanma ve ses.",
+		"Kilitli binanın pencereleri de kilitli; anahtarla kapı ve pencereler birlikte açılır. Büyük haritada pencereler mavi (kilitliyse turuncu).",
+		"Kapı deliğinden bakış gerçekçi: yalnız önündeki dar koni görünür, duvarlar görüşü keser. İçeriden \"Pencereden Bak\" da var.",
+		"Seni görüp binaya girdiğini fark eden askerler aynı kapıdan / pencereden peşinden girer; görmediyse dışarıda arar.",
+		"Askerler artık arkadan / yandan da yakında yürüyeni ya da koşanı fark eder (önce \"?\", sonra döner). Çömelip zamanlayan yine arkadan bıçaklayabilir.",
+	]],
 	["Tur 5 – 13 Kasım 2026 (Oynanış derinliği)", [
 		"\"Çevir\" artık beklemesiz: her basışta aynı karede döner, \"Çevriliyor…\" yok. PC'de 4 açı yükleme ekranında belleğe alınır.",
 		"Üniforma giyme kaldırıldı: gizlilik çalı, gölge, zamanlama ve dikkat dağıtmayla.",

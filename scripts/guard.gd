@@ -17,7 +17,14 @@ const VIEW_HALF := 0.56          # ~32 derece
 const RAYS := 24
 const NEAR_FRAC := 0.55          # koninin yakin kismi: comelen burada gorulur (Desperados III)
 const BUSH_SEE := 105.0          # caliya saklanani bu mesafeden yakin gorur (comelikse x0.7)
-const PERIPHERAL := 46.0         # arkasindan bile hissettigi mesafe (comelmeyen ve hareket eden)
+# Tur 6: koni disinda yakindan fark etme (yandan/arkadan). [yaricap px, koni hizina oran]. Alarm yaricapi ve hizi artirir,
+# yaklastikca hizlanir, duvar arkasindan olmaz (has_los), caliya cali kurali. Eski 46 px "cevresel algi" yerine.
+const NEAR_RUN := [185.0, 0.4]      # kosan: ayak sesi
+const NEAR_WALK := [112.0, 0.3]     # ayakta yuruyen
+const NEAR_STAND := [45.0, 0.12]     # ayakta duran
+const NEAR_CROUCH := [52.0, 0.1]    # comelik yuruyen (cok yavas); comelik duran: hic
+const NEAR_ALERT := [1.0, 1.2, 1.4] # alarm seviyesi -> yaricap carpani
+const NEAR_TURN := 0.3               # supheyi bu kadar dolunca durup sana doner (once yalniz "?" belirir)
 
 # rutbe -> [can, gorus carpani, tespit hizi, atis araligi (sn), hasar, isabet]
 const RANKS := {
@@ -83,6 +90,10 @@ var tied := false                 # baglandi: bir daha ayilmaz
 var _wake_t := 0.0
 const VIGIL_TIME := 45.0
 var shout_t := 0.0                # "ALARM!" diye bagiriyor (gorsel)
+# Tur 6: komandonun pesinden binaya (kapi / pencere) girme
+var _pursue = null                # {b, ext, int, out, window}
+var _climb_t := 0.0
+var sensed_near := false          # son algi koni disindan yakindan mi geldi (test / bot)
 const GRENADE_R := 72.0
 
 
@@ -201,6 +212,8 @@ func _think(delta: float) -> void:
 					timer = 1.2
 		&"combat":
 			_combat(delta)
+		&"pursue":
+			_pursue_step(delta)
 		&"alarm_run":
 			# Commandos / Desperados: asker sirene kosar; ulasirsa kirmizi alarm. Yolda durdurursan alarm calmaz.
 			if _walk(delta, 1.75) or global_position.distance_to(siren_pos) < 26.0:
@@ -264,6 +277,54 @@ func _combat(delta: float) -> void:
 			_start_search()
 
 
+func pursue_into(op: Dictionary, tgt) -> void:
+	## Tur 6: komandonun binaya girdigini gordu: ayni kapidan / pencereden pesinden girer
+	if not alive or kind == "kule":
+		return
+	_goal = null
+	_pursue = op
+	_climb_t = 0.0
+	target = tgt
+	state = &"pursue"
+	suspicion = maxf(suspicion, 0.6)
+	investigate_pos = op["ext"]
+	navigation_agent.target_position = op["ext"]
+
+
+func _pursue_step(delta: float) -> void:
+	var op: Dictionary = _pursue
+	var ext: Vector2 = op["ext"]
+	if global_position.distance_to(ext) < 24.0:
+		velocity = Vector2.ZERO
+		facing = lerp_angle(facing, (-op["out"]).angle(), minf(1.0, delta * 8.0))
+		_climb_t += delta
+		if sprite != null and op["window"]:
+			SpriteSheet.play(sprite, &"plant", facing)
+		# pencereden tirmanmak asker icin de kapidan yavas
+		if _climb_t < (1.25 if op["window"] else 0.25):
+			return
+		var inp: Vector2 = op["int"]
+		global_position = inp + Vector2(randf_range(-10, 10), randf_range(-10, 10))
+		_pursue = null
+		vigilant_t = VIGIL_TIME
+		var tg = target
+		if tg != null and is_instance_valid(tg) and tg.alive and main.level.interior_at(tg.global_position) == op["b"] \
+				and main.level.has_los(global_position, tg.global_position):
+			state = &"suspicious"
+			suspicion = 0.85
+			investigate_pos = tg.global_position
+		else:
+			_set_investigate(inp - op["out"] * 90.0)
+		target = null
+		return
+	if _walk(delta, 1.6):
+		if global_position.distance_to(ext) > 40.0:
+			# oraya varamadi: aciklik onunde ara
+			_pursue = null
+			target = null
+			_set_investigate(ext)
+
+
 func _find_cover(tp: Vector2):
 	## hedefin goremeyecegi, yakindaki bir nokta (siper)
 	var map: RID = navigation_agent.get_navigation_map()
@@ -314,12 +375,17 @@ func _start_search() -> void:
 			claimed.append_array(g._search_pts)
 			claimed.append(g._dest())
 	var tries := 0
+	var inside: int = main.level.interior_at(investigate_pos)
 	# Tur 3c: alarmda cok daha genis alan aranir (sari x1.6, kirmizi x2.6), daha cok nokta
 	var rk: float = [1.0, 1.6, 2.6][clampi(main.alert_level, 0, 2)]
 	var want: int = [3, 4, 6][clampi(main.alert_level, 0, 2)] + (1 if vigilant_t > 0.0 else 0)
 	while _search_pts.size() < want and tries < 24:
 		tries += 1
 		var p: Vector2 = investigate_pos + Vector2.from_angle(randf() * TAU) * randf_range(60, 170) * rk
+		if inside >= 0:
+			# Tur 6: bina icinde arayan icerde kalir (yakin baska ic haritaya kaymasin)
+			var ir: Rect2 = main.level.interiors[inside]["irect"].grow(-38.0)
+			p = p.clamp(ir.position, ir.end)
 		var q: Vector2 = NavigationServer2D.map_get_closest_point(map0, p)
 		var ok := true
 		for c in claimed:
@@ -350,6 +416,11 @@ func _door_hop() -> void:
 		if _goal != null:
 			navigation_agent.target_position = _goal
 			_goal = null
+		return
+	if there >= 0 and here < 0 and state != &"patrol" and main.is_locked(there) and drops != lvl.interiors[there]["locked"]:
+		# Tur 6: kilitli binaya yalniz anahtari olan asker girer
+		_goal = null
+		navigation_agent.target_position = lvl.interiors[there]["ext_door"]
 		return
 	var door: Vector2 = lvl.interiors[here]["int_door"] if here >= 0 else lvl.interiors[there]["ext_door"]
 	if global_position.distance_to(door) < 30.0:
@@ -578,8 +649,36 @@ func can_see(p: Vector2, crouched := false) -> bool:
 	return d.length() < bush_r and main.level.has_los(global_position, p, true)
 
 
+func near_sense(u, dd: float, cr: bool) -> float:
+	## Tur 6: koni disindan (yandan / arkadan) yakindan fark etme. 0 = fark etmez, yoksa koni hizina carpan.
+	var v: float = u.velocity.length()
+	var spec: Array
+	if cr:
+		if v < 1.0:
+			return 0.0
+		spec = NEAR_CROUCH
+	elif v > 150.0:
+		spec = NEAR_RUN
+	elif v > 1.0:
+		spec = NEAR_WALK
+	else:
+		spec = NEAR_STAND
+	var r: float = spec[0] * NEAR_ALERT[clampi(main.alert_level, 0, 2)] * (1.1 if vigilant_t > 0.0 else 1.0)
+	if dd > r:
+		return 0.0
+	var p: Vector2 = u.global_position
+	if not main.level.has_los(global_position, p):
+		# cali kurali: cali gorusu keser, yalniz cok yakindan (yaricapin yarisi) hissedilir; duvar/bina arkasi hic
+		if dd > r * 0.5 or not main.level.has_los(global_position, p, true):
+			return 0.0
+	var k: float = spec[1] * (0.35 + 1.3 * (1.0 - dd / r))
+	if main.alert_level >= 2:
+		k *= 1.25
+	return k
+
+
 func _watch(delta: float) -> void:
-	if state == &"combat" or state == &"alarm_run":
+	if state == &"combat" or state == &"alarm_run" or state == &"pursue":
 		return
 	# uzaktaki askerler (her oyuncudan 1500 px+) daha seyrek dusunur: buyuk haritada performans
 	if main.far_from_players(global_position):
@@ -590,20 +689,27 @@ func _watch(delta: float) -> void:
 		_far_t = 0.2
 	var spotted = null
 	var sd := 0.0
+	var near_k := 0.0
 	for u in main.players:
 		if not u.alive:
 			continue
 		var cr: bool = u.has_method("is_crouching") and u.is_crouching()
 		var dd := global_position.distance_to(u.global_position)
-		# cevresel algi: cok yakinda, ayakta ve hareket ediyorsa arkadan da hisseder
-		var feel: bool = dd < PERIPHERAL and not cr and u.velocity.length() > 1.0
-		if feel or can_see(u.global_position, cr):
+		if can_see(u.global_position, cr):
 			spotted = u
 			sd = dd
+			near_k = 0.0
 			break
+		var nk := near_sense(u, dd, cr)
+		if nk > near_k:
+			spotted = u
+			sd = dd
+			near_k = nk
 	if spotted != null:
 		var near := clampf(1.0 - sd / view_range(), 0.15, 1.0)
 		var rate := (0.7 + near * 2.6) * _stat(2)
+		if near_k > 0.0:
+			rate *= near_k        # Tur 6: koni disindan yakindan fark etme koninin icinden yavas
 		if vigilant_t > 0.0:
 			rate *= 1.15   # Tur 4: 1.25 -> 1.15 (AI v4 tespiti hedefin ustundeydi)
 		if main.alert_level == 1:
@@ -611,13 +717,18 @@ func _watch(delta: float) -> void:
 		elif main.alert_level >= 2:
 			rate *= 2.0
 		suspicion += delta * rate
-		investigate_pos = spotted.global_position
-		if state != &"suspicious":
-			state = &"suspicious"
-			velocity = Vector2.ZERO
-		if suspicion >= 1.0:
-			enter_combat(spotted)
-			return
+		sensed_near = near_k > 0.0
+		# yakindan fark etmede once yalniz "?" belirir, asker yoluna devam eder (comelip zamanlayan arkadan ulasabilir);
+		# suphe NEAR_TURN'u gecince durur, sana doner (koni de doner) ve normal gorus kurallari isler
+		if near_k <= 0.0 or state == &"suspicious" or suspicion >= NEAR_TURN:
+			investigate_pos = spotted.global_position
+			if state != &"suspicious":
+				state = &"suspicious"
+				_pursue = null
+				velocity = Vector2.ZERO
+			if suspicion >= 1.0:
+				enter_combat(spotted)
+				return
 	else:
 		suspicion = maxf(0.0, suspicion - delta * 0.35)
 

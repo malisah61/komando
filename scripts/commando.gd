@@ -44,6 +44,8 @@ var _whistle_cd := 0.0
 const WHISTLE_CD := 5.0
 var _cool := 0.0
 var _hurt_t := 0.0
+var climbing := false             # Tur 6: pencereden tirmaniyor (main yonetir)
+var climb_lift := 0.0             # tirmanirken govde yuksekligi (px)
 var ghost: AnimatedSprite2D       # bina/agac arkasindayken gorunen silüet (Commandos gibi)
 
 const GHOST_SHADER := """
@@ -135,6 +137,16 @@ func _physics_process(delta: float) -> void:
 		velocity = Vector2.ZERO
 		queue_redraw()
 		return
+	if climbing:
+		# Tur 6: pencereden tirmanma: yerinden oynamaz, comelip kalkar (plant), govde yukari-asagi
+		velocity = Vector2.ZERO
+		if sprite != null:
+			_play(&"plant")
+			sprite.position = Vector2(0, -climb_lift).rotated(SpriteSheet.view_rot)
+		queue_redraw()
+		return
+	elif sprite != null and sprite.position != Vector2.ZERO:
+		sprite.position = Vector2.ZERO
 	if target_guard != null:
 		_attack_step(delta)
 

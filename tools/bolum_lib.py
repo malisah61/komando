@@ -1,6 +1,10 @@
 """Bolum ureticileri icin ortak yardimcilar (gen_bolum2.py, gen_bolum3.py ...).
 
 Bina:  house("Ad", x, y, w, h, kapi, cati_rengi, locked="anahtar_adi")  -> ic harita otomatik
+       Pencereler de otomatik (Tur 6): her duvar parcasinda n = int((L - 20) / 64) pencere; ayni formul
+       tools/blender/harita.py (render) ve scripts/level.gd window_spots (oyun) icinde. Pencere onune
+       (duvardan 24 px disari) engel koyulan pencere oyunda kullanilmaz; sim_bolum.gd her binada en az bir
+       disaridan ulasilabilir pencere ister. Kilitli binanin pencereleri de kilitli.
 Asker: guard([[x, y], ...], facing, tur, drops="anahtar")              -> tek nokta = nobetci
 Engel: ob("bush" | "tree" | "wall" | "sandbag" | "crate" | "tower" ..., rect(...) | circle=[x, y, r])
 """

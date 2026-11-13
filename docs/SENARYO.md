@@ -175,6 +175,8 @@
 2. Ceset taşıma ve saklama
 3. Ses sistemi: atılan taş, düdük, askerin dikkatini dağıtma
 
+> Kalıcı kural (13 Kasım 2026): her binada **pencereler** (render'daki yerlerinde) alternatif giriş/çıkıştır; kilitli binanın pencereleri de kilitlidir. Yeni bölümlerde binaları tasarlarken pencere önlerini (duvardan 24 px) bilinçli açık ya da kapalı bırak.
+>
 > Kalıcı kural (12 Kasım 2026): oyunda **kılık / üniforma giyme yok**; gelecekte de eklenmeyecek. Gizlilik; çalı, gölge, zamanlama, dikkat dağıtma ve alternatif yollarla sağlanır.
 4. Alarm sonrası takviye askerler ve kaçış süreci
 5. Kayıt ve devam etme, bölüm sonu puan tablosu (süre, alarm sayısı, öldürülen asker)

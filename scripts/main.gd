@@ -10,6 +10,8 @@ const Mission = preload("res://scripts/mission.gd")
 const Npc = preload("res://scripts/npc.gd")
 const Fx = preload("res://scripts/fx.gd")
 const Kayit = preload("res://scripts/kayit.gd")
+const PeekMask = preload("res://scripts/peek_mask.gd")
+const Ses = preload("res://scripts/ses.gd")
 
 const LEVELS := [
 	["res://levels/bolum0.json", "Bölüm 0 – Normandiya Köyü", "Eğitim: küçük köy, 6 asker"],
@@ -39,6 +41,15 @@ var stats := {"kills": 0, "alarms": 0, "shots": 0}
 var cur_interior := -1        # komando hangi bina icinde (-1: dis harita)
 var pending_enter := -1       # kapiya yuruyup girilecek bina
 var peeking := false          # kapidan disari bakiyor
+# Tur 6: pencereden giris/cikis + gercekci anahtar deligi
+var pending_window := -1      # yuruyup tirmanilacak pencere
+var climb := {}               # {w, t, phase, dir: "in"/"out"} - tirmanirken komando yerinden oynamaz
+const CLIMB_TIME := 1.1       # kapi aninda; pencere biraz yavas (iki yari: tirman / in)
+var peek_from := Vector2.ZERO # bakilan acikligin onu (dis harita)
+var peek_dir := 0.0           # bakis yonu (radyan)
+var peek_mask                 # karanlik: yalniz delikten gorulen dar koni acik
+const PEEK_HALF := 0.35       # ~40 derece toplam
+const PEEK_RANGE := 520.0
 var bodies: Array = []        # olu askerler (her asker her karede tum askerleri taramasin)
 var players: Array = []       # oyuncu tarafindaki karakterler (komando + izleyenler)
 var runner = null             # sirene kosan asker
@@ -79,6 +90,10 @@ func _ready() -> void:
 	roofs.z_index = 10
 	add_child(roofs)
 	roofs_node = roofs
+	var wm = load("res://scripts/win_marks.gd").new()     # Tur 6: pencere isaretleri catilarin ustunde
+	wm.main = self
+	wm.z_index = 12
+	add_child(wm)
 
 	if not level.load_level(level_path, world, roofs):
 		return
@@ -279,7 +294,7 @@ func _dispatch_runner(p: Vector2, by) -> void:
 	var best = null
 	var bd := INF
 	for g in get_tree().get_nodes_in_group("guards"):
-		if not g.alive or g.carried or g.kind == "kule" or g.state == &"combat" and g != by:
+		if not g.alive or g.carried or g.kind == "kule" or g.state == &"pursue" or g.state == &"combat" and g != by:
 			continue
 		if g.global_position.distance_to(p) > 480.0:
 			continue
@@ -584,6 +599,8 @@ func _process(delta: float) -> void:
 			_spawn_reinforcements(pd[1], pd[2], pd[3])
 			_pending.remove_at(i)
 		i -= 1
+	if not climb.is_empty():
+		_climb_tick(delta)
 	_autosave_tick(delta)
 	_update_action()
 
@@ -614,6 +631,7 @@ func enter_building(i: int) -> void:
 		commando.move_to(commando.global_position)
 		hud.toast("%s kilitli: %s gerekli" % [it["name"], it["locked"].replace("_", " ")])
 		return
+	_notify_entry({"b": i, "ext": it["ext_door"], "int": it["int_door"], "out": it["out"], "window": false})
 	_move_party(it["int_door"])
 	cur_interior = i
 	pending_enter = -1
@@ -628,8 +646,7 @@ func exit_building() -> void:
 		return
 	var it: Dictionary = level.interiors[cur_interior]
 	cur_interior = -1
-	peeking = false
-	hud.show_peek(false)
+	_end_peek()
 	_move_party(it["ext_door"] + it["out"] * 6.0)
 	cam.position = commando.global_position
 	_clamp_cam()
@@ -649,18 +666,134 @@ func _move_party(p: Vector2) -> void:
 	c._carry_follow()
 
 
-func toggle_peek() -> void:
-	## kapidan / anahtar deliginden disari bak (Commandos 2)
+func toggle_peek(wi := -1) -> void:
+	## kapidan / anahtar deliginden (ya da pencereden) disari bak (Commandos 2).
+	## Tur 6: kamera serbest degil: yalniz acikligin onunden disari dar bir koni (~40 derece) gorunur,
+	## duvar/engel gorusu keser (Level.has_los), gerisi karanlik. Konideki askerler canli gorunur.
 	if cur_interior < 0:
 		return
-	peeking = not peeking
-	var it: Dictionary = level.interiors[cur_interior]
 	if peeking:
-		cam.position = it["ext_door"] + it["out"] * 150.0
-	else:
+		_end_peek()
 		cam.position = commando.global_position
+		_clamp_cam()
+		return
+	var it: Dictionary = level.interiors[cur_interior]
+	var o: Vector2 = it["out"]
+	peek_from = it["ext_door"] - o * 20.0
+	if wi >= 0:
+		o = level.windows[wi]["out"]
+		peek_from = level.windows[wi]["pos"] + o * 4.0
+	peek_dir = o.angle()
+	peeking = true
+	if peek_mask == null:
+		peek_mask = PeekMask.new()
+		peek_mask.main = self
+		peek_mask.z_index = 40
+		add_child(peek_mask)
+	peek_mask.open(peek_from, peek_dir, PEEK_HALF, PEEK_RANGE)
+	cam.position = peek_from + o * PEEK_RANGE * 0.45
 	_clamp_cam()
-	hud.show_peek(peeking)
+	hud.show_peek(true)
+
+
+func _end_peek() -> void:
+	peeking = false
+	if peek_mask != null:
+		peek_mask.close()
+	hud.show_peek(false)
+
+
+# ---------------- Tur 6: pencereler ----------------
+func window_locked(wi: int) -> bool:
+	return is_locked(level.windows[wi]["b"])
+
+
+func use_window(wi: int) -> void:
+	## pencereye tirman (disaridan iceri ya da icten disari). Kapidan biraz yavas: tirman + in.
+	if wi < 0 or not climb.is_empty() or not commando.alive:
+		return
+	var w: Dictionary = level.windows[wi]
+	var it: Dictionary = level.interiors[w["b"]]
+	pending_window = -1
+	if cur_interior < 0 and window_locked(wi):
+		commando.move_to(commando.global_position)
+		level.window_hint[wi] = 2.0
+		hud.toast("Pencereler de kilitli: %s gerekli" % it["locked"].replace("_", " "))
+		return
+	if commando.carrying != null:
+		hud.toast("Cesetle pencereden geçilmez: kapıyı kullan")
+		return
+	var dir := "out" if cur_interior >= 0 else "in"
+	if dir == "in":
+		_notify_entry({"b": w["b"], "ext": w["ext"], "int": w["int"], "out": w["out"], "window": true})
+	_end_peek()
+	commando.move_to(commando.global_position)
+	commando.climbing = true
+	commando.facing = (w["out"] * (-1.0 if dir == "in" else 1.0)).angle()
+	climb = {"w": wi, "t": 0.0, "phase": 0, "dir": dir}
+	stats["windows"] = stats.get("windows", 0) + 1
+	Ses.play(self, "tirman", commando.global_position)
+	# hafif tirmanma sesi: yalniz cok yakindaki (55 px) duyar; alarm seviyesini degistirmez
+	for g in get_tree().get_nodes_in_group("guards"):
+		if g.alive and g.global_position.distance_to(commando.global_position) < 55.0:
+			g.hear_distraction(commando.global_position)
+
+
+func _climb_tick(delta: float) -> void:
+	var w: Dictionary = level.windows[climb["w"]]
+	climb["t"] += delta
+	var f: float = climb["t"] / (CLIMB_TIME * 0.5)
+	commando.climb_lift = sin(clampf(f, 0.0, 1.0) * PI) * 14.0
+	if climb["phase"] == 0 and f >= 1.0:
+		# pencerenin ustunden diger tarafa gec
+		climb["phase"] = 1
+		climb["t"] = 0.0
+		var it: Dictionary = level.interiors[w["b"]]
+		if climb["dir"] == "in":
+			_move_party(w["int"])
+			cur_interior = w["b"]
+			hud.set_place("Bina içi: " + it["name"])
+			hud.toast(it["name"] + " – pencereden girdin")
+		else:
+			_move_party(w["ext"])
+			cur_interior = -1
+			hud.set_place("")
+		commando.facing = (w["out"] * (-1.0 if climb["dir"] == "in" else 1.0)).angle()
+		cam.position = commando.global_position
+		_clamp_cam()
+		Ses.play(self, "in", commando.global_position)
+	elif climb["phase"] == 1 and f >= 1.0:
+		climb = {}
+		commando.climbing = false
+		commando.climb_lift = 0.0
+
+
+func _notify_entry(op: Dictionary) -> void:
+	## Tur 6: komandoyu fark etmis / catismadaki asker onun binaya girdigini GORDUYSE ayni yerden pesinden girer.
+	## Gormediyse girmez: son gordugu yerde arar. Kilitli binaya yalniz anahtari olan asker girer.
+	var p: Vector2 = commando.global_position
+	var cr: bool = commando.is_crouching()
+	var n := 0
+	var lk: String = level.interiors[op["b"]]["locked"]
+	for g in get_tree().get_nodes_in_group("guards"):
+		if n >= 4 or not g.alive or g.carried or g.kind == "kule":
+			continue
+		if level.interior_at(g.global_position) >= 0:
+			continue
+		var d: float = g.global_position.distance_to(p)
+		var saw := false
+		if g.state == &"combat":
+			saw = d < g.view_range() * 1.25 and level.has_los(g.global_position, p)
+		elif g.suspicion >= 0.3 or g.state == &"investigate" or g.state == &"search":
+			saw = (g.suspicion >= 0.3 or alert_level >= 1) and g.can_see(p, cr)
+		if not saw:
+			continue
+		if lk != "" and is_locked(op["b"]) and g.drops != lk:
+			continue
+		g.pursue_into(op, commando)
+		n += 1
+	if n > 0:
+		stats["pursuits"] = stats.get("pursuits", 0) + n
 
 
 func _update_action() -> void:
@@ -669,6 +802,17 @@ func _update_action() -> void:
 	if not c.alive:
 		hud.set_action("", false)
 		return
+	if not climb.is_empty():
+		hud.set_action("Pencereden tırmanıyor...", false)
+		return
+	if pending_window >= 0:
+		var pw: Dictionary = level.windows[pending_window]
+		var pq: Vector2 = pw["int"] if cur_interior >= 0 else pw["ext"]
+		if c.global_position.distance_to(pq) < 22.0:
+			use_window(pending_window)
+			return
+		if c.navigation_agent.is_navigation_finished() and c.global_position.distance_to(pq) > 30.0:
+			pending_window = -1
 	# kapi gecisleri
 	if pending_enter >= 0 and c.global_position.distance_to(level.interiors[pending_enter]["ext_door"]) < 24.0:
 		enter_building(pending_enter)
@@ -678,12 +822,21 @@ func _update_action() -> void:
 		if c.global_position.distance_to(it["int_door"]) < 60.0:
 			hud.set_action("Dışarı Çık", true, func(): exit_building(), "Kapıdan Bak", func(): toggle_peek())
 			return
+		var wi: int = level.window_near(c.global_position, cur_interior)
+		if wi >= 0:
+			hud.set_action("Pencereden Çık", true, func(): use_window(wi), "Pencereden Bak", func(): toggle_peek(wi))
+			return
 	else:
 		for i in level.interiors.size():
 			if c.global_position.distance_to(level.interiors[i]["ext_door"]) < 46.0:
 				var ii: int = i
 				hud.set_action(("Kilitli: " if is_locked(i) else "Gir: ") + level.interiors[i]["name"], true, func(): enter_building(ii))
 				return
+		var wo: int = level.window_near(c.global_position, -1)
+		if wo >= 0 and c.carrying == null:
+			var nm: String = level.interiors[level.windows[wo]["b"]]["name"]
+			hud.set_action(("Kilitli pencere: " if window_locked(wo) else "Pencereden Gir: ") + nm, true, func(): use_window(wo))
+			return
 	if c.carrying != null:
 		hud.set_action("Cesedi Bırak", true, func(): c.drop_body())
 		return
@@ -824,7 +977,7 @@ func _unhandled_input(e: InputEvent) -> void:
 	elif e is InputEventMouseMotion and pressed:
 		if e.position.distance_to(press_pos) > 14:
 			dragging = true
-		if dragging and touches.size() < 2:
+		if dragging and touches.size() < 2 and not peeking:   # Tur 6: delikten bakarken kamera serbest degil
 			cam.position -= e.relative.rotated(cam.rotation) / cam.zoom
 			_clamp_cam()
 
@@ -874,17 +1027,10 @@ func _clamp_cam() -> void:
 
 
 func _tap(p: Vector2) -> void:
-	if game_over or peeking:
+	if game_over or peeking or not climb.is_empty():
 		return
-	# dis haritada bir binaya dokunuldu: kapiya yuru ve gir
-	if cur_interior < 0:
-		var bi: int = level.interior_of_ext(p)
-		if bi >= 0:
-			pending_enter = bi
-			commando.move_to(level.interiors[bi]["ext_door"])
-			return
-	pending_enter = -1
-	# cift dokunus: kos (Kos secili olmasa da bu hareket icin)
+	pending_window = -1
+	# cift dokunus: kos (Kos secili olmasa da bu hareket icin; pencereye / kapiya kosarken de)
 	var now := Time.get_ticks_msec() / 1000.0
 	var dbl := now - _last_tap_t < 0.35 and p.distance_to(_last_tap_p) < 60.0
 	_last_tap_t = now
@@ -900,6 +1046,40 @@ func _tap(p: Vector2) -> void:
 		if g.alive and (p.distance_to(g.global_position) < 28 or p.distance_to(g.global_position + Vector2(0, -20)) < 26):
 			commando.attack(g)
 			return
+	# Tur 6: pencereye dokunuldu (dis harita: pencerenin onu ya da duvardaki yeri; ic: pencerenin dibi)
+	var twi := -1
+	var tbd := 34.0
+	for w in level.windows:
+		if cur_interior >= 0:
+			if w["b"] != cur_interior:
+				continue
+			var di: float = minf(p.distance_to(w["int"]), p.distance_to(w["iwall"]))
+			if di < tbd:
+				tbd = di
+				twi = w["i"]
+		else:
+			var de: float = minf(p.distance_to(w["ext"]), p.distance_to(w["pos"]))
+			if de < tbd:
+				tbd = de
+				twi = w["i"]
+	if twi >= 0:
+		level.window_hint[twi] = 2.5
+		pending_enter = -1
+		pending_window = twi
+		var tw: Dictionary = level.windows[twi]
+		commando.move_to(tw["int"] if cur_interior >= 0 else tw["ext"])
+		commando.run_once = dbl
+		if cur_interior < 0 and window_locked(twi):
+			hud.toast("Pencere kilitli: %s gerekli" % level.interiors[tw["b"]]["locked"].replace("_", " "))
+		return
+	# dis haritada bir binaya dokunuldu: kapiya yuru ve gir
+	if cur_interior < 0:
+		var bi: int = level.interior_of_ext(p)
+		if bi >= 0:
+			pending_enter = bi
+			commando.move_to(level.interiors[bi]["ext_door"])
+			return
+	pending_enter = -1
 	commando.move_to(p)
 	commando.run_once = dbl
 	if dbl:

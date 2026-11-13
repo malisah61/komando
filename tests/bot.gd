@@ -88,7 +88,7 @@ func _initialize() -> void:
 		"time": 0.0, "objectives": [], "detections": 0, "detected_by": {}, "alarm_yellow": 0, "alarm_red": 0,
 		"reinforcements": 0, "damage_taken": 0.0, "kills_knife": 0, "kills_pistol": 0, "kills_other": 0,
 		"shots": 0, "medkits_used": 0, "stuck": 0, "stuck_spots": [], "detect_spots": [], "death_pos": null,
-		"hp_end": 0.0, "waits": 0, "retreats": 0, "guards": 0, "time_crouched": 0.0, "time_in_combat": 0.0, "interior_visits": 0,
+		"hp_end": 0.0, "waits": 0, "retreats": 0, "guards": 0, "time_crouched": 0.0, "time_in_combat": 0.0, "interior_visits": 0, "windows": 0,
 		"stones": 0, "bodies_hidden": 0, "runners_shot": 0, "reloads": 0, "saves": 0, "deaths": [], "load_ms": []}
 
 
@@ -398,25 +398,102 @@ func _go(target: Vector2) -> void:
 		c.navigation_agent.target_position = wp
 
 
-func _go_dest(target: Vector2) -> void:
-	## kapilardan gecerek hedefe git
+var _open_key := ""                # Tur 6: secilen aciklik (kapi / pencere) icin onbellek
+var _open_t := 0.0
+var _open = null                  # [tur "door"/"win", pencere indeksi, ic nokta, dis nokta]
+
+
+func _watched(p: Vector2) -> bool:
+	## bu noktaya bakan (konisindeki) asker var mi
+	for g in _guards():
+		if g.alive and not g.carried and g.global_position.distance_to(p) < 400.0 and g.can_see(p, true):
+			return true
+	return false
+
+
+func _danger_at(p: Vector2) -> float:
+	if astar == null:
+		return 0.0
+	var ci := Vector2i(p / CELL)
+	if astar.is_in_boundsv(ci) and not astar.is_point_solid(ci):
+		return astar.get_point_weight_scale(ci)
+	return 0.0
+
+
+func _pick_opening(b: int, inside: bool, target: Vector2) -> Array:
+	## iyi oyuncu gibi: kapi mi pencere mi? Yakin, bakilmayan, tehlikesiz olani sec (pencere tirmanmasi biraz yavas).
 	var lvl = main.level
 	var c = main.commando
+	var it: Dictionary = lvl.interiors[b]
+	var cands: Array = [["door", -1, it["int_door"], it["ext_door"]]]
+	if opts["style"] != "saldiri" and not (c.carrying != null) and not OS.has_environment("DENEY_PENCERE_YOK"):   # deney: pencere kullanmayan bot
+		for wi in it["windows"]:
+			var w: Dictionary = lvl.windows[wi]
+			if not inside and main.window_locked(wi):
+				continue
+			cands.append(["win", wi, w["int"], w["ext"]])
+	var best: Array = cands[0]
+	var bs := INF
+	for cd in cands:
+		var sc := 0.0
+		if inside:
+			sc = c.global_position.distance_to(cd[2]) + cd[3].distance_to(target)
+		else:
+			sc = c.global_position.distance_to(cd[3]) + cd[2].distance_to(target)
+		if cd[0] == "win":
+			sc += 140.0           # tirmanma yavas ve sesli: yalniz belirgin kisa yolsa
+			for g in _guards():
+				if g.alive and not g.carried and (g.global_position.distance_to(cd[3]) < 260.0 or g.global_position.distance_to(cd[2]) < 200.0):
+					sc += 600.0   # pencerenin onunde/icinde asker var: tirmanirken yakalanir
+					break
+		sc += _danger_at(cd[3]) * 40.0
+		if _watched(cd[3]):
+			sc += 500.0
+		if sc < bs:
+			bs = sc
+			best = cd
+	return best
+
+
+func _go_dest(target: Vector2) -> void:
+	## kapilardan (Tur 6: ya da pencerelerden) gecerek hedefe git
+	var lvl = main.level
+	var c = main.commando
+	if not main.climb.is_empty():
+		return                      # pencereden tirmaniyor
 	var here: int = main.cur_interior
 	var there: int = lvl.interior_at(target)
 	var dest := target
 	if here != there:
+		var b: int = here if here >= 0 else there
+		var key := "%d_%d_%d" % [here, there, b]
+		_open_t -= 1.0 / 60.0
+		if _open == null or key != _open_key or _open_t <= 0.0:
+			_open = _pick_opening(b, here >= 0, target)
+			_open_key = key
+			_open_t = 3.0
+		var op: Array = _open
 		if here >= 0:
-			dest = lvl.interiors[here]["int_door"]
-			if c.global_position.distance_to(dest) < 34.0:
-				main.exit_building()
+			dest = op[2]
+			if c.global_position.distance_to(dest) < (34.0 if op[0] == "door" else 22.0):
+				if op[0] == "door":
+					main.exit_building()
+				else:
+					main.use_window(op[1])
+					rep["windows"] = rep.get("windows", 0) + 1
+				_open = null
 				repath_t = 0.0
 				return
 		else:
-			dest = lvl.interiors[there]["ext_door"]
-			if c.global_position.distance_to(dest) < 30.0:
-				main.enter_building(there)
+			dest = op[3]
+			if c.global_position.distance_to(dest) < (30.0 if op[0] == "door" else 22.0):
+				if op[0] == "door":
+					main.enter_building(there)
+				else:
+					main.use_window(op[1])
+					rep["windows"] = rep.get("windows", 0) + 1
 				rep["interior_visits"] += 1
+				_open = null
 				repath_t = 0.0
 				return
 	if repath_t <= 0.0 or _want.distance_to(dest) > 30.0:
@@ -652,6 +729,9 @@ func _watcher(p: Vector2):
 			continue
 		if main.level.interior_at(g.global_position) != main.cur_interior:
 			continue
+		# Tur 6: koni disindan yakindan seziyor ("?") - iyi oyuncu da fark eder
+		if g.sensed_near and g.suspicion > 0.05 and g.global_position.distance_to(p) < 240.0:
+			return g
 		var d: Vector2 = p - g.global_position
 		var cr: bool = c.is_crouching()
 		if d.length() > g.view_range() * (g.NEAR_FRAC * 1.25 if cr else 1.05):
@@ -675,7 +755,9 @@ func _stealth_hold(dt: float) -> bool:
 	if w != null and w.suspicion > 0.35 and safe_pos != Vector2.ZERO and safe_pos.distance_to(c.global_position) > 20.0:
 		rep["retreats"] += 1
 		c.move_to(safe_pos)
-		c.run_once = true
+		# Tur 6: kosmak yakindaki askerlere duyulur (~200 px): supheyi iyice dolduran konideyse kos, yoksa comelerek cekil
+		c.run_once = w.suspicion > 0.6 and not w.sensed_near
+		c.crouch = not c.run_once
 		wait_t = 0.0
 		return true
 	if c.navigation_agent.is_navigation_finished():
@@ -1052,6 +1134,7 @@ func _finish() -> void:
 		seen[o["id"]] = true
 		return true)
 	rep["time"] = round(t)
+	rep["pursuits"] = main.stats.get("pursuits", 0)
 	rep["hp_end"] = round(c.hp)
 	if main.game_over and c.alive:
 		rep["result"] = "zafer"

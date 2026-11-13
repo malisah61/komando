@@ -37,8 +37,12 @@ static func why_not(main) -> String:
 	if main.mission == null:
 		return "Bölüm yüklenmedi"
 	for g in main.get_tree().get_nodes_in_group("guards"):
-		if g.alive and (g.state == &"combat" or g.state == &"alarm_run"):
+		if g.alive and (g.state == &"combat" or g.state == &"alarm_run" or g.state == &"pursue"):
+			if g.state == &"pursue":
+				return "Peşinde asker var: kaydedilemez"
 			return "Çatışmada kaydedilemez" if g.state == &"combat" else "Sirene koşan var: kaydedilemez"
+	if not main.climb.is_empty():
+		return "Pencereden tırmanırken kaydedilemez"
 	if main._pending.size() > 0:
 		return "Takviye yolda: kaydedilemez"
 	if main.mission.bombs.size() > 0:

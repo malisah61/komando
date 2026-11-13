@@ -63,6 +63,13 @@ func _draw() -> void:
 		var r: Rect2 = it["rect"]
 		draw_rect(Rect2(o + r.position * k, r.size * k), Color(0.95, 0.85, 0.5, 0.9), false, 2.0)
 		_label(o + r.get_center() * k, it["name"], Color(1, 0.95, 0.75), 13)
+	# Tur 6: pencereler (girilebilenler mavi, kilitli binanin pencereleri turuncu)
+	for w in lvl.windows:
+		var lk: bool = main.is_locked(w["b"])
+		var wc := Color(1, 0.6, 0.2, 0.95) if lk else Color(0.55, 0.85, 1.0, 0.95)
+		var wp: Vector2 = o + w["pos"] * k
+		var al: Vector2 = Vector2(-w["out"].y, w["out"].x) * maxf(3.0, 10.0 * k)
+		draw_line(wp - al, wp + al, wc, 3.0)
 	# kislalar
 	for bk in main.barracks:
 		_label(o + bk[0] * k + Vector2(0, 18), "Kışla (%d)" % bk[1], Color(1, 0.5, 0.4), 12)

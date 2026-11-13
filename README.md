@@ -39,8 +39,10 @@ Kampanya, karakterler ve bölüm planı: [docs/SENARYO.md](docs/SENARYO.md)
 
 ## Bina içleri ve harita
 - Binaya dokun: komando kapıya yürür ve içeri girer. Bina içi ayrı bir haritadır (2 kat büyük, binaya özel eşyalar).
-- İçeride "Kapıdan Bak" ile anahtar deliğinden dışarıdaki askerleri izle. "Dışarı Çık" ile çık.
-- Askerler de kapıları kullanır: binaya kaçarsan peşinden gelirler.
+- **Pencereler (Tur 6):** her binada, Blender render'ındaki pencerelerin yerinde (`Level.window_spots` = `harita.py` yerleşimi). Pencereye dokun ya da yanına gel: "Pencereden Gir" / içeriden "Pencereden Çık". Kapıdan biraz yavaş (≈1,1 sn tırmanma + ses). Kilitli binanın pencereleri de kilitli; anahtar kapıyı ve pencereleri birlikte açar. Büyük haritada mavi çizgi (kilitliyse turuncu).
+- İçeride "Kapıdan Bak" / "Pencereden Bak": yalnız açıklığın önündeki dar koni (~40°) görünür, duvar ve engeller görüşü keser, gerisi karanlık. "Dışarı Çık" ile çık.
+- Askerler de kapıları kullanır. Seni görüp binaya (kapı ya da pencere) girdiğini fark eden askerler aynı yerden peşinden girer ve içeride arar; görmediyse son gördüğü yerde arar. Kilitli binaya yalnız anahtarı olan asker girer.
+- **Yakından fark etme (Tur 6):** koninin dışından (yandan/arkadan) da: ayakta yürürken ~110 px, koşarken ~185 px (ses), çömelik yürürken ~50 px (çok yavaş), çömelik dururken hiç. Önce "?" belirir, şüphe dolunca asker döner (koni de döner). Alarm mesafeyi ve hızı artırır, duvar arkasından olmaz.
 - Mini haritaya dokun: büyük harita açılır (binalar, kışlalar, görevler, eşyalar, çıkış).
 
 ## Görev sistemi

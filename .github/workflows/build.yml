@@ -71,6 +71,12 @@ jobs:
           ~/godot/godot --headless -s res://tests/sim_aci.gd -- --level=res://levels/bolum5.json --kip=pc
           ~/godot/godot --headless -s res://tests/sim_aci.gd -- --level=res://levels/bolum5.json --kip=mobil
 
+      - name: Pencere / kapı deliği / takip / yakından fark etme testi (Tur 6)
+        run: |
+          ~/godot/godot --headless -s res://tests/sim_pencere.gd -- --level=res://levels/bolum1.json
+          ~/godot/godot --headless -s res://tests/sim_pencere.gd -- --level=res://levels/bolum6.json
+          ~/godot/godot --headless -s res://tests/sim_bolum.gd -- --level=res://levels/bolum7.json
+
       - name: PC derlemesi (Windows + Linux, en kaliteli sürüm)
         run: |
           mkdir -p build/windows build/linux build/dist

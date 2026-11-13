@@ -229,7 +229,7 @@ func _ready() -> void:
 	peek_rect.material = pm
 	peek_rect.visible = false
 	root.add_child(peek_rect)
-	peek_btn = _button("Kapıdan Çekil", false)
+	peek_btn = _button("Bakmayı Bırak", false)
 	peek_btn.custom_minimum_size = Vector2(220, 60)
 	peek_btn.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
 	peek_btn.grow_horizontal = Control.GROW_DIRECTION_BOTH

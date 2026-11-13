@@ -108,6 +108,32 @@ func _physics_process(_delta: float) -> bool:
 			print("    bina kapisina yol yok: ", it["name"])
 			bad += 1
 	check(bad == 0, "esya, kisla, siren ve bina kapilari erisilebilir")
+	# Tur 6: pencereler (her binada, render'daki pencere yerlerinde): disaridan ve iceriden erisilebilir
+	var wbad := 0
+	var wout := 0
+	var per := {}
+	for w in lvl.windows:
+		var it2: Dictionary = lvl.interiors[w["b"]]
+		if _inside_solid(w["ext"]) or _inside_solid(w["int"]):
+			print("    pencere noktasi engel icinde: ", it2["name"], " ", w["ext"])
+			wbad += 1
+			continue
+		if not lvl.reach(map, it2["int_door"], w["int"]):
+			print("    pencerenin ic noktasina yol yok: ", it2["name"], " ", w["int"])
+			wbad += 1
+			continue
+		if not lvl.reach(map, lvl.start, w["ext"]):
+			wout += 1          # disaridan ulasilamayan (avlu duvari, kayalik...): oyunda kullanilmaz
+			continue
+		per[w["b"]] = per.get(w["b"], 0) + 1
+	var nob := []
+	for i in lvl.interiors.size():
+		if not per.has(i):
+			nob.append(lvl.interiors[i]["name"])
+	print("    pencere: %d (disaridan ulasilamayan %d), pencereli bina %d/%d %s" % [lvl.windows.size(), wout, per.size(), lvl.interiors.size(), str(nob)])
+	check(wbad == 0 and lvl.windows.size() > 0, "pencereler gecerli (ic noktalar erisilebilir)")
+	check(nob.is_empty(), "her binanin disaridan ulasilabilir en az bir penceresi var")
 	# zorluk olcutu: bir onceki bolumden buyuk ve kalabalik
-	check(lvl.data["guards"].size() >= 30, "yeterli asker (%d)" % lvl.data["guards"].size())
+	var min_g := 5 if (lvl_path.ends_with("bolum0.json") or lvl_path.ends_with("bolum1.json")) else 30   # egitim + ilk bolum kucuk
+	check(lvl.data["guards"].size() >= min_g, "yeterli asker (%d)" % lvl.data["guards"].size())
 	return false

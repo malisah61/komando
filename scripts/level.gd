@@ -86,7 +86,13 @@ const ISCALE := 2.0
 const IWALL := 16.0
 const IWALL_H := 64.0
 const IDOOR := 76.0
-var interiors: Array = []         # {name, rect, irect, side, ext_door, int_door, out, locked}
+var interiors: Array = []         # {name, rect, irect, side, ext_door, int_door, out, locked, windows}
+# Tur 6: pencereden giris/cikis. {b: bina, pos: dis duvar yuzu, out: disa normal, ext: disaridaki durma noktasi,
+# int: ic haritadaki durma noktasi, iwall: ic duvardaki yeri}. Kilitli binanin pencereleri de kilitlidir.
+var windows: Array = []
+const WIN_OUT := 24.0
+const WIN_NEAR := 40.0           # bu kadar yakindaysa "Pencereden Gir / Cik"
+var window_hint := {}             # pencere indeksi -> kalan vurgulama suresi (dokununca belli olsun)
 var cover_polys: Array = []       # [PackedVector2Array, Rect2] - siper
 var sirens: Array = []            # Vector2 - alarm sireni (asker kosup calar)
 var siren_on := 0.0               # siren calma suresi (gorsel)
@@ -159,6 +165,7 @@ func load_level(path: String, world: Node2D, roofs: Node2D) -> bool:
 		_build_obstacle(o, world)
 	if art:
 		_build_art(art_dir, world, roofs)
+	_filter_windows()
 	for i in interiors.size():
 		_build_interior(i, world)
 
@@ -210,11 +217,8 @@ func _build_obstacle(o: Dictionary, world: Node2D) -> void:
 		wires[-1]["prop"] = p
 
 
-func _build_building(b: Dictionary, world: Node2D, roofs: Node2D) -> void:
-	var r: Array = b["rect"]
-	var rect := Rect2(r[0], r[1], r[2], r[3])
-	floors.append(rect)
-	var door: String = b.get("door", "S")
+static func wall_rects(rect: Rect2, door: String) -> Array[Rect2]:
+	## binanin dis duvarlari (tools/blender/harita.py building_walls ile ayni sira ve olculer)
 	var x0 := rect.position.x
 	var y0 := rect.position.y
 	var x1 := rect.end.x
@@ -223,31 +227,54 @@ func _build_building(b: Dictionary, world: Node2D, roofs: Node2D) -> void:
 	var cy := rect.get_center().y
 	var hd := DOOR * 0.5
 	var walls: Array[Rect2] = []
-	# kuzey
 	if door == "N":
 		walls.append(Rect2(x0, y0, cx - hd - x0, WALL))
 		walls.append(Rect2(cx + hd, y0, x1 - cx - hd, WALL))
 	else:
 		walls.append(Rect2(x0, y0, rect.size.x, WALL))
-	# guney
 	if door == "S":
 		walls.append(Rect2(x0, y1 - WALL, cx - hd - x0, WALL))
 		walls.append(Rect2(cx + hd, y1 - WALL, x1 - cx - hd, WALL))
 	else:
 		walls.append(Rect2(x0, y1 - WALL, rect.size.x, WALL))
-	# bati
 	if door == "W":
 		walls.append(Rect2(x0, y0 + WALL, WALL, cy - hd - y0 - WALL))
 		walls.append(Rect2(x0, cy + hd, WALL, y1 - WALL - cy - hd))
 	else:
 		walls.append(Rect2(x0, y0 + WALL, WALL, rect.size.y - WALL * 2))
-	# dogu
 	if door == "E":
 		walls.append(Rect2(x1 - WALL, y0 + WALL, WALL, cy - hd - y0 - WALL))
 		walls.append(Rect2(x1 - WALL, cy + hd, WALL, y1 - WALL - cy - hd))
 	else:
 		walls.append(Rect2(x1 - WALL, y0 + WALL, WALL, rect.size.y - WALL * 2))
+	return walls
 
+
+static func window_spots(rect: Rect2, door: String) -> Array:
+	## Tur 6: pencereler, Blender render'indaki pencerelerle ayni yerde (harita.py: her duvar parcasinda
+	## n = int((L - 20) / 64) pencere, x + 10 + (L - 20) * (k + 0.5) / n). [dis yuzdeki nokta, disa normal]
+	var out: Array = []
+	var c := rect.get_center()
+	for w in wall_rects(rect, door):
+		var horiz := w.size.x >= w.size.y
+		var L := w.size.x if horiz else w.size.y
+		var n := int((L - 20.0) / 64.0)
+		for k in n:
+			var t0 := (k + 0.5) / n
+			if horiz:
+				var o := 1.0 if w.get_center().y > c.y else -1.0
+				out.append([Vector2(w.position.x + 10.0 + (L - 20.0) * t0, w.end.y if o > 0.0 else w.position.y), Vector2(0, o)])
+			else:
+				var o2 := 1.0 if w.get_center().x > c.x else -1.0
+				out.append([Vector2(w.end.x if o2 > 0.0 else w.position.x, w.position.y + 10.0 + (L - 20.0) * t0), Vector2(o2, 0)])
+	return out
+
+
+func _build_building(b: Dictionary, world: Node2D, roofs: Node2D) -> void:
+	var r: Array = b["rect"]
+	var rect := Rect2(r[0], r[1], r[2], r[3])
+	floors.append(rect)
+	var walls: Array[Rect2] = wall_rects(rect, b.get("door", "S"))
 	var wall_props: Array = []
 	for w in walls:
 		var pts := _rect_poly(w)
@@ -308,7 +335,74 @@ func _plan_interiors() -> void:
 		var iedge := ic + Vector2(out.x * ir.size.x / 2, out.y * ir.size.y / 2)
 		interiors.append({"name": bd.get("name", "Bina"), "rect": rect, "irect": ir, "side": side, "out": out,
 			"ext_door": edge + out * 26.0, "int_door": iedge - out * 40.0, "specials": [],
-			"locked": str(bd.get("locked", ""))})
+			"locked": str(bd.get("locked", "")), "windows": []})
+		# Tur 6: pencereler (dis harita sanatindaki pencerelerle ayni yer); ic haritada karsiligi
+		var bi := interiors.size() - 1
+		for ws in window_spots(rect, side):
+			var wp: Vector2 = ws[0]
+			var wo: Vector2 = ws[1]
+			var ip: Vector2 = ir.position + (wp - rect.position) * ISCALE - wo * (IWALL + 26.0)
+			var inner := ir.grow(-IWALL - 22.0)
+			ip = ip.clamp(inner.position, inner.end)
+			windows.append({"b": bi, "pos": wp, "out": wo, "ext": wp + wo * WIN_OUT, "int": ip,
+				"iwall": ir.position + (wp - rect.position) * ISCALE})
+
+
+func _blocked_at(p: Vector2, r: float) -> bool:
+	for q in [p, p + Vector2(r, 0), p - Vector2(r, 0), p + Vector2(0, r), p - Vector2(0, r)]:
+		for i in move_polys.size():
+			if _move_bb[i].has_point(q) and Geometry2D.is_point_in_polygon(q, move_polys[i]):
+				return true
+	return false
+
+
+var _move_bb: Array = []
+
+
+func _filter_windows() -> void:
+	## disaridaki durma noktasi engelde / baska binada / harita disinda olan pencereler kullanilmaz
+	## (render'da yine gorunur ama oradan girilmez: kapali, onunde duvar/cit var)
+	_move_bb.clear()
+	for poly in move_polys:
+		var bb := Rect2(poly[0], Vector2.ZERO)
+		for q in poly:
+			bb = bb.expand(q)
+		_move_bb.append(bb)
+	var keep: Array = []
+	var map_r := Rect2(Vector2.ZERO, size).grow(-16.0)
+	for w in windows:
+		var e: Vector2 = w["ext"]
+		var ok := map_r.has_point(e)
+		if ok:
+			for it in interiors:
+				if it["rect"].grow(6.0).has_point(e):
+					ok = false
+					break
+		if ok and e.distance_to(interiors[w["b"]]["ext_door"]) < 40.0:
+			ok = false            # kapinin hemen yani: kapi zaten orada
+		if ok and _blocked_at(e, 12.0):
+			ok = false
+		if ok:
+			w["i"] = keep.size()
+			keep.append(w)
+			interiors[w["b"]]["windows"].append(w["i"])
+	windows = keep
+	_move_bb.clear()
+
+
+func window_near(p: Vector2, inside: int, dist := WIN_NEAR) -> int:
+	## komandonun yanindaki pencere (inside: ic haritadaysa bina indeksi, disaridaysa -1)
+	var best := -1
+	var bd := dist
+	for w in windows:
+		if inside >= 0 and w["b"] != inside:
+			continue
+		var q: Vector2 = w["int"] if inside >= 0 else w["ext"]
+		var d := p.distance_to(q)
+		if d < bd:
+			bd = d
+			best = w["i"]
+	return best
 
 
 func in_cover(p: Vector2, from: Vector2) -> bool:
@@ -466,6 +560,17 @@ func _build_interior(i: int, world: Node2D) -> void:
 			var gy := y0 + ir.size.y * 0.5
 			walls.append(Rect2(px, y0, IWALL, gy - 45 - y0))
 			walls.append(Rect2(px, gy + 45, IWALL, y1 - gy - 45))
+	# Tur 6: pencerelerin ic noktalari bos kalsin (mobilya konmaz); ara duvara denk gelen kaydirilir
+	for wi in it["windows"]:
+		var wd: Dictionary = windows[wi]
+		for w in walls:
+			if w.grow(16.0).has_point(wd["int"]):
+				var cen: Vector2 = w.get_center()
+				if w.size.x < w.size.y:
+					wd["int"].x += 40.0 if wd["int"].x >= cen.x else -40.0
+				else:
+					wd["int"].y += 40.0 if wd["int"].y >= cen.y else -40.0
+		specials.append(wd["int"])
 	for w in walls:
 		if w.size.x <= 1.0 or w.size.y <= 1.0:
 			continue
@@ -1282,6 +1387,11 @@ func _process(delta: float) -> void:
 			footprints.remove_at(i)
 		i -= 1
 	_redraw_t -= delta
+	if not window_hint.is_empty():
+		for k in window_hint.keys():
+			window_hint[k] -= delta
+			if window_hint[k] <= 0.0:
+				window_hint.erase(k)
 	if siren_on > 0.0:
 		siren_on -= delta
 		_redraw_t = minf(_redraw_t, 0.12)
@@ -1453,6 +1563,16 @@ func _draw_overlays(font: Font) -> void:
 		if blink:
 			draw_circle(Vector2(0, -51), 26.0, Color(1, 0.2, 0.1, 0.25))
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	# Tur 6: pencereler. Ic haritada: duvar dibinde pencereden dusen isik + cerceve (hep).
+	# Disaridaki isaret cati/duvar sprite'larinin ustunde: scripts/win_marks.gd
+	for w in windows:
+		var o: Vector2 = w["out"]
+		var along := Vector2(-o.y, o.x)
+		var iw: Vector2 = w["iwall"] - o * (IWALL + 2.0)
+		var lp := PackedVector2Array([iw - along * 22.0, iw + along * 22.0, iw + along * 30.0 - o * 46.0, iw - along * 30.0 - o * 46.0])
+		draw_colored_polygon(lp, Color(1.0, 0.95, 0.75, 0.13))
+		draw_line(iw - along * 22.0, iw + along * 22.0, Color(0.55, 0.75, 0.9), 5.0)
+		draw_line(iw - along * 24.0, iw + along * 24.0, Color(0.3, 0.2, 0.12), 2.0)
 	# kilitli kapilar: asma kilit
 	for it in interiors:
 		if it["locked"] != "" and not (m != null and m.items.has(it["locked"])):
