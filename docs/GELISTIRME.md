@@ -420,3 +420,78 @@ Saldırı tarzı Bölüm 1–6'da 0/3 (pervasızlık cezalandırılıyor ✔). T
 - Godot 4.3 `var_to_str` / `str_to_var`, `FileAccess`, `DirAccess.rename_absolute`: https://docs.godotengine.org/en/4.3/classes/class_%40globalscope.html · https://docs.godotengine.org/en/4.3/tutorials/io/saving_games.html
 - Önce geçici dosyaya yazıp yer değiştirme: https://docs.godotengine.org/en/4.3/classes/class_diraccess.html
 - Commandos 2 (bölüm içi hızlı kayıt) tasarım referansı: https://commandos.shoutwiki.com/wiki/Commandos_2
+
+## Tur 5 – Gece turu (13 Kasım 2026, Cuma: OYNANIŞ DERİNLİĞİ)
+
+### 0. Oyuncu Notları
+Yeni not yoktu (Hatalar/Zorluk bölümlerindeki satırlar örnek). Kullanıcının 12 Kasım 22:05 öncelikli istekleri yapıldı (aşağıda 1–3).
+
+### 1. Web kaldırıldı
+- `build.yml`: Web derlemesi, gh-pages yayını, Pages paketi ve `pages` işi silindi; iş akışı adı "Derle (Android + Windows + Linux)". PC derlemesi artık `continue-on-error` değil (PC ana sürüm).
+- `export_presets.cfg`: Web preset'i silindi (Android = 0, Windows = 1, Linux = 2). `varlik_ayarlari.json`: Web filtresi ve `web_pck` bütçesi silindi, **PC zip bütçesi 120 → 300 MB**. `hat.py butce` Web satırı yok. Web'e özel yorumlar temizlendi.
+- README'den `github.io` linki çıkarıldı. **Not:** `gh-pages` dalını silmek oturum izinleri tarafından engellendi; eski web derlemesi depo ayarlarında Pages kapatılana kadar yayında kalabilir.
+
+### 2. "Çevir" beklemesiz (açılar bellekte)
+- `level.gd` açı önbelleği: her açı kendi sprite kümesi (`_views[k]`), geçiş = görünürlük değiştirme (sert kesme, aynı kare). `request_view` artık hiç beklemez; `view_loading` hep -1, "Çevriliyor…" hiç gösterilmez (`main.rotate_view`).
+- **PC** (`OS.has_feature("pc")`): 4 açının atlasları yükleme ekranında paralel iş parçacıklarıyla istenir, sprite'lar kurulur. **Telefon:** bulunulan + iki komşu açı kurulu; karşı açıya art arda iki basışta hemen geçilir, zemin önizlemesi (`ground_mini`, 4 açının ortak düşük çözünürlüklü yer tutucusu) görünür, atlas sayfaları **sırayla** yüklenir (her GPU yüklemesi ayrı kareye düşsün), sprite'lar kare başına 160 (bakılan) / 48 (komşu) kurulur. Bırakılan açının sprite'ları kare başına 64 silinir; yüklenmekte olan dokular ana iş parçacığını bekletmeden toplanır.
+- Komşu açıların zemin karoları da kamera çevresinde akar (yalnız ekran alanı, 0,1 sn'de en çok 1 karo): çevrilince ilk kare dolu.
+- Testler: **`tests/sim_aci.gd`** (CI'da her derlemede, PC ve telefon kipi): ileri, geri, aynı karede iki geri, art arda üçüncü, iki adım; her basışta aynı karede geçiş, "Çevriliyor…" yok, yalnız bakılan açının sprite'ları görünür, çatılar doğru açıya bağlı, bellekteki açılar doğru. **`tests/perf.gd`**: 10 basışlık dizi (art arda, ters yön, aynı karede), `KIP=pc|mobil`.
+
+| Bölüm 5, llvmpipe (yazılım GPU, xvfb) | Önce (Tur 4) | PC kipi | Telefon kipi |
+|---|---|---|---|
+| Normal oynanış en yavaş kare | 50,5 ms | 55–61 ms | 56–70 ms |
+| Çevir: bekleme | 72 ms ("Çevriliyor…") | **0 (aynı kare)** | **0 (aynı kare)** |
+| Basıştan sonraki en yavaş kare | 71,9 ms | **44,6–60 ms** (normal kare düzeyi) | 95–99 ms (bellekte olmayan açıya hızlı basışta atlas yüklemesi) |
+| Bölüm açılışı | 1059 ms | 1440–1570 ms (+4 açı) | 1320 ms |
+| Doku belleği (en yüksek) | 359 MB | 784 MB | 556–620 MB |
+| Kayıt yükleme | 385 ms | 190 ms | 157–169 ms |
+
+Not: bu makinede GPU yok (llvmpipe her doku yüklemesini işlemciyle yapar, normal kare zaten ~38 ms). 33 ms hedefi telefonda gerçek cihazda ölçülmeli; PC kipinde çevirme normal kareden yavaş değil.
+
+### 3. Kılık / üniforma sistemi kaldırıldı
+- Silindi: `commando.disguise`, `put_on_uniform`, `blow_disguise`, `_set_outfit`, "Üniforma Giy" düğmesi (`main.gd`), `guard.gd`'de üniformalı komandoyu tanıma ve 0,6 şüphe çarpanı, `guard.stripped`, `stats.disguises`, bot istatistiği, Yenilikler ve README satırları.
+- Kayıt: biçim sürümü aynı; eski kayıtlardaki `komando.disguise` ve `askerler[].stripped` alanları sessizce yok sayılır. `sim_kayit.gd` eski "disguise" alanlı kaydı yükleyip oyunun kurulduğunu doğrular.
+- **Bölüm 6 kılıksız** (`tools/gen_bolum6.py`): kampın kuzey duvarında gözaltı bunkerinin arkasında **yıkık drenaj kanalı** (ormandan çalı şeridi + kanal ağzında çalı), kulübe önünde **taş yığını** (+3) ve başlangıç taşı 6 → 8, kapı nöbetçilerini taşla çevirme ipucu, devriye **zamanlaması** (kamp içi devriye bunker önünden düzenli geçer). Brifing ve Jeanne'nin diyalogları kılıksız. `SENARYO.md`'de Gölge artık "hırsız/izci" (kilit, yol, dikkat dağıtma); kalıcı kural yazıldı.
+
+### 4. Tema (Oynanış derinliği): taş yığını
+Yeni etkileşim: haritada **taş yığını** (`pickups` `type: "stones"`), üstünden geçince taş toplanır, büyük haritada gri nokta. Kılıksız gizliliğin ana aracı olan dikkat dağıtmayı haritaya bağlar (Bölüm 6 ve 7'de darboğaz önlerinde).
+
+### 5. Genel oynanış zekâsı / bot
+- **Bot ölümden ders alır:** öldüğü yerin 170 px çevresi ve yakalandığı noktalar rota maliyetine eklenir; kayıttan dönünce aynı tuzağa yürümez, başka yol dener.
+- **Eski kayda dönme:** aynı yerde (250 px) üst üste ölünce bir önceki, daha eski kayda döner (oyuncunun "Kayıt seç…" kullanması gibi); hızlı kayda ek olarak 75 sn'de bir elle yuvalara (1 → 2 → 3) kaydeder.
+- Bölüm 6 (gizli, 3 tohum): Tur 4 = 3 görev (temas, santral, anahtar), değişiklikler sonrası eski bot = 2 görev (hızlı kayıt kamp ortasındaki takviye tuzağına düşmüştü: 4 yüklemenin hepsi aynı yerde öldü), yeni bot = **4 görev (+ Gölge kurtarıldı)**, 3 tohumun 3'ünde.
+
+### 6. Yeni bölüm: Bölüm 7 – Sisli Ada
+`tools/gen_bolum7.py` → `levels/bolum7.json`: 6400x4200 Baltık roket deneme adası (2. perde), 88 asker, 9 kule, **7 projektör**, 5 kapılı dikenli telli deneme sahası, duvarlı kamp, kanal (demiryolu köprüsü, yol köprüsü, sazlık sığlık), kuzeyde deniz. Görevler: Jan Nowak (Polonyalı kaçak işçi) → trafo sabotajı → laboratuvar anahtarı (saha subayı) → A-4 çizimleri → roket + sıvı oksijen tesisi → (isteğe bağlı) ölçüm bunkeri → Kowalski'nin motorbotu. Kılıksız gizli yollar: kamış şeritleri, kumul çalıları, iki taş yığını. Zemin 0,75 ölçek + kalite 0,55 (bütçe ≤ 15 MB). `sim_bolum` geçti (devriye/siren erişimi düzeltildi). Harita CI'da render ediliyor; o zamana kadar düz zemin (yeni bölümde sahte `objects.png` arama hatası da düzeltildi).
+
+### 7. Bot önce / sonra (gizli tarz, 3 tohum; önce = Tur 4 raporu)
+| Bölüm | Zafer önce → sonra | Ort. tespit | Ort. biten görev |
+|---|---|---|---|
+| 0 | 3/3 → 3/3 | 0 → 0 | 2,0 → 2,0 |
+| 1 | 0/3 → 0/3 | 54 → 74 | 1,7 → 1,7 |
+| 2 | 0/3 → 0/3 | 46 → 36 | 5,7 → 4,0 |
+| 3 | 1/3 → 0/3 | 30 → 44 | 8,7 → 7,7 |
+| 4 | 0/3 → **1/3** (8:20, Bölüm 4'te ilk zafer) | 39 → 39 | 4,0 → 5,3 |
+| 5 | 0/3 → 0/3 | 69 → 68 | 2,7 → 2,7 |
+| 6 | 0/3 → 0/3 | 60 → 46 | 3,0 → **4,0** |
+| 7 (yeni) | – → 0/3 | 58 | 2,0 |
+
+Toplam (0–6): zafer 4 → 4, biten görev 27,8 → 27,4 (aynı düzey). Açıklama: kılık kaldırılması botu etkilemedi (bot kılık kullanmıyordu; değişiklik öncesi ara koşuda Bölüm 0–5 birebir aynı çıktı). Farklar botun yeni kayıt/ölüm davranışından: ilk ölümden sonra rota değişiyor; Bölüm 4 ve 6'da işe yaradı, Bölüm 3 tohum 2'de (eskiden 1 yüklemeyle kazanıyordu) yeni rota bunkerde öldü, Bölüm 2'de "açık arazi (3400,1000)" tuzağı sürüyor. Saldırı tarzı her yerde (Bölüm 0 hariç) 1 dakikada ölüyor: pervasızlık cezalandırılıyor.
+
+### 8. Ölçümler ve kalite kapısı
+- Testler: sim, sim1–4, sim_kayit (2, 3, 6, 7), **sim_aci** (PC + telefon), sim_bolum 2–7 geçti; "merge edge" yok. sim_bolum 0–1 "yeterli asker" eşiği eski bölümler için önceden de başarısız (değişmedi).
+- CI (Derle, e4947d2): **APK 120,6 MB** ✔ (200) · **Windows zip 127,1 MB** ✔ (300) · **Linux zip 121,4 MB** ✔ (300). Bölüm 6: 11,6 MB (v1 eksik), Bölüm 3: 16,1 MB (eski bölüm, telefonda 15 MB bütçesinin 1,1 MB üstünde). Bölüm 6 v1 + Bölüm 7 render'ı gelince ~+18 MB beklenir (APK ~139, Windows ~145).
+- Gece sürümü: `gece-2026-11-13` (APK + 2 zip), `son-surum` güncel.
+- Ekran: Bölüm 5'te 4 açı (PC kipi, sert kesme) kontrol edildi; Bölüm 7 düz zeminle açılıyor.
+
+### 9. Sonraki tur
+1. Bölüm 6 v1 ve Bölüm 7 render'larını kontrol et (Bölüm 6 v1 Tur 4'te iptal olmuştu).
+2. Bot: anahtar taşıyan subaya arkadan yaklaşma; Bölüm 2 (3400,1000) ve Bölüm 3 bunker ölüm noktaları.
+3. Telefonda açı geçişi kasması gerçek cihazda ölçülmeli; gerekirse komşu açı atlasları ETC2.
+4. PC'ye özel yüksek kaliteli harita dokuları (300 MB bütçe içinde).
+
+### Kaynaklar
+- Godot 4.3 `ResourceLoader.load_threaded_request` / `load_threaded_get_status`: https://docs.godotengine.org/en/4.3/classes/class_resourceloader.html
+- Godot özellik etiketleri (`pc`, `mobile`): https://docs.godotengine.org/en/4.3/tutorials/export/feature_tags.html
+- Commandos 2'de 4 yönlü kamera (anında dönüş) referansı: https://commandos.shoutwiki.com/wiki/Commandos_2
+- Peenemünde ve Polonya direnişinin V-2 istihbaratı (Bölüm 7 arka planı): https://en.wikipedia.org/wiki/Peenem%C3%BCnde_Army_Research_Center · https://en.wikipedia.org/wiki/Home_Army_and_V-1_and_V-2

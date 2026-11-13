@@ -318,8 +318,9 @@ func _update_danger() -> void:
 	var marks: Array = []
 	for dd in rep["deaths"]:
 		marks.append([Vector2(dd[0], dd[1]), 170.0, 18.0])
-	for ds in rep["detect_spots"]:
-		marks.append([Vector2(ds[0], ds[1]), 110.0, 4.0])
+	if not rep["deaths"].is_empty():      # ilk canda rota degismesin: yalniz olup kayittan donunce
+		for ds in rep["detect_spots"]:
+			marks.append([Vector2(ds[0], ds[1]), 110.0, 4.0])
 	for mk in marks:
 		var r := ceili(mk[1] / CELL)
 		var mc := Vector2i(mk[0] / CELL)
