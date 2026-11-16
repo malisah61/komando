@@ -2,6 +2,12 @@ extends RefCounted
 ## Oyun ici "Yenilikler" ekrani: her gece turunda en uste 3-5 satir eklenir (en yeni once).
 
 const LIST := [
+	["Tur 7 – 16 Kasım 2026 (Komando: Şahin ekibe katıldı)", [
+		"İki komando: Bölüm 8'de Reilly'nin yanında keskin nişancı Şahin (Yzb. Blake). Aralarında geç: sol alttaki ekip düğmeleri, PC'de 1 / 2 ya da Tab.",
+		"Seçili olmayan komando seni izler (kapı ve pencereden birlikte geçer) ya da yerinde çömelip bekler: \"İzliyor / Bekliyor\" düğmesi, PC'de F.",
+		"Şahin'in dürbünlü tüfeği: çok uzaktan, durup nişan alır (kırmızı nişan çizgisi), tek atışta vurur; mermisi az, sesi duyulur. Çalılıktan dışarı ateş edebilir.",
+		"Yeni bölüm: Bölüm 8 – Alp Treni (Tirol, buzlu dere, taş viyadük, Brandt'ın zırhlı treni). Kaçışta iki komando da geçide varmalı.",
+	]],
 	["Tur 6 – 13 Kasım 2026 (Pencereler ve takip)", [
 		"Pencereden gir / çık: her binada, haritadaki pencerelerin yerinde. Pencereye dokun ya da yanına gel; kapıdan biraz yavaş, kısa tırmanma ve ses.",
 		"Kilitli binanın pencereleri de kilitli; anahtarla kapı ve pencereler birlikte açılır. Büyük haritada pencereler mavi (kilitliyse turuncu).",

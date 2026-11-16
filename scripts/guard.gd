@@ -75,6 +75,7 @@ var _cover_pos = null             # yaralaninca siper alma
 var _cover_t := 0.0
 var _took_cover := false
 var _last_dir := Vector2.ZERO     # hedefin son gorulen hareket yonu (tahminli arama)
+var tag := ""                     # Tur 7: gorev etiketi ("eliminate" gorevi: bu etiketli askerler susturulmali)
 var drops := ""                   # oldugunde dusen esya (anahtar)
 var siren_pos := Vector2.ZERO
 var _far_t := 0.0
@@ -736,12 +737,12 @@ func _watch(delta: float) -> void:
 	if _scan_t > 0.0:
 		return
 	_scan_t = 0.25
-	var c = main.commando
-	# kosan komandonun ayak sesi (duvar arkasindan da duyulur, ama yakindan)
-	if c.alive and c.run and c.velocity.length() > 1.0 and (state == &"patrol" or state == &"search"):
-		if global_position.distance_to(c.global_position) < 150.0:
-			_set_investigate(c.global_position)
-			return
+	# kosan komandonun ayak sesi (duvar arkasindan da duyulur, ama yakindan). Tur 7: ekipteki herkes
+	for c in main.team:
+		if c.alive and c.run and c.velocity.length() > 1.0 and (state == &"patrol" or state == &"search"):
+			if global_position.distance_to(c.global_position) < 150.0:
+				_set_investigate(c.global_position)
+				return
 	# ceset (calilikta saklanan ve tasinan gorulmez)
 	for g in main.bodies:
 		if not g.discovered and not g.hidden_body and not g.carried and can_see(g.global_position):

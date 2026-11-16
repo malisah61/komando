@@ -581,3 +581,70 @@ Not: bu makinede her kare işlemciyle çiziliyor (llvmpipe); 33 ms hedefi gerçe
 - Commandos 2 pencereler ve anahtar deliği: https://commandos.fandom.com/wiki/Commandos_2:_Men_of_Courage
 - Shadow Tactics / Desperados III yakın algı ("hearing range", çömelik yürüyüş) tasarım notları: https://www.gamedeveloper.com/design/the-stealth-design-of-shadow-tactics-blades-of-the-shogun
 - Godot 4.3 `AudioStreamWAV` (kodla ses üretimi): https://docs.godotengine.org/en/4.3/classes/class_audiostreamwav.html
+
+## Tur 7 – Gece turu (16 Kasım 2026, Pazartesi: KOMANDO – Şahin ekibe katıldı)
+
+Öncelikli işler (web, PC/telefon açılar, üniforma, pencereler, kapı deliği, takip, yakından fark etme) Tur 5–6'da bitmişti; bu tur başında tüm testler yeniden geçti ve korunuyor (kalıcı kurallar). Haftalık tema (Pazartesi – KOMANDO): **ikinci oynanabilir komando ve karakter geçişi**. Senaryodaki "gelecek mekanikler" listesinin 1. maddesi.
+
+### 0. Oyuncu Notları
+Yeni hata/istek yok (Hatalar ve Zorluk bölümlerindeki satırlar örnek).
+
+### 1. Ekip ve karakter geçişi
+- `main.team`: ekip; `main.commando` her zaman **seçili** komando (eski kodun hepsi seçili olanla çalışır). Bölüm verisinde `"team": [{"role": "nisanci", "pos": [x, y], "ammo": 6, "follow": true}]`; yoksa tek komando (Bölüm 0–7 değişmedi).
+- Geçiş: sol alttaki ekip düğmeleri (`1 Reilly`, `2 Blake`), PC'de **1 / 2**, **Tab** (Shift+Tab geri). Geçişte kamera seçilene atlar, bina içi/dışı seçilenin yerine göre ayarlanır, portre (YB / ŞN), silah ve hareket düğmeleri ona göre değişir. Tırmanırken geçilmez; kapı deliğinden bakma, taş atma, kurulum, tel kesme iptal olur.
+- **İzliyor / Bekliyor** (PC: F): seçili olmayan komando ya seçileni izler (arkasında 30 px, çömelirsen çömelir, koşarsan koşar, kapı ve pencereden birlikte geçer – `_move_party`), ya da yerinde çömelip bekler. Geçişte bırakılan komando bu ayarı devralır.
+- Askerler ekipteki herkesi görür (zaten `player` grubu); koşan herkesin ayak sesi duyulur. Biri ölürse görev biter ("Yzb. Blake vuruldu!"). Kaçışta **herkes** kaçış noktasında olmalı ("Yzb. Blake de kaçış noktasına gelmeli").
+- Kayıt: `"ekip"` (her üyenin yeri, canı, mermisi, izle/bekle) ve `"secili"`. Eski kayıtlar (alan yok) sessizce açılır; kayıt sürümü değişmedi (ek alanlar).
+
+### 2. Şahin – dürbünlü tüfek
+- `commando.gd` `role = "nisanci"`: silahlar tüfek + yumruk (bıçak yok, tabanca yok), hız 112.
+- Tüfek: **620 px** menzil (asker görüşü 230 px), durup **0,8 sn nişan** (kırmızılaşan kesik nişan çizgisi + daralan halka, menzil çemberi), tek atış öldürür (isabet %96; siperde ×0,7, koşan hedefte ×0,85), 2,2 sn sürgü, bölümde **6 mermi** (mermi kutusu +2). Ses **300 px** (tabanca 420) ve her silah sesi gibi askerleri tetikte (sarı) yapar. Çalılar mermiyi durdurmaz: nişancı çalılıktan dışarı ateş eder (`has_los(..., true)`), duvar/ağaç/bina keser.
+- Kodla sentezlenen tüfek sesi (`ses.gd` "tufek": patlama + yankı + sürgü klik-klak).
+- Görsel: Şahin'in sprite'ı soluk haki tonlu, seçim halkası mavi, bina arkasındaki silueti mavi; ekipte başında ad ve "·izliyor/·bekliyor". Gerçek nişancı sprite'ı (Blender) sonraki iş.
+
+### 3. Düşman zekâsı: tanık
+`main.sniped`: uzaktan vurulan askerin düştüğünü gören arkadaşı (360 px, görüş konisi) cesedi bulmuş sayılır (sarı alarm, sireni olan bölümde alarma koşan) ve **atışın geldiği yöne doğru** arar (nişancıyı görmez ama yönü tahmin eder; 20 sn tetikte). Tanıksız atış sessiz bir susturmadır. Böylece tüfek güçlü ama bedelli: sarı alarm + tanık riski + az mermi.
+
+### 4. Yeni görev türü ve Bölüm 8 – Alp Treni
+- `"eliminate"`: etiketli (`"tag"`) askerlerin hepsi susturulunca (ölü ya da bayıltılıp bağlı) biter; `"spot"` nişancı yerini gösterir.
+- **Bölüm 8 – Alp Treni** (`tools/gen_bolum8.py`): 6000x4000 karlı Tirol vadisi, 92 asker, 8 kule, 5 projektör, 5 kışla, 9 siren, 17 bina (131 pencere, istasyon şefliği kilitli). Buzlu dere üç yerden geçilir. Görevler: Lisl Gruber (temas) → **Şahin: dere kayalığındaki iki gözcü** (nişancı yeri karakolun doğusundaki çalılık; gözcüler 543 / 602 px; aralarında kaya, birbirlerini görmezler) → telsiz (dağ kışlası takviyesi kesilir) → peron subayından anahtar → sevk dosyası → zırhlı lokomotif → (isteğe bağlı) viyadük → iki komandoyla dağ geçidi.
+- Tasarım dersleri (botla bulundu): nişancı yeri ilk hâlinde viyadük nöbetçilerine 70 px'ti (bot oradaki nöbetçiyi bıçaklayıp alarm verdi) → karakolun doğusuna taşındı; önünden geçen devriye kaldırıldı; gözcülerin yanındaki siren (cesedi bulan 1 sn'de alarm çaldırıyordu) 500 px geriye alındı; gözcüler birbirini görmesin diye araya kaya kondu.
+
+### 5. Bot (iyi oyuncu) – ekip
+- Şahin Reilly'yi izler (bekliyorsa izlemeye alır). Gözcü görevinde Reilly nişancı yerine gider, bot **Şahin'e geçer**, tanıksız hedefi seçer (sarı alarmdaki görüş genişlemesini hesaba katarak), nişan alıp vurur, sonra Reilly'ye döner.
+- **Sirene koşanı Şahin'le vurur** (menzilde ve görüyorsa, alarmda da).
+- Fırsat atışı: yolu kesen sabit nöbetçi 200–560 px'teyse, 340 px içinde atışı duyacak ve 360 px içinde düşüşü görecek kimse yoksa ve gözcü görevi için yeterli mermi kalıyorsa.
+- Zafer/kayıp artık "GÖREV TAMAMLANDI" metniyle ölçülüyor (seçili komando yaşarken Şahin ölürse de kayıp). Raporda "Bıçak/Tabanca/Tüfek" sütunu.
+
+### 6. Testler
+- **`tests/sim_ekip.gd`** (CI): ekip kurulumu, izle (33 px), bekle (yerinden oynamaz, çömelir), geçiş (kamera, HUD Tüfek/Bıçak, Tab), nişancı yerinden iki gözcü görünür ve menzilde, gözcüler çömelik nişancıyı göremez, nişan süresi beklenir, çalıdan çıkmadan vurur, tek gözcüyle görev bitmez / ikisiyle biter, **tanıksız atış ceset bulunmadan, tanıklı atış: ceset bulundu + atış yönüne arama (231 px)**, kayıt (ekip + seçili) ve eski kayıt (ekip yok + disguise), kaçış ikisi de gerekli.
+- `sim_bolum.gd` Bölüm 8 (CI), `sim_pencere.gd` Bölüm 8 (CI). Diğer bütün testler (sim, sim1–4, sim_kayit 2/6/7, sim_aci PC + telefon, sim_bolum 0–7, sim_pencere 1/6) geçti; "merge edge" yok.
+- Ekran: `tests/shot_ekip.gd` (xvfb): Bölüm 8, Şahin nişancı yerinde nişan alıyor (nişan çizgisi, menzil çemberi), sol altta ekip düğmeleri, portre ŞN, Tüfek/Tabanca(–) düğmeleri; 4 açı (render gelene kadar düz zemin).
+- Hata ayıklama: `KOMANDO_ALARM_IZ=1` ortam değişkeniyle oyun her alarm yükselişini ve kimin hangi cesedi bulduğunu yazar (Bölüm 8 tasarımında kullanıldı).
+
+### 7. Bot önce / sonra
+- **Önce** (bu turun başlangıç kodu = Tur 6; CI "Bot oyun testi" #12, gizli × 3 tohum): Bölüm 0 3/3, 1 1/3, 2 0/3, 3 2/3, 4 1/3, 5–7 0/3 → **7/24 zafer, 112 biten görev**. Saldırı: yalnız Bölüm 0.
+- **Sonra:** Bölüm 0–7'de tek komando ve oyun mantığı aynı (ekip kodu yalnız `"team"` olan bölümde devreye girer; bot değişiklikleri Şahin yoksa çalışmaz): sonuçların aynı kalması bekleniyor, push sonrası CI bot koşusuyla doğrulanır (aşağıda).
+- **Bölüm 8 (yeni, gizli × 3 tohum, yerel):** 0/3 zafer; üçünde de temas + gözcüler (2/7 zorunlu görev) bitiyor, 351–461 sn oynanıyor. Şahin gözcüleri tanıksız vuruyor (ceset bulunmadı), sirene koşanları 5–7 kez vurdu, oyun başına 7–11 tüfek öldürmesi. Tasarım turları: ilk sürümde bot nişancı yerine ulaşamıyordu (önünden geçen devriye: 387 takılma) → 0 takılma; gözcüler birbirini/viyadük nöbetçileri cesedi görüp 1 sn'de alarm çalıyordu → kaya + siren taşındı; Şahin peşinden gelip ölüyordu (108 sn) → iş bitince çalılıkta bekletiliyor. Kalan darboğaz: kuzey yaya köprüsünün doğusu (3000–3400, 500–900) ve istasyon şefliği çevresi. Bir sonraki tur önceliği.
+
+### 8. Ölçümler (bu makine: 2 çekirdek, llvmpipe, xvfb – Tur 6 makinesinden yavaş)
+| | Bölüm 5 PC | Bölüm 5 telefon | Bölüm 8 PC | Bölüm 8 telefon |
+|---|---|---|---|---|
+| Ortalama kare | 72,1 ms (aynı makinede Tur 6 kodu: 72,1) | 69,2 ms | 61,3 ms | 63,7 ms |
+| En yavaş kare | 106 ms | 100 ms | 125 ms | 107 ms |
+| Çevir | 10/10 bellekte, aynı karede | 5/10 bellekte (komşu), aynı karede | – (render yok) | – |
+| Bölüm açılışı | 1700 ms | 1471 ms | 686 ms | 590 ms |
+| Kayıt yükleme | 312 ms | 255 ms | 301 ms | 268 ms |
+| Doku belleği en yüksek | 724 MB | 602 MB | 71 MB (render yok) | 71 MB |
+
+Ekip kodunun ek yükü ölçülemeyecek kadar küçük (Bölüm 5'te Tur 6 kodu ile bu turun kodu aynı makinede 72,09 / 72,11 ms). 33 ms hedefi bu makinede ölçülemez; gerçek telefonda ölçülmeli (yol haritasında).
+
+### 9. Sorunlar / sonraki tur
+1. **Bölüm 8 bot dengesi:** gizli bot 2/7 görevde kalıyor; kuzey geçişin doğusu ve istasyon şefliği. Ya ikinci gizli yol (donmuş sığlıktan istasyonun güneyine kamış şeridi) ya da istasyon devriyesi seyreltilmeli; bot için "Şahin'le yolu temizle" stratejisi (fırsat atışı bu turda hiç tetiklenmedi: koşullar fazla sıkı).
+2. **Şahin'in sprite'ı:** şimdilik Reilly'nin sprite'ı soluk haki tonla; `asker2.py` ile gerçek nişancı (dürbünlü tüfek, kasket) render'ı ve "nişan alma" animasyonu.
+3. Bölüm 8 haritası CI'da render ediliyor (4 açı); bitene kadar düz zemin.
+4. Gölge (hırsız: kilit açma) ve Kıvılcım (istihkâmcı: tuzak) oynanabilir karakter olarak.
+
+### Kaynaklar
+- Commandos 2 karakter geçişi ve keskin nişancı (sınırlı mermi, uzun menzil): https://commandos.fandom.com/wiki/Sniper
+- Shadow Tactics: tanık ve ceset görme kuralları: https://www.gamedeveloper.com/design/the-stealth-design-of-shadow-tactics-blades-of-the-shogun

@@ -65,6 +65,11 @@ var _route_t := 0.0
 var _dead_n := -1
 var _use_route := false
 var _want := Vector2(INF, INF)    # _go_dest'in istedigi nokta (rota ara noktasindan ayri)
+# Tur 7: ekip (Sahin). Iyi oyuncu gibi: Sahin Reilly'yi izler; gozcu gorevinde nisanci yerine gidip ona gecer,
+# yolu kesen sabit nobetciyi (sessiz alanda, tanik yoksa) uzaktan vurur, sonra Reilly'ye doner.
+var _snipe = null                 # {"g": hedef, "t": sure, "spot": Vector2 veya null}
+var _snipe_cd := 0.0
+var _escort := false              # kacis: Reilly gecitte, bot Sahin'i getiriyor
 
 
 func _initialize() -> void:
@@ -107,12 +112,28 @@ func _place(p: Vector2) -> String:
 	return best if best != "" else "açık arazi (%d,%d)" % [int(p.x / 100) * 100, int(p.y / 100) * 100]
 
 
+func _won() -> bool:
+	return main.game_over and main.end_text.begins_with("GÖREV TAMAMLANDI")
+
+
+func _rb():
+	## Reilly (ekibin ilki) - olcumler ve olum yeri icin
+	return main.team[0] if main.team.size() > 0 else main.commando
+
+
+func _sniper():
+	for u in main.team:
+		if u.role == "nisanci" and u.alive:
+			return u
+	return null
+
+
 func _guards() -> Array:
 	return main.get_tree().get_nodes_in_group("guards")
 
 
 func _measure(dt: float) -> void:
-	var c = main.commando
+	var c = _rb()
 	for g in _guards():
 		var id: int = g.get_instance_id()
 		var st: StringName = g.state if g.alive else &"dead"
@@ -125,7 +146,9 @@ func _measure(dt: float) -> void:
 		prev_state[id] = st
 		var was: bool = prev_alive.get(id, true)
 		if was and not g.alive:
-			if c.target_guard == g or c.global_position.distance_to(g.global_position) < 40.0:
+			if _snipe != null and _snipe["g"] == g:
+				rep["kills_rifle"] = rep.get("kills_rifle", 0) + 1
+			elif c.target_guard == g or c.global_position.distance_to(g.global_position) < 40.0:
 				if last_weapon == "knife":
 					rep["kills_knife"] += 1
 				else:
@@ -203,6 +226,13 @@ func _goal0() -> Variant:
 				var n = m.npcs.get(o["npc"])
 				if n != null:
 					return [o["id"], n.global_position]
+			"eliminate":
+				var tg = _elim_target(o)
+				if tg != null:
+					var sp = _sniper()
+					if sp != null and sp.rifle_ammo > 0 and o.has("spot"):
+						return [o["id"], Vector2(o["spot"][0], o["spot"][1])]
+					return [o["id"], tg.global_position]
 			"have":
 				var k = _key_item(o["item"])
 				if k != null:
@@ -214,6 +244,152 @@ func _goal0() -> Variant:
 				if o.has("pos"):
 					return [o["id"], Vector2(o["pos"][0], o["pos"][1])]
 	return null
+
+
+func _witnesses(p: Vector2, except) -> int:
+	## Tur 7: bu noktada dusen askeri gorecek (tanik) asker sayisi - iyi nisanci tanikli atis yapmaz
+	var n := 0
+	for g in _guards():
+		if g == except or not g.alive or g.kind == "kule" or g.global_position.distance_to(p) > 360.0:
+			continue
+		# atis sesi sari alarma gecirir: gorus menzili x1.15, tetikte koni x1.12 - bunu hesaba kat
+		var dv: Vector2 = p - g.global_position
+		if dv.length() < g.view_range() * 1.2 and absf(wrapf(dv.angle() - g.facing, -PI, PI)) < g.VIEW_HALF * 1.3 \
+				and main.level.has_los(g.global_position, p):
+			n += 1
+	return n
+
+
+func _elim_target(o: Dictionary):
+	## once taniksiz hedef (vurulunca cesedini kimse gormeyen), esitse yakin olan
+	var best = null
+	var bs := INF
+	var from: Vector2 = Vector2(o["spot"][0], o["spot"][1]) if o.has("spot") else _rb().global_position
+	for g in _guards():
+		if g.alive and g.tag == o.get("tag", ""):
+			var sc: float = from.distance_to(g.global_position) + 1000.0 * _witnesses(g.global_position, g)
+			if sc < bs:
+				bs = sc
+				best = g
+	return best
+
+
+func _team_step(dt: float) -> bool:
+	## Tur 7: ekip. true: bu kare ekip isi yapildi (Sahin secili / nisan aliyor)
+	var sp = _sniper()
+	if sp == null:
+		return false
+	var rb = _rb()
+	var m = main.mission
+	# iyi oyuncu: Sahin'e is varken (gozcu gorevi) yaninda getirir; is bitince onu guvenli bir calilikta
+	# bekletir (Reilly'nin gizli yolunda ikinci bir hedef olmasin). Kacista once Reilly gecide varir,
+	# sonra Sahin'e gecip onu da getirir.
+	var sniper_work := false
+	for o in m.objectives:
+		if not o["done"] and o["type"] == "eliminate" and m.available(o):
+			sniper_work = true
+	var exit_phase: bool = m.required_left() == 0
+	if _escort:
+		if main.commando != sp:
+			main.select_unit(main.team.find(sp))
+		return false            # ana dongu Sahin'i kacisa goturur (c = Sahin)
+	if exit_phase and main.commando == rb and main.level.exit_rect.has_point(rb.global_position) \
+			and not main.level.exit_rect.has_point(sp.global_position):
+		rb.move_to(rb.global_position)
+		rb.crouch = true
+		main.select_unit(main.team.find(sp))
+		main.set_team_follow(false)
+		_escort = true
+		rep["escort"] = 1
+		_route = PackedVector2Array()
+		_route_dest = Vector2(INF, INF)
+		return true
+	if main.commando == rb and _snipe == null:
+		var want_follow: bool = sniper_work or (exit_phase and sp.global_position.distance_to(rb.global_position) < 120.0)
+		if sp.follow != want_follow and (want_follow or main.level.is_inside_view_blocker(sp.global_position) or not sniper_work):
+			main.set_team_follow(want_follow)
+	_snipe_cd -= dt
+	if _snipe != null:
+		_snipe["t"] += dt
+		var g = _snipe["g"]
+		var bad: bool = (main.alert_level >= 2 and g.state != &"alarm_run") or sp.hp < 40.0
+		var spot = _snipe["spot"]
+		if spot != null and sp.global_position.distance_to(spot) > 10.0 and _snipe["t"] < 6.0 and g.alive:
+			sp.move_to(spot)
+			sp.crouch = true
+			return true
+		if g.alive and not bad and _snipe["t"] < 9.0 and sp.rifle_ammo > 0:
+			if sp.target_guard != g:
+				sp.crouch = true
+				sp.attack(g)
+			return true
+		# bitti (vuruldu, iptal ya da mermi yok): Reilly'ye don
+		sp.target_guard = null
+		sp.move_to(sp.global_position)
+		_snipe = null
+		_snipe_cd = 3.0
+		main.select_unit(0)
+		return true
+	if main.commando != rb or sp.rifle_ammo <= 0:
+		return false
+	# 0) sirene kosan: Sahin menzildeyse ve goruyorsa hemen vur (Commandos: alarmi durdur)
+	for g in _guards():
+		if g.alive and g.state == &"alarm_run":
+			var dr: float = sp.global_position.distance_to(g.global_position)
+			if dr < sp.RIFLE_RANGE * 0.95 and dr > 120.0 and main.level.has_los(sp.global_position, g.global_position, true):
+				_begin_snipe(g, null)
+				rep["snipes_runner"] = rep.get("snipes_runner", 0) + 1
+				return true
+	if main.alert_level >= 2 or _snipe_cd > 0.0:
+		return false
+	# 1) gozcu gorevi: nisanci yerine varinca Sahin'e gec ve hedefleri tek tek vur
+	for o in m.objectives:
+		if o["done"] or o["type"] != "eliminate" or not m.available(o) or not o.has("spot"):
+			continue
+		var spot := Vector2(o["spot"][0], o["spot"][1])
+		if rb.global_position.distance_to(spot) < 70.0 and sp.global_position.distance_to(spot) < 110.0:
+			var tg = _elim_target(o)
+			if tg != null:
+				_begin_snipe(tg, spot)
+				return true
+	# 2) firsat: yolu kesen sabit nobetci, sessiz alanda ve tanik yoksa uzaktan
+	var reserve := 0
+	for o in m.objectives:
+		if not o["done"] and o["type"] == "eliminate":
+			for g in _guards():
+				if g.alive and g.tag == o.get("tag", ""):
+					reserve += 1
+	if sp.rifle_ammo <= reserve or sp.global_position.distance_to(rb.global_position) > 90.0:
+		return false
+	var gl = _goal()
+	if gl == null:
+		return false
+	var blk = _blocker(gl[1])
+	if blk == null:
+		return false
+	var bg = blk[1]
+	var dd: float = sp.global_position.distance_to(bg.global_position)
+	if dd < 200.0 or dd > sp.RIFLE_RANGE * 0.9 or not main.level.has_los(sp.global_position, bg.global_position, true):
+		return false
+	for g in _guards():
+		if g == bg or not g.alive or g.kind == "kule":
+			continue
+		if g.global_position.distance_to(sp.global_position) < sp.RIFLE_NOISE + 40.0:
+			return false          # atis sesi duyulur
+		if g.global_position.distance_to(bg.global_position) < 360.0 and g.can_see(bg.global_position):
+			return false          # tanik: dusmesini gorur (main.sniped: ceset bulundu + atis yonune arama)
+	_begin_snipe(bg, null)
+	rep["snipes_blocker"] = rep.get("snipes_blocker", 0) + 1
+	return true
+
+
+func _begin_snipe(g, spot) -> void:
+	_snipe = {"g": g, "t": 0.0, "spot": spot}
+	var rb = _rb()
+	rb.move_to(rb.global_position)
+	rb.crouch = true
+	main.select_unit(main.team.find(_sniper()))
+	rep["snipes"] = rep.get("snipes", 0) + 1
 
 
 func _build_astar() -> void:
@@ -843,7 +1019,7 @@ func _process(dt: float) -> bool:
 		main.get_tree().paused = false
 	t += dt
 	_measure(dt)
-	if main.game_over and not main.commando.alive and rep["reloads"] < max_reloads and t < float(opts["limit"]) and _reload():
+	if main.game_over and not _won() and rep["reloads"] < max_reloads and t < float(opts["limit"]) and _reload():
 		return false
 	if main.game_over or t > float(opts["limit"]):
 		_finish()
@@ -911,6 +1087,11 @@ func _process(dt: float) -> bool:
 	# tel kesiliyor: tehlike yoksa yerinde kal (hareket kesmeyi bozar)
 	if main._cut_i >= 0 and main.alert_level < 2 and c.target_guard == null:
 		c.navigation_agent.target_position = c.global_position
+		return false
+	if _team_step(dt):
+		return false
+	if main.commando != _rb() and not _escort:
+		main.select_unit(0)           # beklenmedik: Sahin secili kaldiysa Reilly'ye don
 		return false
 	if _flee(dt):
 		return false
@@ -1074,7 +1255,10 @@ func _pick_slot(death: Vector2) -> String:
 
 func _reload() -> bool:
 	## olum: son kayittan devam (insan oyuncu gibi). Bot durumu yeni sahneye gore sifirlanir.
-	var c = main.commando
+	var c = main.commando if not main.commando.alive else _rb()
+	for u in main.team:
+		if not u.alive:
+			c = u
 	var slot: String = _pick_slot(c.global_position)
 	if slot == "" or M.prepare_load(slot) != "":
 		return false
@@ -1109,6 +1293,9 @@ func _reload() -> bool:
 	_route_dest = Vector2(INF, INF)
 	_dead_n = -1
 	_want = Vector2(INF, INF)
+	_snipe = null
+	_snipe_cd = 0.0
+	_escort = false
 	_save_t = 20.0
 	_slot_t = 60.0
 	obj_done = {}
@@ -1135,8 +1322,10 @@ func _finish() -> void:
 		return true)
 	rep["time"] = round(t)
 	rep["pursuits"] = main.stats.get("pursuits", 0)
+	c = _rb()
 	rep["hp_end"] = round(c.hp)
-	if main.game_over and c.alive:
+	rep["rifle_shots"] = main.stats.get("rifle", 0)
+	if _won():
 		rep["result"] = "zafer"
 	elif main.game_over:
 		rep["result"] = "kayip"
@@ -1157,7 +1346,7 @@ func _finish() -> void:
 	rep["runners_stopped"] = main.stats.get("runners_stopped", 0)
 	for k in ["knockouts", "witnessed", "lit", "grenades", "wires"]:
 		rep["st_" + k] = main.stats.get(k, 0)
-	if main.game_over and c.alive:
+	if _won():
 		var sc: Dictionary = main.score()
 		rep["points"] = sc["points"]
 		rep["rank"] = sc["rank"]

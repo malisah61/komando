@@ -95,6 +95,9 @@ func _process(delta: float) -> void:
 			elif pk["type"] == "medkit":
 				c.medkits += 1
 				main.hud.toast("Sağlık çantası alındı")
+			elif c.role == "nisanci":
+				c.rifle_ammo += 2
+				main.hud.toast("Tüfek mermisi alındı (+2)")
 			else:
 				c.ammo += 8
 				main.hud.toast("Mermi alındı (+8)")
@@ -134,6 +137,14 @@ func _process(delta: float) -> void:
 					_complete(o)
 					if o.has("say"):
 						main.hud.show_dialog(o["say"])
+			"eliminate":
+				# Tur 7: etiketli askerleri sustur (oldur ya da bayilt+bagla) - or. Sahin'in uzaktan vurdugu gozculer
+				var left := 0
+				for g in get_tree().get_nodes_in_group("guards"):
+					if g.tag == o.get("tag", "") and g.alive and not (g.knocked and g.tied):
+						left += 1
+				if left == 0:
+					_complete(o)
 			"sabotage":
 				if cp.distance_to(_v(o["pos"])) < float(o.get("radius", 60)) and c.carrying == null:
 					plant_target = o
@@ -153,6 +164,14 @@ func _process(delta: float) -> void:
 						var n = npcs[id]
 						if n.following and n.global_position.distance_to(cp) > 160.0:
 							ok = false
+					# Tur 7: ekipteki herkes kacis noktasinda olmali (Commandos kurali)
+					for t in main.team:
+						if t != c and t.alive and not main.level.exit_rect.has_point(t.global_position) and t.global_position.distance_to(cp) > 160.0:
+							ok = false
+							if _exit_warn <= 0.0:
+								_exit_warn = 4.0
+								main.hud.toast("%s de kaçış noktasına gelmeli" % t.display_name)
+					_exit_warn -= delta
 					if ok:
 						_complete(o)
 						main.win()
@@ -184,6 +203,9 @@ func _process(delta: float) -> void:
 			bombs.remove_at(i)
 		i -= 1
 	main.hud.set_timer_text(status)
+
+
+var _exit_warn := 0.0
 
 
 func plant_time() -> float:

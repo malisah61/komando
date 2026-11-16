@@ -1,18 +1,18 @@
 extends RefCounted
 ## Tur 6: kucuk sentez sesler (kodla uretilir: lisans sorunu yok, CC0 / kendi uretimimiz).
-## "tirman": pencere pervazina tutunma + surtunme, "in": yere inis. Telefonda da hafif (ilk kullanimda bir kez uretilir).
+## "tirman": pencere pervazina tutunma + surtunme, "in": yere inis, "tufek": Sahin'in tufegi (Tur 7). Telefonda da hafif (ilk kullanimda bir kez uretilir).
 
 static var _cache := {}
 
 
 static func _make(kind: String) -> AudioStreamWAV:
 	var rate := 22050
-	var dur := 0.38 if kind == "tirman" else 0.22
+	var dur := 0.38 if kind == "tirman" else (0.9 if kind == "tufek" else 0.22)
 	var n := int(rate * dur)
 	var data := PackedByteArray()
 	data.resize(n * 2)
 	var rng := RandomNumberGenerator.new()
-	rng.seed = 61 if kind == "tirman" else 62
+	rng.seed = 61 if kind == "tirman" else (63 if kind == "tufek" else 62)
 	var lp := 0.0
 	for i in n:
 		var t := float(i) / rate
@@ -23,6 +23,16 @@ static func _make(kind: String) -> AudioStreamWAV:
 			lp = lerp(lp, rng.randf_range(-1.0, 1.0), 0.18)
 			var scrape := lp * (0.5 + 0.5 * sin(TAU * 7.0 * t)) * exp(-t * 4.0) * smoothstep(0.03, 0.08, t)
 			v = knock * 0.7 + scrape * 0.55
+		elif kind == "tufek":
+			# Tur 7: tufek: sert patlama + alcak govde + uzakta yankilanan kuyruk + surgu "klik-klak"
+			lp = lerp(lp, rng.randf_range(-1.0, 1.0), 0.55)
+			var crack := lp * exp(-t * 60.0) * 1.4
+			var body := sin(TAU * 70.0 * t) * exp(-t * 14.0) * 0.6
+			var echo := lp * exp(-maxf(t - 0.12, 0.0) * 6.0) * 0.18 * smoothstep(0.1, 0.14, t)
+			var bolt := 0.0
+			if t > 0.62 and t < 0.64 or t > 0.74 and t < 0.755:
+				bolt = sin(TAU * 1900.0 * t) * 0.35
+			v = crack + body + echo + bolt
 		else:
 			# yumusak inis: alcak tok ses + kisa toz
 			lp = lerp(lp, rng.randf_range(-1.0, 1.0), 0.08)

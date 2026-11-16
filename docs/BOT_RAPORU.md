@@ -1,5 +1,7 @@
 # Bot oyun testi raporu
 
+> Tur 7 notu (16 Kasım): Bölüm 8 – Alp Treni yerelde gizli × 3 tohum: 0/3 zafer, her tohumda temas + gözcüler (2/7), 351–461 sn; Şahin oyun başına 7–11 tüfek öldürmesi (gözcüler tanıksız, sirene koşanlar 5–7). Rapor tablosuna "Tüfek" sütunu eklendi. Bölüm 0–7'nin bu turdaki tam koşusu CI "Bot oyun testi" çıktısında (aşağıdaki tablo Tur 6 koşusu).
+
 > Tur 6 notu: bu koşu pencereler + peşinden girme + koni dışı yakından fark etme (ilk değerler: yürüme 120 px, koşma 200 px, çömelik 55 px) ile alındı. "tam" tarzı bu gece çalıştırılmadı (gizli ile aynı karar ağacı, süre). Koşudan sonra yakından fark etme değerleri önerilen aralığın alt ucuna çekildi (110 / 185 / 50 px, hız ×0,9): Bölüm 4 tohum 2 4 → 7 görev. Önce/sonra karşılaştırması: `docs/GELISTIRME.md` → Tur 6.
 
 Tarih: 2026-11-13 09:45 — 48 oyun (gizli, saldiri × 3 tohum).

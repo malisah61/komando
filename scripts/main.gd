@@ -22,6 +22,7 @@ const LEVELS := [
 	["res://levels/bolum5.json", "Bölüm 5 – Kartal Yuvası", "1. perde finali: Richter'in şatosu, havaalanı, bocage çitleri, 76 asker"],
 	["res://levels/bolum6.json", "Bölüm 6 – Çelik Rampa", "2. perde: V-1 orman üssü, baraj gölü, dikenli tel, 6 projektör, 86 asker"],
 	["res://levels/bolum7.json", "Bölüm 7 – Sisli Ada", "Baltık adası: roket deneme kulesi, kanal, sazlık, 7 projektör, 88 asker"],
+	["res://levels/bolum8.json", "Bölüm 8 – Alp Treni", "Tirol: iki komando (Reilly + Şahin), viyadük, zırhlı tren, buzlu dere, 92 asker"],
 ]
 static var level_choice := ""      # sahne yeniden yuklenince de hatirlanir
 static var pending_load = null     # Tur 4: yuklenecek kayit durumu (sahne yeniden kurulunca uygulanir)
@@ -31,7 +32,8 @@ var level_path := "res://levels/bolum1.json"
 
 var level
 var world: Node2D
-var commando
+var commando                  # secili komando (oyuncunun yonettigi)
+var team: Array = []          # Tur 7: ekip (Reilly + bolume gore Sahin); team[0] her zaman Reilly
 var game_over := false
 var alert_level := 0          # 0 sakin, 1 dikkat (sari), 2 alarm (kirmizi)
 var alarm_t := 0.0
@@ -110,6 +112,7 @@ func _ready() -> void:
 		g.facing = deg_to_rad(gd.get("facing", 0.0))
 		g.kind = gd.get("type", "er")
 		g.drops = gd.get("drops", "")
+		g.tag = gd.get("tag", "")
 		world.add_child(g)
 
 	_pair_buddies()
@@ -119,6 +122,21 @@ func _ready() -> void:
 	commando.stones = int(level.data.get("stones", 4))
 	commando.position = level.start
 	world.add_child(commando)
+	team = [commando]
+	# Tur 7: ekipteki diger komandolar (bolum verisi "team": [{"role": "nisanci", "pos": [x, y], "ammo": 5}])
+	for td in level.data.get("team", []):
+		var u = Commando.new()
+		u.main = self
+		u.setup_role(td.get("role", "nisanci"))
+		u.rifle_ammo = int(td.get("ammo", 5))
+		u.stones = int(td.get("stones", 0))
+		u.selected = false
+		u.follow = bool(td.get("follow", true))
+		var tp: Array = td.get("pos", [level.start.x + 26, level.start.y + 14])
+		u.position = Vector2(tp[0], tp[1])
+		u.facing = commando.facing
+		world.add_child(u)
+		team.append(u)
 
 	for bk in level.data.get("barracks", []):
 		barracks.append([Vector2(bk["pos"][0], bk["pos"][1]), int(bk.get("count", 6)), bk.get("type", "er"), float(bk.get("delay", 6.0))])
@@ -154,6 +172,7 @@ func _ready() -> void:
 	hud = Hud.new()
 	hud.main = self
 	add_child(hud)
+	hud.sync_unit()
 	if level_choice == "":
 		hud.show_menu(LEVELS)
 	elif pending_load != null:
@@ -373,6 +392,28 @@ func scuffle(p: Vector2, killer) -> void:
 			g.hear_distraction(p)
 
 
+func sniped(victim, from: Vector2) -> void:
+	## Tur 7 (dusman zekasi): uzaktan vurulan askerin dusmesini goren arkadasi ceset bulmus sayilir (sari alarm,
+	## sireni olan bolumde alarma kosan) ve atisin GELDIGI YONE dogru arar: nisanciyi gormez ama yonu tahmin eder.
+	## Taniksiz atis sessiz bir oldurmedir; bu yuzden iyi oyuncu (ve bot) tanik varken tetige basmaz.
+	var vp: Vector2 = victim.global_position
+	var seen := false
+	for h in get_tree().get_nodes_in_group("guards"):
+		if h == victim or not h.alive or h.state == &"combat" or h.kind == "kule":
+			continue
+		if h.global_position.distance_to(vp) > 360.0 or not h.can_see(vp):
+			continue
+		if not seen:
+			seen = true
+			victim.discovered = true
+			stats["sniped_seen"] = stats.get("sniped_seen", 0) + 1
+			body_found(vp, h)
+		var toward: Vector2 = vp + (from - vp).normalized() * minf(280.0, vp.distance_to(from) * 0.45)
+		var map: RID = commando.navigation_agent.get_navigation_map()
+		h.vigilant_t = maxf(h.vigilant_t, 20.0)
+		h._set_investigate(NavigationServer2D.map_get_closest_point(map, toward))
+
+
 func guard_woke(g) -> void:
 	hud.toast("Bayılan asker ayıldı!")
 	if alert_level < 1:
@@ -540,6 +581,9 @@ func _sweep(p: Vector2, by) -> void:
 
 
 func set_alert_level(l: int) -> void:
+	if OS.has_environment("KOMANDO_ALARM_IZ") and l > alert_level:
+		print("ALARM ", l, " t=", mission.elapsed if mission != null else 0.0)
+		print_stack()
 	alert_level = l
 	if l < 2:
 		_reinforced = false
@@ -552,6 +596,8 @@ func set_alert_level(l: int) -> void:
 
 
 func body_found(p: Vector2, by = null) -> void:
+	if OS.has_environment("KOMANDO_ALARM_IZ"):
+		print("CESET ", p, " bulan ", by.global_position if by != null else Vector2.ZERO, " ", by.kind if by != null else "")
 	if alert_level < 1:
 		set_alert_level(1)
 	stats["bodies_found"] = stats.get("bodies_found", 0) + 1
@@ -661,9 +707,80 @@ func _move_party(p: Vector2) -> void:
 		if n.following and n.alive and n.global_position.distance_to(c.global_position) < 180.0:
 			n.global_position = p + Vector2(24, 10)
 			n.navigation_agent.target_position = n.global_position
+	var k := 0
+	for t in team:
+		if t != c and t.alive and t.follow and not t.climbing and t.global_position.distance_to(c.global_position) < 180.0:
+			k += 1
+			t.global_position = p + Vector2(-20 * k, 12)
+			t.move_to(t.global_position)
 	c.global_position = p
 	c.move_to(p)
 	c._carry_follow()
+
+
+# ---------------- Tur 7: ekip / karakter secimi ----------------
+func select_unit(i: int) -> bool:
+	## Commandos gibi ekipteki komandolar arasinda gecis (PC: 1/2, Tab; telefonda sol alttaki ekip dugmeleri).
+	if i < 0 or i >= team.size() or team[i] == commando or game_over:
+		return false
+	var u = team[i]
+	if not u.alive:
+		return false
+	if not climb.is_empty():
+		hud.toast("Tırmanma bitince geçebilirsin")
+		return false
+	_end_peek()
+	throw_mode = false
+	pending_enter = -1
+	pending_window = -1
+	_cut_i = -1
+	if mission.planting >= 0.0:
+		mission.planting = -1.0
+	var keep_follow: bool = u.follow     # birakilan komando, secilenin izle/bekle ayarini devralir
+	commando.selected = false
+	commando.follow = keep_follow
+	if not keep_follow:
+		commando.move_to(commando.global_position)
+	commando = u
+	u.selected = true
+	u.target_guard = null if u.target_guard != null and not is_instance_valid(u.target_guard) else u.target_guard
+	cur_interior = level.interior_at(u.global_position)
+	hud.set_place(("Bina içi: " + level.interiors[cur_interior]["name"]) if cur_interior >= 0 else "")
+	cam.position = u.global_position
+	_clamp_cam()
+	hud.sync_unit()
+	for t in team:
+		t.queue_redraw()
+	return true
+
+
+func cycle_unit(step := 1) -> void:
+	if team.size() < 2:
+		return
+	var i := team.find(commando)
+	for k in range(1, team.size()):
+		if select_unit(posmod(i + step * k, team.size())):
+			return
+
+
+func set_team_follow(on: bool) -> void:
+	## secili olmayanlar: izle (secileni takip et) ya da bekle (yerinde, comelik)
+	for t in team:
+		if t != commando and t.alive:
+			t.follow = on
+			if not on:
+				t.move_to(t.global_position)
+				t.crouch = true       # bekleyen komando comelir (daha zor fark edilir)
+			t.queue_redraw()
+	hud.toast("Ekip seni izliyor" if on else "Ekip yerinde bekliyor")
+	hud.sync_unit()
+
+
+func team_follow() -> bool:
+	for t in team:
+		if t != commando and t.alive:
+			return t.follow
+	return false
 
 
 func toggle_peek(wi := -1) -> void:
@@ -941,6 +1058,12 @@ func _unhandled_input(e: InputEvent) -> void:
 				load_slot("hizli")
 		elif e.keycode == KEY_ESCAPE or e.keycode == KEY_K:
 			hud.show_saves()
+		elif e.keycode == KEY_TAB:
+			cycle_unit(-1 if e.shift_pressed else 1)
+		elif e.keycode >= KEY_1 and e.keycode <= KEY_4 and team.size() > 1:
+			select_unit(e.keycode - KEY_1)
+		elif e.keycode == KEY_F and team.size() > 1:
+			set_team_follow(not team_follow())
 		elif e.keycode == KEY_Q:
 			rotate_view(-1)
 		elif e.keycode == KEY_E:

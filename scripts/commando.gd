@@ -1,10 +1,12 @@
 extends CharacterBody2D
-## Oyuncu komandosu (Yesil Bere).
-## Silahlar: bicak (sessiz, aninda) ve tabanca (mermi, ses yapar). Secilen silah degistirilene kadar kalir.
-## Can, sağlik cantasi, comelme, ceset tasima.
+## Oyuncu komandosu. Tur 7: ekip - "bere" (Yesil Bere, Cvs. Reilly) ve "nisanci" (Sahin, Yzb. Blake).
+## Bere: bicak (sessiz, aninda) ve tabanca (mermi, ses yapar). Nisanci: durbunlu tufek (uzak, nisan alir,
+## tek atista oldurur, az mermi, ses yapar) ve yumruk; bicak yok. Secilen silah degistirilene kadar kalir.
+## Can, sağlik cantasi, comelme, ceset tasima. Secili olmayan komando bekler ya da secileni izler.
 
 const SpriteSheet = preload("res://scripts/sprite_sheet.gd")
 const Fx = preload("res://scripts/fx.gd")
+const Ses = preload("res://scripts/ses.gd")
 # once elle eklenen sheet, yoksa Blender'da render edilen
 const SHEETS := ["res://assets/sprites/commandos_sprite_sheet.png", "res://assets/sprites/komando_sprite_sheet.png"]
 
@@ -12,6 +14,11 @@ const PISTOL_RANGE := 270.0
 const PISTOL_DMG := 40.0
 const PISTOL_COOLDOWN := 0.55
 const PISTOL_NOISE := 420.0
+# Tur 7: Sahin'in durbunlu tufegi
+const RIFLE_RANGE := 620.0
+const RIFLE_AIM := 0.8            # durup nisan alma suresi (sn)
+const RIFLE_COOLDOWN := 2.2       # surgu + yeniden nisan
+const RIFLE_NOISE := 300.0        # tabancadan sessiz degil ama daha kisa yaricap (uzaktan atis)
 
 @export var speed: float = 120.0
 
@@ -44,6 +51,14 @@ var _whistle_cd := 0.0
 const WHISTLE_CD := 5.0
 var _cool := 0.0
 var _hurt_t := 0.0
+var role := "bere"                # Tur 7: "bere" / "nisanci"
+var display_name := "Çvş. Reilly"
+var short_name := "Reilly"
+var selected := true              # oyuncunun su an yonettigi komando (main.commando)
+var follow := false               # secili degilken secileni izle (yoksa yerinde bekler)
+var rifle_ammo := 0
+var _aim_t := 0.0                 # tufekle nisan alma ilerlemesi
+var _follow_t := 0.0
 var climbing := false             # Tur 6: pencereden tirmaniyor (main yonetir)
 var climb_lift := 0.0             # tirmanirken govde yuksekligi (px)
 var ghost: AnimatedSprite2D       # bina/agac arkasindayken gorunen silüet (Commandos gibi)
@@ -88,12 +103,56 @@ func _ready() -> void:
 		var m := ShaderMaterial.new()
 		m.shader = sh
 		ghost.material = m
+		if role == "nisanci":
+			m.set_shader_parameter("tint", Color(0.45, 0.72, 1.0, 0.6))     # Sahin'in silueti mavi
 		ghost.visible = false
 		add_child(ghost)
 
 
 func nav_ready() -> bool:
 	return NavigationServer2D.map_get_iteration_id(navigation_agent.get_navigation_map()) > 0
+
+
+func setup_role(r: String) -> void:
+	role = r
+	if role == "nisanci":
+		display_name = "Yzb. Blake"
+		short_name = "Blake"
+		weapon = "rifle"
+		ammo = 0
+		ropes = 1
+		speed = 112.0
+
+
+func allowed_weapons() -> Array:
+	return ["rifle", "fist"] if role == "nisanci" else ["knife", "fist", "pistol"]
+
+
+func leader():
+	return main.commando if main != null and main.commando != self else null
+
+
+func _follow_step(delta: float) -> void:
+	## Tur 7: secili olmayan komando secileni izler (Gölge gibi): arkasinda durur, comelirse comelir.
+	_follow_t -= delta
+	if _follow_t > 0.0:
+		return
+	_follow_t = 0.3
+	var l = leader()
+	if l == null or not l.alive or l.climbing:
+		return
+	if main.level.interior_at(l.global_position) != main.level.interior_at(global_position):
+		return     # baska binada: kapidan/pencereden birlikte gecilir (main._move_party)
+	crouch = l.crouch
+	run = l.run or l.run_once
+	var d := global_position.distance_to(l.global_position)
+	if d > 44.0:
+		var behind: Vector2 = l.global_position - Vector2.from_angle(l.facing) * 30.0
+		if not main.level.has_los(l.global_position, behind):
+			behind = l.global_position
+		navigation_agent.target_position = behind
+	elif d < 30.0 and not navigation_agent.is_navigation_finished():
+		navigation_agent.target_position = global_position
 
 
 func is_crouching() -> bool:
@@ -110,6 +169,10 @@ func attack(g) -> void:
 	if carrying != null:
 		return
 	target_guard = g
+	_aim_t = 0.0
+	if weapon == "rifle":
+		navigation_agent.target_position = global_position if global_position.distance_to(g.global_position) <= RIFLE_RANGE else g.global_position
+		return
 	if weapon != "pistol" or global_position.distance_to(g.global_position) > PISTOL_RANGE:
 		navigation_agent.target_position = g.global_position
 	else:
@@ -149,6 +212,8 @@ func _physics_process(delta: float) -> void:
 		sprite.position = Vector2.ZERO
 	if target_guard != null:
 		_attack_step(delta)
+	elif not selected and follow:
+		_follow_step(delta)
 
 	if navigation_agent.is_navigation_finished():
 		velocity = Vector2.ZERO
@@ -210,6 +275,9 @@ func _attack_step(delta: float) -> void:
 				_repath = 0.25
 				navigation_agent.target_position = g.global_position
 		return
+	if weapon == "rifle":
+		_rifle_step(delta, g, d)
+		return
 	# tabanca: menzilde ve goruyorsa dur ve ates et
 	if d <= PISTOL_RANGE and main.level.has_los(global_position, g.global_position):
 		navigation_agent.target_position = global_position
@@ -241,6 +309,52 @@ func _attack_step(delta: float) -> void:
 			navigation_agent.target_position = g.global_position
 
 
+func _rifle_step(delta: float, g, d: float) -> void:
+	## Tur 7: durbunlu tufek. Menzilde ve gorus varsa durur, RIFLE_AIM sn nisan alir, tek atis.
+	# calilar mermiyi durdurmaz: nisanci calilikta saklanip disari ates edebilir (duvar/bina/agac keser)
+	if d > RIFLE_RANGE or not main.level.has_los(global_position, g.global_position, true):
+		_aim_t = 0.0
+		_repath -= delta
+		if _repath <= 0.0:
+			_repath = 0.3
+			navigation_agent.target_position = g.global_position
+		return
+	navigation_agent.target_position = global_position
+	facing = (g.global_position - global_position).angle()
+	if rifle_ammo <= 0:
+		main.hud.toast("Tüfek mermisi bitti!")
+		target_guard = null
+		return
+	_aim_t += delta
+	_play(&"shoot")
+	if sprite != null and _aim_t < RIFLE_AIM:
+		sprite.pause()          # nisan: tufek omuzda, kipirdamadan
+	if _aim_t < RIFLE_AIM or _cool > 0.0:
+		return
+	rifle_ammo -= 1
+	_cool = RIFLE_COOLDOWN
+	_aim_t = 0.0
+	main.stats["rifle"] = main.stats.get("rifle", 0) + 1
+	_play(&"shoot", true)
+	var acc := 0.96
+	if main.level.in_cover(g.global_position, global_position):
+		acc *= 0.7
+	if g.velocity.length() > 70.0:
+		acc *= 0.85             # kosan hedef
+	var hit := randf() < acc
+	var aim: Vector2 = g.global_position + Vector2(0, -16)
+	if not hit:
+		aim += Vector2(randf_range(-30, 30), randf_range(-30, 30))
+	Fx.tracer(main.world, global_position + Vector2(0, -18), aim)
+	Ses.play(main, "tufek", global_position)
+	main.make_noise(global_position, RIFLE_NOISE, self)
+	if hit:
+		g.kill()
+		main.sniped(g, global_position)
+	target_guard = null
+	main.hud.refresh_items()
+
+
 func take_damage(amount: float, _from: Vector2) -> void:
 	if not alive:
 		return
@@ -252,7 +366,7 @@ func take_damage(amount: float, _from: Vector2) -> void:
 		alive = false
 		drop_body()
 		_play(&"death", true)
-		main.lose("Çvş. Reilly vuruldu!")
+		main.lose("%s vuruldu!" % display_name)
 
 
 func throw_stone(p: Vector2) -> bool:
@@ -383,18 +497,29 @@ func _draw() -> void:
 	# tabanca menzili (secili ve hedef varken)
 	if alive and weapon == "pistol" and target_guard != null:
 		draw_arc(Vector2.ZERO, PISTOL_RANGE, 0, TAU, 64, Color(1, 0.8, 0.3, 0.25), 1.5)
+	if alive and weapon == "rifle" and target_guard != null and is_instance_valid(target_guard):
+		draw_arc(Vector2.ZERO, RIFLE_RANGE, 0, TAU, 96, Color(0.5, 0.8, 1, 0.22), 1.5)
+		if _aim_t > 0.0:
+			# nisan cizgisi: dolduikca kirmizilasir
+			var f := clampf(_aim_t / RIFLE_AIM, 0.0, 1.0)
+			var tp: Vector2 = target_guard.global_position + Vector2(0, -16) - global_position
+			draw_dashed_line(Vector2(0, -18), tp, Color(1, 1 - f, 1 - f, 0.35 + 0.45 * f), 1.5, 8.0)
+			draw_arc(tp, 14.0 - 6.0 * f, 0, TAU, 20, Color(1, 0.3, 0.3, 0.8), 1.5)
 	# golge + secim halkasi
 	draw_set_transform(Vector2.ZERO, SpriteSheet.view_rot, Vector2(1, 0.5))
 	if sprite == null:
 		draw_circle(Vector2.ZERO, 12, Color(0, 0, 0, 0.35))
-	draw_arc(Vector2.ZERO, 18, 0, TAU, 28, Color(0.4, 1, 0.4, 0.9), 2.5)
+	var ring := Color(0.4, 1, 0.4, 0.9) if role == "bere" else Color(0.45, 0.75, 1, 0.9)
+	if not selected:
+		ring.a = 0.4
+	draw_arc(Vector2.ZERO, 18, 0, TAU, 28, ring, 2.5 if selected else 1.5)
 	draw_set_transform(Vector2.ZERO, SpriteSheet.view_rot, Vector2.ONE)
 	# can cubugu (hasar aldiysa)
 	if alive and hp < max_hp:
 		draw_rect(Rect2(-16, -62, 32, 4), Color(0, 0, 0, 0.6))
 		draw_rect(Rect2(-16, -62, 32 * hp / max_hp, 4), Color(0.3, 0.9, 0.3))
 	if sprite != null:
-		var col := Color.WHITE
+		var col := Color.WHITE if role == "bere" else Color(0.86, 0.84, 0.7)   # Sahin: soluk haki
 		if not alive:
 			col = Color(1, 0.6, 0.6)
 		elif _hurt_t > 0.0:
@@ -402,6 +527,9 @@ func _draw() -> void:
 		elif is_hidden():
 			col = Color(1, 1, 1, 0.6)
 		sprite.modulate = col
+		if main.team.size() > 1 and alive:
+			draw_string(ThemeDB.fallback_font, Vector2(-24, -66), short_name + ("" if selected else (" ·izliyor" if follow else " ·bekliyor")),
+					HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(0.75, 1, 0.75) if role == "bere" else Color(0.7, 0.85, 1))
 		if is_hidden():
 			draw_string(ThemeDB.fallback_font, Vector2(-22, -48), "gizli", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(0.7, 1, 0.7))
 		elif crouch:

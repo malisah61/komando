@@ -56,6 +56,14 @@ var pick_btn: Button
 var _continue_slot := ""
 var _saves_panel: Control = null
 var knife_btn: Button
+var fist_btn: Button
+# Tur 7: ekip (portre secili komandoyu gosterir)
+var face_rect: ColorRect
+var face_label: Label
+var name_label: Label
+var team_box: HBoxContainer
+var team_btns: Array = []
+var follow_btn: Button
 var run_btn: Button
 var cone_btn: Button
 var slots: Array[Label] = []
@@ -156,12 +164,44 @@ func _ready() -> void:
 	por.position = Vector2(10, -10)
 	root.add_child(por)
 	var por_row := HBoxContainer.new()
-	por.add_child(por_row)
+	var por_col := VBoxContainer.new()
+	por.add_child(por_col)
+	# Tur 7: ekip satiri (yalniz bolumde birden fazla komando varken)
+	team_box = HBoxContainer.new()
+	team_box.visible = main.team.size() > 1
+	por_col.add_child(team_box)
+	var tg := ButtonGroup.new()
+	for i in main.team.size():
+		var tb := _button("%d %s" % [i + 1, main.team[i].short_name], true)
+		tb.custom_minimum_size = Vector2(92, 44)
+		tb.add_theme_font_size_override("font_size", 15)
+		tb.button_group = tg
+		tb.button_pressed = main.team[i] == main.commando
+		var ii: int = i
+		tb.pressed.connect(func():
+			if main.commando == main.team[ii]:
+				main.cam.position = main.commando.global_position     # ayni karaktere basmak: odakla
+				main._clamp_cam()
+			elif not main.select_unit(ii):
+				sync_unit())
+		team_box.add_child(tb)
+		team_btns.append(tb)
+	follow_btn = _button("İzle", true)
+	follow_btn.custom_minimum_size = Vector2(80, 44)
+	follow_btn.add_theme_font_size_override("font_size", 15)
+	follow_btn.tooltip_text = "Seçili olmayan komando seni izlesin ya da yerinde beklesin (PC: F)"
+	follow_btn.toggled.connect(func(on):
+		if on != main.team_follow():
+			main.set_team_follow(on))
+	team_box.add_child(follow_btn)
+	por_col.add_child(por_row)
 	var face := ColorRect.new()
+	face_rect = face
 	face.color = Color(0.25, 0.4, 0.2)
 	face.custom_minimum_size = Vector2(58, 58)
 	face.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var beret := _label("YB", 24, Color(0.85, 1, 0.8))
+	face_label = beret
 	beret.set_anchors_preset(Control.PRESET_CENTER)
 	beret.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	beret.grow_vertical = Control.GROW_DIRECTION_BOTH
@@ -169,7 +209,8 @@ func _ready() -> void:
 	por_row.add_child(face)
 	var por_txt := VBoxContainer.new()
 	por_row.add_child(por_txt)
-	por_txt.add_child(_label("Yeşil Bere", 18, ACCENT))
+	name_label = _label("Yeşil Bere", 18, ACCENT)
+	por_txt.add_child(name_label)
 	status_label = _label("Görünür", 15)
 	por_txt.add_child(status_label)
 	hp_bar = ProgressBar.new()
@@ -269,10 +310,10 @@ func _ready() -> void:
 	knife_btn.button_pressed = true
 	knife_btn.toggled.connect(func(on):
 		if on:
-			main.commando.weapon = "knife")
+			main.commando.weapon = "rifle" if main.commando.role == "nisanci" else "knife")
 	weap.add_child(knife_btn)
 	# Tur 3: yumruk (bayilt, oldurmez) ve islik (yakindaki askerleri cek)
-	var fist_btn := _button("Yumruk", true)
+	fist_btn = _button("Yumruk", true)
 	fist_btn.button_group = group
 	fist_btn.toggled.connect(func(on):
 		if on:
@@ -454,7 +495,14 @@ func _process(delta: float) -> void:
 	var ea := (0.25 + 0.2 * sin(_pulse)) if main.alert_level >= 2 else 0.0
 	for e in _edges:
 		e.color.a = ea
-	pistol_btn.text = "Tabanca\n%d" % c.ammo
+	if c.role == "nisanci":
+		knife_btn.text = "Tüfek\n%d" % c.rifle_ammo
+		pistol_btn.text = "Tabanca\n–"
+	else:
+		pistol_btn.text = "Tabanca\n%d" % c.ammo
+	for i in team_btns.size():
+		var u = main.team[i]
+		team_btns[i].modulate = Color(1, 0.5, 0.5) if not u.alive else (Color(1, 0.85, 0.5) if u.hp < u.max_hp * 0.5 else Color.WHITE)
 	med_btn.text = "Sağlık x%d" % c.medkits
 	med_btn.disabled = c.medkits <= 0
 	if not c.alive:
@@ -539,6 +587,33 @@ func set_action(text: String, enabled: bool, cb := Callable(), text2 := "", cb2 
 	action_btn2.visible = text2 != ""
 	action_btn2.text = text2
 	_action_cb2 = cb2
+
+
+func sync_unit() -> void:
+	## Tur 7: secili komando degisince portre, silah ve hareket dugmeleri ona gore
+	var c = main.commando
+	var sn: bool = c.role == "nisanci"
+	face_rect.color = Color(0.2, 0.3, 0.42) if sn else Color(0.25, 0.4, 0.2)
+	face_label.text = "ŞN" if sn else "YB"
+	name_label.text = ("Şahin – " if sn else "Yeşil Bere – ") + c.short_name
+	knife_btn.text = ("Tüfek\n%d" % c.rifle_ammo) if sn else "Bıçak"
+	knife_btn.tooltip_text = "Dürbünlü tüfek: uzaktan, durup nişan alır, tek atış (ses yapar)" if sn else ""
+	pistol_btn.disabled = sn
+	slots[0].text = "TÜFEK" if sn else "BIÇAK"
+	match c.weapon:
+		"fist":
+			fist_btn.set_pressed_no_signal(true)
+		"pistol":
+			pistol_btn.set_pressed_no_signal(true)
+		_:
+			knife_btn.set_pressed_no_signal(true)
+	crouch_btn.set_pressed_no_signal(c.crouch)
+	run_btn.set_pressed_no_signal(c.run)
+	for i in team_btns.size():
+		team_btns[i].set_pressed_no_signal(main.team[i] == c)
+	follow_btn.set_pressed_no_signal(main.team_follow())
+	follow_btn.text = "İzliyor" if main.team_follow() else "Bekliyor"
+	refresh_items()
 
 
 func set_place(text: String) -> void:

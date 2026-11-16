@@ -63,8 +63,15 @@ static func _guard_state(g) -> Dictionary:
 	}
 
 
+static func _unit_state(u) -> Dictionary:
+	return {"pos": u.global_position, "hp": u.hp, "ammo": u.ammo, "medkits": u.medkits, "stones": u.stones,
+		"ropes": u.ropes, "weapon": u.weapon, "crouch": u.crouch, "facing": u.facing,
+		"role": u.role, "rifle_ammo": u.rifle_ammo, "follow": u.follow, "alive": u.alive}
+
+
 static func capture(main) -> Dictionary:
-	var c = main.commando
+	## Tur 7: "komando" her zaman ekibin ilki (Reilly); digerleri "ekip", secili olan "secili" (eski kayitlarda yok: 0)
+	var c = main.team[0] if main.team.size() > 0 else main.commando
 	var m = main.mission
 	var lv = main.level
 	var level_guards := []
@@ -73,8 +80,10 @@ static func capture(main) -> Dictionary:
 	var all: Array = main.get_tree().get_nodes_in_group("guards")
 	for g in all:
 		var d := _guard_state(g)
-		if g == c.carrying:
-			d["carried"] = true
+		for ti in main.team.size():
+			if g == main.team[ti].carrying:
+				d["carried"] = true
+				d["carrier"] = ti
 		if g.has_meta("gi"):
 			var gi: int = g.get_meta("gi")
 			while level_guards.size() <= gi:
@@ -104,8 +113,9 @@ static func capture(main) -> Dictionary:
 		"main": {"alert": main.alert_level, "alarm_t": main.alarm_t, "barracks": bk, "reinforced": main._reinforced,
 			"stats": main.stats.duplicate(true), "cam": main.cam.position, "zoom": main.cam.zoom.x,
 			"interior": main.cur_interior, "guards_n": main.level.data.get("guards", []).size()},
-		"komando": {"pos": c.global_position, "hp": c.hp, "ammo": c.ammo, "medkits": c.medkits, "stones": c.stones,
-			"ropes": c.ropes, "weapon": c.weapon, "crouch": c.crouch, "facing": c.facing},
+		"komando": _unit_state(c),
+		"ekip": main.team.slice(1).map(func(u): return _unit_state(u)),
+		"secili": maxi(main.team.find(main.commando), 0),
 		"askerler": level_guards,
 		"takviye": extra,
 		"npc": npcs,
@@ -215,7 +225,7 @@ static func _migrate(st: Dictionary, from_v: int) -> Dictionary:
 static func apply(main, st: Dictionary) -> String:
 	## main._ready sonunda cagrilir (askerler, komando, gorevler kurulduktan sonra). Uyari metni doner.
 	var warn := ""
-	var c = main.commando
+	var c = main.team[0] if main.team.size() > 0 else main.commando
 	var m = main.mission
 	var lv = main.level
 	var ms: Dictionary = st.get("main", {})
@@ -252,10 +262,12 @@ static func apply(main, st: Dictionary) -> String:
 			by_gi[int(g.get_meta("gi"))] = g
 	var saved: Array = st.get("askerler", [])
 	var carried = null
+	var carrier := 0
 	for gi in by_gi:
 		if gi < saved.size() and saved[gi] != null:
 			if _apply_guard(main, by_gi[gi], saved[gi]):
 				carried = by_gi[gi]
+				carrier = int(saved[gi].get("carrier", 0))
 	for d in st.get("takviye", []):
 		var g = Guard.new()
 		g.main = main
@@ -286,9 +298,29 @@ static func apply(main, st: Dictionary) -> String:
 	c.facing = float(cs.get("facing", c.facing))
 	# Tur 5: kilik sistemi kaldirildi; eski kayitlardaki "disguise" alani sessizce yok sayilir
 	c.move_to(c.global_position)
+	# Tur 7: ekipteki diger komandolar (eski kayitta yoksa bolumdeki baslangic yerlerinde kalir)
+	var es: Array = st.get("ekip", [])
+	for i in range(1, main.team.size()):
+		if i - 1 >= es.size() or typeof(es[i - 1]) != TYPE_DICTIONARY:
+			continue
+		var u = main.team[i]
+		var ud: Dictionary = es[i - 1]
+		u.global_position = ud.get("pos", u.global_position)
+		u.hp = float(ud.get("hp", u.hp))
+		u.ammo = int(ud.get("ammo", u.ammo))
+		u.rifle_ammo = int(ud.get("rifle_ammo", u.rifle_ammo))
+		u.medkits = int(ud.get("medkits", u.medkits))
+		u.stones = int(ud.get("stones", u.stones))
+		u.ropes = int(ud.get("ropes", u.ropes))
+		u.weapon = ud.get("weapon", u.weapon) if ud.get("weapon", u.weapon) in u.allowed_weapons() else u.weapon
+		u.crouch = ud.get("crouch", false)
+		u.facing = float(ud.get("facing", u.facing))
+		u.follow = ud.get("follow", u.follow)
+		u.move_to(u.global_position)
 	if carried != null:
-		c.pick_body(carried)
-		c._carry_follow()
+		var cu = main.team[carrier] if carrier >= 0 and carrier < main.team.size() else c
+		cu.pick_body(carried)
+		cu._carry_follow()
 	# --- yardimci karakterler ---
 	var ns: Dictionary = st.get("npc", {})
 	for id in ns:
@@ -322,7 +354,14 @@ static func apply(main, st: Dictionary) -> String:
 	var z := float(ms.get("zoom", main.cam.zoom.x))
 	main.cam.zoom = Vector2(z, z)
 	main._clamp_cam()
-	main.hud.crouch_btn.set_pressed_no_signal(c.crouch)
+	var si := int(st.get("secili", 0))
+	if si > 0 and si < main.team.size() and main.team[si].alive:
+		main.commando.selected = false
+		main.commando = main.team[si]
+		main.commando.selected = true
+		main.cur_interior = lv.interior_at(main.commando.global_position)
+		main.hud.set_place(("Bina içi: " + lv.interiors[main.cur_interior]["name"]) if main.cur_interior >= 0 else "")
+	main.hud.sync_unit()
 	main.hud.refresh_objectives()
 	main.hud.refresh_items()
 	lv.queue_redraw()

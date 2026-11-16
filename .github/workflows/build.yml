@@ -77,6 +77,12 @@ jobs:
           ~/godot/godot --headless -s res://tests/sim_pencere.gd -- --level=res://levels/bolum6.json
           ~/godot/godot --headless -s res://tests/sim_bolum.gd -- --level=res://levels/bolum7.json
 
+      - name: Ekip testi (Reilly + Şahin, geçiş, izle/bekle, tüfek, kayıt, kaçış – Tur 7)
+        run: |
+          ~/godot/godot --headless -s res://tests/sim_ekip.gd -- --level=res://levels/bolum8.json
+          ~/godot/godot --headless -s res://tests/sim_bolum.gd -- --level=res://levels/bolum8.json
+          ~/godot/godot --headless -s res://tests/sim_pencere.gd -- --level=res://levels/bolum8.json
+
       - name: PC derlemesi (Windows + Linux, en kaliteli sürüm)
         run: |
           mkdir -p build/windows build/linux build/dist

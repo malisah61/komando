@@ -16,7 +16,13 @@ Kampanya, karakterler ve bölüm planı: [docs/SENARYO.md](docs/SENARYO.md)
 ## Kontroller (ek)
 - Aynı yere iki kez hızlı dokun: koşarak git.
 - Sağ üstteki "Çevir" (PC: Q / E): haritayı 90° çevir, binaların öbür yüzünü gör (4 açı Blender'da ayrı render).
+- Ekip (Tur 7, Bölüm 8'den itibaren): sol alttaki ekip düğmeleri ya da PC'de **1 / 2** (doğrudan), **Tab** (sıradaki): komandolar arasında geç. **İzliyor / Bekliyor** düğmesi (PC: **F**): seçili olmayan komando seni izler ya da yerinde çömelip bekler.
 - Bot testi: `GODOT=godot python3 tools/bot/rapor.py` → `docs/BOT_RAPORU.md`.
+
+## Tur 7 mekanikleri
+- **Şahin (Yzb. Blake, keskin nişancı):** dürbünlü tüfek – 620 px menzil, durup 0,8 sn nişan alır (kırmızı nişan çizgisi), tek atışta vurur, az mermi, atış sesi 300 px'ten duyulur ve askerleri tetikte (sarı) yapar. Çalılıktan dışarı ateş edebilir; bıçağı yok (yumruk var).
+- **Tanık:** uzaktan vurulan askerin düştüğünü gören arkadaşı cesedi bulmuş sayılır ve atışın geldiği yöne doğru arar. Tanıksız atış sessiz bir susturmadır.
+- **Kaçış:** ekipteki herkes kaçış noktasında olmalı; biri ölürse görev biter.
 
 ## Tur 3 mekanikleri
 - **Yumruk + Bağla:** SİLAH → Yumruk: arkadan yumruk askeri öldürmeden bayıltır (~40 sn). "Bağla" (ip) ile kalıcı etkisiz kalır; bağlanmazsa ayılır ve çevreyi arar. Öldürmeden etkisiz bırakmak puan kazandırır.
@@ -60,6 +66,7 @@ Bölüm dosyasındaki `objectives` listesi: `reach` (buluş/konuş, eşya ver), 
 - **Bölüm 5 – Kartal Yuvası** (Tur 3, final): 6400x4200 şato + havaalanı + bocage çitleri, ~76 asker, 7 kule, 5 projektör, 7 kışla, 8 siren. Santrali kes, Storch'u ve radyo kulesini uçur, kâhyadan şato anahtarını al, planları çal, Richter'i esir alıp nehirdeki tekneye götür. `tools/gen_bolum5.py`
 - **Bölüm 6 – Çelik Rampa** (Tur 4, Tur 5'te kılıksız yeniden düzenlendi): 6400x4200 V-1 orman üssü, baraj gölü, ~86 asker, 6 projektör. Kampa gizli giriş: kuzey duvardaki yıkık drenaj kanalı, taşla dikkat dağıtma, devriye zamanlaması. `tools/gen_bolum6.py`
 - **Bölüm 7 – Sisli Ada** (Tur 5): 6400x4200 Baltık roket deneme adası, kanal (2 köprü + sazlık), ~88 asker, 9 kule, 7 projektör, 5 kapılı tel. `tools/gen_bolum7.py`
+- **Bölüm 8 – Alp Treni** (Tur 7): 6000x4000 karlı Tirol vadisi, ilk iki komandolu bölüm (Reilly + Şahin), buzlu dere (yaya köprüsü, viyadük, donmuş sığlık), istasyon ve zırhlı tren, 92 asker, 8 kule, 5 projektör. `tools/gen_bolum8.py`
 
 Yeni bölüm üreticileri `tools/bolum_lib.py` yardımcılarını kullanır (bina, asker, kule, çalı şeridi, nehir, duvarlı alan). Her bölüm için erişim testi: `godot --headless --script res://tests/sim_bolum.gd -- --level=res://levels/bolum2.json`.
 

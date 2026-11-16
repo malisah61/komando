@@ -39,6 +39,7 @@
 | 5 | **Kartal Yuvası** (1. perde finali) | Richter'in şatosu, havaalanı | Santrali kes, Storch'u ve radyo kulesini uçur, planları çal, Richter'i esir al | 50–70 dk |
 | 6 | **Çelik Rampa** (2. perde açılışı) | Pas-de-Calais ormanı, baraj gölü, V-1 üssü | Baraj santralini kes, Gölge'yi kamptan kurtar, hedef çizelgesini çal, V-1 rampasını ve harp başlıklarını uçur | 55–75 dk |
 | 7 | **Sisli Ada** | Baltık kıyısında roket deneme adası (Usedom benzeri), kanal, sazlık | Jan Nowak ile buluş, trafo hattını kes, laboratuvardan A-4 çizimlerini çal, deneme kulesindeki roketi ve oksijen tesisini uçur, Kowalski'nin motorbotuna kaç | 60–80 dk |
+| 8 | **Alp Treni** (ilk iki komandolu bölüm) | Tirol, karlı vadi, buzlu dere, taş viyadük, istasyon | Lisl Gruber ile buluş, Şahin'le iki gözcüyü uzaktan sustur, istasyon telsizini kes, sevk dosyasını çal, Brandt'ın zırhlı lokomotifini uçur, iki komandoyla dağ geçidine kaç | 60–80 dk |
 
 ## Bölüm 1 – Nehir Operasyonu (ayrıntılı)
 
@@ -170,8 +171,28 @@
 
 **Kapanış:** Ada arkada alevler içinde. Jan: *"Kamptakiler bu ışığı görünce anlayacak."* Kowalski: *"Söz verdiğim gibi, çavuş: daha büyük patlayıcı."* Blake (telsiz): *"Londra'dan haber var. Brandt kaçmış; trenle güneye, Alplere."* (Bölüm 8'e geçiş)
 
+## Bölüm 8 – Alp Treni (ayrıntılı, Tur 7)
+
+**Açılış:** Eylül 1944, Tirol Alpleri. Brandt Baltık'tan kaçtı; zırhlı bir trenle Alplerin içindeki gizli fabrikalara gidiyor. Tren bu gece karlı bir vadideki küçük istasyonda su ve kömür alacak. **Yzb. Edward "Şahin" Blake** ilk kez sahada: dürbünlü tüfeğiyle Reilly'nin yanında. Bu, oyuncunun iki komando arasında geçiş yaptığı ilk bölüm.
+
+**Ekip (Tur 7):** Reilly (Yeşil Bere: bıçak, yumruk, tabanca, ceset taşıma) + Şahin (keskin nişancı: dürbünlü tüfek – 620 px menzil, 0,8 sn durup nişan, tek atış, 6 mermi, atış sesi 300 px; bıçak yok, yumruk var). Seçili olmayan komando **izler** (arkandan gelir, çömelirsen çömelir, kapı ve pencereden birlikte geçer) ya da **bekler** (yerinde çömelir). Askerler ikisini de görür; biri ölürse görev biter. Kaçışta ikisi de dağ geçidinde olmalı.
+
+**Görev akışı:**
+1. **Temas:** Gruber çiftliğinde Tirollü direnişçi **Lisl Gruber**: 2 patlayıcı, gözcülerin ve nişancı yerinin yeri, telsizin kışlaya bağlı olduğu.
+2. **Gözcüler (Şahin):** Derenin doğu yakasındaki kayalıkta iki gözcü batı yamacını ve iki köprüyü kolluyor. Karakolun doğusundaki çalılık (nişancı yeri) ikisini de 560–575 px'ten görür, gözcüler oraya göremez (görüşleri 230 px). Reilly ile bıçağa ulaşmak için dereyi geçip kayalığa tırmanmak gerekir (yaya köprüsü nöbetçilerinin önünden). Atış sesi 300 px'ten duyulur: nişancı yeri viyadük nöbetçilerinden ~460 px uzakta seçildi.
+3. **Telsiz (sessiz sabotaj):** İstasyon telsizi kesilirse dağ kışlası takviye gönderemez.
+4. **Anahtar:** Peronda dolaşan subaydan istasyon anahtarı.
+5. **Dosya:** Kilitli istasyon şefliğinden Brandt'ın sevk dosyası (fabrikaların yerleri, tren saatleri).
+6. **Lokomotif:** Brandt'ın zırhlı lokomotifi uçurulur.
+7. *(İsteğe bağlı)* **Viyadük** uçurulur (yedek tren gelemesin) – ama dönüş yolu kuzeydeki yaya köprüsüne ya da donmuş sığlığa kalır.
+8. **Kaçış:** İki komando birlikte kuzeybatıdaki dağ geçidine.
+
+**Zorluk:** 92 asker, 8 kule, 5 projektör, 5 kışla, 9 siren, 17 bina (biri kilitli). Buzlu dere üç yerden geçilir: yaya köprüsü (kuzey), viyadük (orta), donmuş sığlık (güney, karda iz). Kılık yok: çam korulukları, kar yığını çalılar, dere kamışları, taş yığınları, projektör aralıkları ve Şahin'in uzaktan susturması.
+
+**Kapanış:** Lokomotif alevler içinde, vadide sirenler. Blake: *"Dosyada üç fabrika var, Reilly. Biri Alplerin altında, bir dağın içinde."* Reilly: *"O zaman dağın içine gireriz."* (Bölüm 9'a geçiş)
+
 ## Gelecek mekanikler (öncelik sırasıyla)
-1. İkinci komando (Şahin), birden fazla karakter seçimi ve portreler
+1. ~~İkinci komando (Şahin), birden fazla karakter seçimi~~ (Tur 7: Bölüm 8'den itibaren). Sıradaki: Şahin için gerçek sprite (Blender render), portreler, Gölge ve Kıvılcım'ın oynanabilir olması (hırsız: kilit açma; istihkâmcı: tuzak)
 2. Ceset taşıma ve saklama
 3. Ses sistemi: atılan taş, düdük, askerin dikkatini dağıtma
 
