@@ -1,0 +1,18 @@
+{
+ "ad": "alman_muhendis",
+ "tarif": "a 1940s German factory engineer, adult man, long white lab coat over a grey suit, dark tie, round glasses, short slicked hair, black leather shoes",
+ "secilen": 1,
+ "puan": [
+  0.891,
+  0.77,
+  0.619
+ ],
+ "gpu_sn": 92.01,
+ "toplam_sn": 368,
+ "dersler": [
+  "insan kulağı"
+ ],
+ "hat": "komando",
+ "ekipman": [],
+ "cikti": "assets/sprites/alman_muhendis_sprite_sheet.png"
+}

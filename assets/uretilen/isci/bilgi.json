@@ -1,0 +1,18 @@
+{
+ "ad": "isci",
+ "tarif": "a 1940s factory laborer, thin adult man, worn faded blue-grey work jacket and trousers, grey flat cap, dirty brown work boots",
+ "secilen": 1,
+ "puan": [
+  0.78,
+  0.686,
+  0.605
+ ],
+ "gpu_sn": 92.6,
+ "toplam_sn": 551,
+ "dersler": [
+  "insan kulağı"
+ ],
+ "hat": "komando",
+ "ekipman": [],
+ "cikti": "assets/sprites/isci_sprite_sheet.png"
+}

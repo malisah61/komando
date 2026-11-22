@@ -1,0 +1,21 @@
+{
+ "ad": "alman_dag",
+ "tarif": "a WW2 German mountain trooper soldier, adult man, field grey wool anorak jacket, grey mountain cap with a small white edelweiss badge, grey trousers tucked into thick grey wool socks, heavy brown mountain boots, leather belt",
+ "secilen": 1,
+ "puan": [
+  0.811,
+  0.806,
+  0.706
+ ],
+ "gpu_sn": 91.01,
+ "toplam_sn": 277,
+ "dersler": [
+  "insan kulağı"
+ ],
+ "hat": "komando",
+ "ekipman": [
+  "rifle",
+  "canteen"
+ ],
+ "cikti": "assets/sprites/alman_dag_sprite_sheet.png"
+}
