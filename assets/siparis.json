@@ -1,0 +1,20 @@
+{
+  "aciklama": "Sprite Atölye siparişleri. 'hat': 'komando' → görsel → 3D (TripoSR) → Quaternius UAL iskeleti → 8 yön × 8 animasyon sprite sayfası (asker2 ile aynı düzen). Çalıştırma: sprite-atolye → Actions → 'Sipariş' (hedef: malisah61/komando).",
+  "siparisler": [
+    {"ad": "alman_dag", "hat": "komando", "stil": "other", "adet": 3, "seed": 11,
+     "tarif": "a WW2 German mountain trooper soldier, adult man, field grey wool anorak jacket, grey mountain cap with a small white edelweiss badge, grey trousers tucked into thick grey wool socks, heavy brown mountain boots, leather belt",
+     "ekipman": ["rifle", "canteen"], "cikti": "assets/sprites/alman_dag_sprite_sheet.png"},
+    {"ad": "alman_muhendis", "hat": "komando", "stil": "other", "adet": 3, "seed": 21,
+     "tarif": "a 1940s German factory engineer, adult man, long white lab coat over a grey suit, dark tie, round glasses, short slicked hair, black leather shoes",
+     "ekipman": [], "cikti": "assets/sprites/alman_muhendis_sprite_sheet.png"},
+    {"ad": "isci", "hat": "komando", "stil": "other", "adet": 3, "seed": 31,
+     "tarif": "a 1940s factory laborer, thin adult man, worn faded blue-grey work jacket and trousers, grey flat cap, dirty brown work boots",
+     "ekipman": [], "cikti": "assets/sprites/isci_sprite_sheet.png"},
+    {"ad": "madenci", "hat": "komando", "stil": "other", "adet": 3, "seed": 41,
+     "tarif": "a 1940s Austrian mine foreman, adult man with a thick mustache, brown leather jacket over a cream wool sweater, dark miner's helmet with a small lamp, brown corduroy trousers, black work boots",
+     "ekipman": [], "cikti": "assets/sprites/madenci_sprite_sheet.png"},
+    {"ad": "komando_nisanci", "hat": "komando", "stil": "other", "adet": 3, "seed": 51,
+     "tarif": "a WW2 British army sniper captain, adult man, green-brown camouflage Denison smock jacket, khaki trousers, brown leather boots, khaki wool cap comforter hat, face with light stubble",
+     "ekipman": ["rifle", "webbing"], "cikti": "assets/sprites/komando_nisanci_sprite_sheet.png"}
+  ]
+}
