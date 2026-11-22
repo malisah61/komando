@@ -82,6 +82,8 @@ jobs:
           ~/godot/godot --headless -s res://tests/sim_ekip.gd -- --level=res://levels/bolum8.json
           ~/godot/godot --headless -s res://tests/sim_bolum.gd -- --level=res://levels/bolum8.json
           ~/godot/godot --headless -s res://tests/sim_pencere.gd -- --level=res://levels/bolum8.json
+          ~/godot/godot --headless -s res://tests/sim_bolum.gd -- --level=res://levels/bolum9.json
+          ~/godot/godot --headless -s res://tests/sim_pencere.gd -- --level=res://levels/bolum9.json
 
       - name: PC derlemesi (Windows + Linux, en kaliteli sürüm)
         run: |

@@ -1,0 +1,51 @@
+name: Dal testi (bölüm doğrulama)
+
+# main dışındaki çalışma dallarında (örn. bolum9) derleme yapmadan hızlı doğrulama:
+# Godot import + yeni bölüm erişim/pencere/ekip testleri + navigasyon (merge edge) denetimi.
+on:
+  push:
+    branches-ignore: [main, deneme-sonuclari, "assets/**"]
+  workflow_dispatch:
+    inputs:
+      bolum:
+        description: "Test edilecek bölüm (örn. bolum9)"
+        default: "bolum9"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      BOLUM: ${{ inputs.bolum || 'bolum9' }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Godot önbellek
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: ~/godot
+          key: godot-4.3-stable-yalin
+      - name: Godot indir
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p ~/godot && cd ~/godot
+          wget -q https://github.com/godotengine/godot/releases/download/4.3-stable/Godot_v4.3-stable_linux.x86_64.zip
+          unzip -q Godot_v4.3-stable_linux.x86_64.zip && mv Godot_v4.3-stable_linux.x86_64 godot && rm *.zip
+      - name: İçe aktar
+        run: |
+          chmod +x ~/godot/godot
+          python3 tools/varlik/hat.py ayarla
+          ~/godot/godot --headless --import 2>&1 | grep -E "ERROR|SCRIPT ERROR|Parse Error" | head -30 || true
+      - name: Bölüm testleri
+        run: |
+          set -o pipefail
+          L=res://levels/$BOLUM.json
+          ~/godot/godot --headless -s res://tests/sim_bolum.gd -- --level=$L 2>&1 | tee /tmp/bolum.txt | grep -E "FAIL|SONUC|merge|ERROR|Parse" | head -60
+          grep -q "SONUC: BASARILI" /tmp/bolum.txt
+          ~/godot/godot --headless -s res://tests/sim_pencere.gd -- --level=$L 2>&1 | tee /tmp/pencere.txt | grep -E "FAIL|SONUC|ERROR" | head -40
+          grep -q "SONUC: BASARILI" /tmp/pencere.txt
+          ~/godot/godot --headless -s res://tests/sim_ekip.gd -- --level=$L 2>&1 | tee /tmp/ekip.txt | grep -E "FAIL|SONUC|ERROR" | head -40
+          grep -q "SONUC: BASARILI" /tmp/ekip.txt
+      - name: Mevcut bölümler bozulmadı mı (Bölüm 8)
+        run: |
+          ~/godot/godot --headless -s res://tests/sim_ekip.gd -- --level=res://levels/bolum8.json 2>&1 | grep -E "FAIL|SONUC" | tail -5

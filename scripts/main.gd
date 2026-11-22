@@ -23,6 +23,7 @@ const LEVELS := [
 	["res://levels/bolum6.json", "Bölüm 6 – Çelik Rampa", "2. perde: V-1 orman üssü, baraj gölü, dikenli tel, 6 projektör, 86 asker"],
 	["res://levels/bolum7.json", "Bölüm 7 – Sisli Ada", "Baltık adası: roket deneme kulesi, kanal, sazlık, 7 projektör, 88 asker"],
 	["res://levels/bolum8.json", "Bölüm 8 – Alp Treni", "Tirol: iki komando (Reilly + Şahin), viyadük, zırhlı tren, buzlu dere, 92 asker"],
+	["res://levels/bolum9.json", "Bölüm 9 – Dağın İçindeki Fabrika", "Salzkammergut: dağa oyulmuş jet fabrikası, tüneller, işçi kampı, göl, 92 asker"],
 ]
 static var level_choice := ""      # sahne yeniden yuklenince de hatirlanir
 static var pending_load = null     # Tur 4: yuklenecek kayit durumu (sahne yeniden kurulunca uygulanir)

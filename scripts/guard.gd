@@ -33,6 +33,9 @@ const RANKS := {
 	"elit":  [110.0, 1.15, 1.25, 1.05, 14.0, 0.82],
 	"subay": [80.0,  1.1,  1.35, 1.1,  13.0, 0.80],
 	"kule":  [60.0,  1.55, 1.15, 1.5,  12.0, 0.70],   # gozetleme kulesi: uzagi gorur, yerinden ayrilmaz
+	# Tur 8 (Bolum 9, Sprite Atolye karakterleri):
+	"dag":   [70.0,  1.1,  1.05, 1.3,  11.5, 0.76],   # Gebirgsjager: dag avcisi, biraz daha uzagi gorur
+	"muhendis": [40.0, 0.85, 1.1, 1.6,  7.0,  0.55],  # fabrika muhendisi: zayif, kotu nisanci ama alarm verir
 }
 const WHISTLE := 320.0           # catismaya giren askerin seslendigi mesafe (subay: duduk, x1.6)
 
@@ -874,3 +877,5 @@ func _draw_alert(body: Vector2) -> void:
 		draw_string(font, body + Vector2(-4, -19), "?", HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Color(1, 0.6, 0.2))
 	if kind == "subay" or kind == "elit":
 		draw_string(font, body + Vector2(-14, 26), "Subay" if kind == "subay" else "SS", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(1, 0.9, 0.6, 0.8))
+	elif kind == "muhendis":
+		draw_string(font, body + Vector2(-24, 26), "Mühendis", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(0.9, 0.95, 1, 0.8))

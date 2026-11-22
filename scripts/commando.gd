@@ -87,7 +87,11 @@ func _ready() -> void:
 	navigation_agent.target_desired_distance = 4.0
 	navigation_agent.radius = 10.0
 	add_child(navigation_agent)
-	for path in SHEETS:
+	# Tur 8: role ozel sprite (Sahin: Sprite Atolye'de uretilen komando_nisanci), yoksa ortak komando sprite'i
+	var sheets: Array = SHEETS.duplicate()
+	if role != "bere":
+		sheets.push_front("res://assets/sprites/komando_%s_sprite_sheet.png" % role)
+	for path in sheets:
 		if SpriteSheet.sheet_exists(path):
 			sprite = SpriteSheet.attach(self, path)
 			break
