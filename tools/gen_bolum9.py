@@ -76,8 +76,8 @@ L.house("Tünel A ağzı", 2420, 470, 460, 250, "S", [0.42, 0.42, 0.42], style="
 L.house("Tünel B ağzı", 3920, 470, 460, 250, "S", [0.42, 0.42, 0.42], style="sade")
 L.ob("sandbag", rect(2580, 800, 140, 26))         # tunel onu siperleri
 L.ob("sandbag", rect(4080, 800, 140, 26))
-L.ob("sandbag", rect(3140, 735, 120, 24))         # makineli tufek yuvasi 1
-L.ob("sandbag", rect(3500, 755, 120, 24))         # makineli tufek yuvasi 2
+L.ob("sandbag", rect(3120, 670, 24, 70))          # makineli tufek yuvasi 1 (yanda: nisanciya karsi siper degil)
+L.ob("sandbag", rect(3600, 690, 24, 70))          # makineli tufek yuvasi 2
 
 # ------------------------------------------------------------ BATI: Bergdorf koyu (temas)
 L.house("Hofer evi", 420, 2700, 240, 160, "E", [0.42, 0.3, 0.22])

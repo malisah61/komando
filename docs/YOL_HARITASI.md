@@ -18,7 +18,8 @@ Son güncelleme: Tur 7 (16 Kasım 2026, Pazartesi – Komando: Şahin ekibe kat�
 | 6 – Çelik Rampa | Tur 5'te kılıksız yeniden düzenlendi (drenaj kanalı, taş yığını); v1 açısı Tur 4 CI'da zaman aşımına uğradı, Tur 5'te yeniden render ediliyor |
 | 7 – Sisli Ada | Tur 5'te eklendi; 4 açı render'ı var (Tur 6 sonrası CI) |
 | 8 – Alp Treni | **Tur 7'de eklendi**: ilk iki komandolu bölüm (Reilly + Şahin), 92 asker; harita render'ı push ile CI'da başlar (saatler sürer, bitene kadar düz zemin) |
-| 9–11 | sırayla, gecede 1 bölüm (9: Alplerin altındaki fabrika – Gölge ya da Kıvılcım oynanabilir olabilir) |
+| 9 – Dağın İçindeki Fabrika | **Tur 8'de eklendi** (23 Kasım): karakterler Sprite Atölye sipariş hattından (dağ avcısı, mühendis, işçi, madenci, Şahin sprite'ı) |
+| 10–11 | sırayla, gecede 1 bölüm (Gölge ya da Kıvılcım oynanabilir olabilir; yeni karakterler `assets/siparis.json` → Sprite Atölye) |
 | Bonus görevler | 12 bölüm dolunca, gecede 1 |
 
 ## Öncelikler (bot ve oyuncu notlarından)
@@ -35,6 +36,7 @@ Son güncelleme: Tur 7 (16 Kasım 2026, Pazartesi – Komando: Şahin ekibe kat�
 9. **Ses (Çarşamba):** ayak sesleri, siren, Almanca bağırışlar (CC0).
 
 ## Bitenler
+- Tur 8: Sprite Atölye sipariş hattı (görsel → TripoSR → UAL → 8 yön sprite), yeni asker türleri `dag` / `muhendis`, role özel komando sprite'ı (`komando_<rol>`), Bölüm 9 – Dağın İçindeki Fabrika, dal testi iş akışı (`test_dal.yml`).
 - Tur 7: ekip ve karakter geçişi (Reilly + Şahin), izle/bekle, Şahin'in dürbünlü tüfeği (nişan, menzil, ses, çalıdan atış), tanık kuralı (düşüşü gören arkadaş atış yönüne arar), `eliminate` görev türü, iki kişilik kaçış, ekip kaydı, Bölüm 8 – Alp Treni, bot: nişancı yeri / tanıksız hedef / sirene koşanı vurma / Şahin'i bekletip kaçışta getirme, `sim_ekip.gd`.
 - Tur 6: pencereden giriş/çıkış (745 pencere, Bölüm 0–7, render ile aynı yerde), kilitli binada kilitli pencere, gerçekçi kapı deliği (dar koni + has_los), peşinden girme (gördü → girdi / görmedi → girmedi), koni dışında yakından fark etme (46 px çevresel algının yerine), bot pencere kullanımı + çömelerek geri çekilme, `sim_pencere.gd`, büyük haritada pencereler.
 - Tur 5: web kaldırıldı (CI, preset, Pages, belgeler); açılar bellekte + beklemesiz "Çevir" (PC 4, telefon 3 + önizleme, `sim_aci.gd`, `perf.gd` art arda/ters/aynı kare basışları); kılık/üniforma sistemi kaldırıldı (eski kayıtlar sessizce açılır); Bölüm 6 kılıksız yeniden düzenlendi; taş yığını; bot: ölüm yerinden ders + eski kayda dönme + yuva sırası; Bölüm 7 – Sisli Ada.

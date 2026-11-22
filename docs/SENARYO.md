@@ -40,6 +40,7 @@
 | 6 | **Çelik Rampa** (2. perde açılışı) | Pas-de-Calais ormanı, baraj gölü, V-1 üssü | Baraj santralini kes, Gölge'yi kamptan kurtar, hedef çizelgesini çal, V-1 rampasını ve harp başlıklarını uçur | 55–75 dk |
 | 7 | **Sisli Ada** | Baltık kıyısında roket deneme adası (Usedom benzeri), kanal, sazlık | Jan Nowak ile buluş, trafo hattını kes, laboratuvardan A-4 çizimlerini çal, deneme kulesindeki roketi ve oksijen tesisini uçur, Kowalski'nin motorbotuna kaç | 60–80 dk |
 | 8 | **Alp Treni** (ilk iki komandolu bölüm) | Tirol, karlı vadi, buzlu dere, taş viyadük, istasyon | Lisl Gruber ile buluş, Şahin'le iki gözcüyü uzaktan sustur, istasyon telsizini kes, sevk dosyasını çal, Brandt'ın zırhlı lokomotifini uçur, iki komandoyla dağ geçidine kaç | 60–80 dk |
+| 9 | **Dağın İçindeki Fabrika** | Salzkammergut, dağa oyulmuş jet fabrikası, işçi kampı, göl | Franz Hofer ile buluş, Şahin'le iki makineli tüfek yuvasını sustur, trafoyu kes, jet motoru çizimlerini çal, Tadeusz Kowal'ı kurtar, iki tünel ağzını uçur, göl iskelesine kaç | 60–85 dk |
 
 ## Bölüm 1 – Nehir Operasyonu (ayrıntılı)
 
@@ -190,6 +191,27 @@
 **Zorluk:** 92 asker, 8 kule, 5 projektör, 5 kışla, 9 siren, 17 bina (biri kilitli). Buzlu dere üç yerden geçilir: yaya köprüsü (kuzey), viyadük (orta), donmuş sığlık (güney, karda iz). Kılık yok: çam korulukları, kar yığını çalılar, dere kamışları, taş yığınları, projektör aralıkları ve Şahin'in uzaktan susturması.
 
 **Kapanış:** Lokomotif alevler içinde, vadide sirenler. Blake: *"Dosyada üç fabrika var, Reilly. Biri Alplerin altında, bir dağın içinde."* Reilly: *"O zaman dağın içine gireriz."* (Bölüm 9'a geçiş)
+
+## Bölüm 9 – Dağın İçindeki Fabrika (ayrıntılı, Tur 8)
+
+**Açılış:** Ekim 1944, Salzkammergut. Brandt'ın sevk dosyasındaki ilk adres bir dağın içi: kayaya oyulmuş tünellerde jet motoru parçası üreten yeraltı fabrikası. Tünelleri zorla çalıştırılan işçiler kazdı; dağ avcıları (Gebirgsjäger) ve SS koruyor. Ekip: Reilly + Şahin.
+
+**Yeni karakterler (Sprite Atölye'de üretildi):** dağ avcısı (`dag`, bölümün ana askeri), beyaz önlüklü fabrika mühendisi (`muhendis`; zayıf, kötü nişancı ama alarm verir, baş mühendis ofis anahtarını taşır), işçiler, maden ustabaşı **Franz Hofer** (temas), Polonyalı mühendis-işçi **Tadeusz Kowal** (kurtarılan). Şahin'in de artık kendi sprite'ı var.
+
+**Görev akışı:**
+1. **Temas:** Bergdorf'taki evinde Franz Hofer (3 patlayıcı + tel makası).
+2. **Şahin:** yarın dibindeki iki makineli tüfek yuvası (nişancı yeri kompresör istasyonunun kuzeyindeki çalılık; 550 / 569 px).
+3. **Trafo (sessiz sabotaj):** SS kışlası yardım çağıramaz.
+4. **Ofis anahtarı:** avluda dolaşan baş mühendisten.
+5. **Çizimler:** kilitli mühendislik ofisinden jet motoru çizimleri.
+6. **Baraka anahtarı:** işçi kampında dolaşan kamp subayından.
+7. **Tadeusz:** kilitli ceza barakasından kurtarılır, seni izler.
+8. **Tünel A** ve **Tünel B** ağızları uçurulur. *(İsteğe bağlı)* kompresör istasyonu.
+9. **Kaçış:** herkesle doğudaki göl iskelesine.
+
+**Zorluk:** 6000x4200, 92 asker (dağ avcısı ağırlıklı, SS, mühendis), 7 kule, 4 projektör, 5 kışla, 9 siren, 20 bina; tel örgülü işçi kampı. Gizli yollar: göl kıyısı kamışlığı, dere boyu, trafo arkası çalılık, kamp güneyi koruluk.
+
+**Kapanış:** Dağın iki ağzı çöker, göl üstünde sirenler. Tadeusz: *"Öteki iki fabrika daha derinde. Ama yolunu biliyorum."* Blake: *"O zaman rehberimiz sensin."* (Bölüm 10'a geçiş)
 
 ## Gelecek mekanikler (öncelik sırasıyla)
 1. ~~İkinci komando (Şahin), birden fazla karakter seçimi~~ (Tur 7: Bölüm 8'den itibaren). Sıradaki: Şahin için gerçek sprite (Blender render), portreler, Gölge ve Kıvılcım'ın oynanabilir olması (hırsız: kilit açma; istihkâmcı: tuzak)

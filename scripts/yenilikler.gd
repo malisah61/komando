@@ -2,6 +2,12 @@ extends RefCounted
 ## Oyun ici "Yenilikler" ekrani: her gece turunda en uste 3-5 satir eklenir (en yeni once).
 
 const LIST := [
+	["Tur 8 – 23 Kasım 2026 (Sprite Atölye karakterleri)", [
+		"Yeni bölüm: Bölüm 9 – Dağın İçindeki Fabrika (Salzkammergut: dağa oyulmuş jet fabrikası, iki tünel ağzı, işçi kampı, göl iskelesi).",
+		"Yeni karakterler Sprite Atölye'de üretildi: dağ avcıları (Gebirgsjäger), beyaz önlüklü mühendisler, işçiler, maden ustabaşı Franz Hofer, Tadeusz Kowal.",
+		"Şahin'in artık kendi görünüşü var (kamuflaj önlüğü, sırtında tüfek).",
+		"Mühendisler zayıf ve kötü nişancı ama seni görürse alarm verir; baş mühendis ofis anahtarını taşır.",
+	]],
 	["Tur 7 – 16 Kasım 2026 (Komando: Şahin ekibe katıldı)", [
 		"İki komando: Bölüm 8'de Reilly'nin yanında keskin nişancı Şahin (Yzb. Blake). Aralarında geç: sol alttaki ekip düğmeleri, PC'de 1 / 2 ya da Tab.",
 		"Seçili olmayan komando seni izler (kapı ve pencereden birlikte geçer) ya da yerinde çömelip bekler: \"İzliyor / Bekliyor\" düğmesi, PC'de F.",

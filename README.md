@@ -67,6 +67,7 @@ Bölüm dosyasındaki `objectives` listesi: `reach` (buluş/konuş, eşya ver), 
 - **Bölüm 6 – Çelik Rampa** (Tur 4, Tur 5'te kılıksız yeniden düzenlendi): 6400x4200 V-1 orman üssü, baraj gölü, ~86 asker, 6 projektör. Kampa gizli giriş: kuzey duvardaki yıkık drenaj kanalı, taşla dikkat dağıtma, devriye zamanlaması. `tools/gen_bolum6.py`
 - **Bölüm 7 – Sisli Ada** (Tur 5): 6400x4200 Baltık roket deneme adası, kanal (2 köprü + sazlık), ~88 asker, 9 kule, 7 projektör, 5 kapılı tel. `tools/gen_bolum7.py`
 - **Bölüm 8 – Alp Treni** (Tur 7): 6000x4000 karlı Tirol vadisi, ilk iki komandolu bölüm (Reilly + Şahin), buzlu dere (yaya köprüsü, viyadük, donmuş sığlık), istasyon ve zırhlı tren, 92 asker, 8 kule, 5 projektör. `tools/gen_bolum8.py`
+- **Bölüm 9 – Dağın İçindeki Fabrika** (Tur 8): 6000x4200 Salzkammergut, dağa oyulmuş jet fabrikası (iki tünel ağzı), tel örgülü işçi kampı, göl kıyısı, 92 asker. Reilly + Şahin; yeni karakterler (dağ avcısı, mühendis, işçiler, Franz Hofer, Tadeusz Kowal) **Sprite Atölye**'de üretildi. `tools/gen_bolum9.py`
 
 Yeni bölüm üreticileri `tools/bolum_lib.py` yardımcılarını kullanır (bina, asker, kule, çalı şeridi, nehir, duvarlı alan). Her bölüm için erişim testi: `godot --headless --script res://tests/sim_bolum.gd -- --level=res://levels/bolum2.json`.
 
@@ -81,6 +82,10 @@ Tek hat: **render** (`tools/blender/harita.py`, kayıpsız PNG, `levels/<bölüm
 - `manifest.json` – parçaların atlas ve dünya konumları
 
 Bölüm dosyası ya da script değişip push edilince GitHub Actions haritaları yeniden render eder. Komando bir nesnenin arkasında kalınca yeşil silüeti görünür.
+
+## Sprite Atölye sipariş hattı (Tur 8)
+Yeni karakterler elle modellenmez: `assets/siparis.json`'a bir satır eklenir, [Sprite Atölye](https://github.com/malisah61/sprite-atolye)'de **Sipariş** iş akışı (hedef: `malisah61/komando`) çalıştırılır:
+görsel (atölye motoru, otomatik temizlik) → 3D (TripoSR) → Quaternius UAL iskeletine oturtma (kolları aşağıda çizilen karakter otomatik T-poza açılır) → Komando sahnesi/kamerasıyla 8 yön × 8 animasyon → `assets/sprites/<ad>_sprite_sheet.png/.json` (aşağıdaki Blender hattıyla aynı düzen). Asker türü = `alman_<tür>` (örn. `dag`, `muhendis`), dost karakter = `outfit` adı, ekipteki rol = `komando_<rol>` (örn. `komando_nisanci`).
 
 ## Asker modeli ve sprite hattı (Blender)
 `tools/blender/asker.py` tek bir iskelet ve tek bir animasyon setiyle (bekleme, yürüme, koşma, bıçak, ölüm) her kıyafet için 8 yönlü sprite sheet üretir:
