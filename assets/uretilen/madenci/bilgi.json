@@ -1,0 +1,18 @@
+{
+ "ad": "madenci",
+ "tarif": "a 1940s Austrian mine foreman, adult man with a thick mustache, brown leather jacket over a cream wool sweater, dark miner's helmet with a small lamp, brown corduroy trousers, black work boots",
+ "secilen": 1,
+ "puan": [
+  0.909,
+  0.548,
+  0.509
+ ],
+ "gpu_sn": 92.61,
+ "toplam_sn": 186,
+ "dersler": [
+  "insan kulağı"
+ ],
+ "hat": "komando",
+ "ekipman": [],
+ "cikti": "assets/sprites/madenci_sprite_sheet.png"
+}

@@ -42,8 +42,7 @@
    "seed": 41,
    "tarif": "a 1940s Austrian mine foreman, adult man with a thick mustache, brown leather jacket over a cream wool sweater, dark miner's helmet with a small lamp, brown corduroy trousers, black work boots",
    "ekipman": [],
-   "cikti": "assets/sprites/madenci_sprite_sheet.png",
-   "aday": 2
+   "cikti": "assets/sprites/madenci_sprite_sheet.png"
   },
   {
    "ad": "komando_nisanci",
