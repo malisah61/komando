@@ -40,7 +40,7 @@ jobs:
         run: |
           set -o pipefail
           L=res://levels/$BOLUM.json
-          ~/godot/godot --headless -s res://tests/sim_bolum.gd -- --level=$L 2>&1 | tee /tmp/bolum.txt | grep -E "FAIL|SONUC|merge|ERROR|Parse" | head -60
+          ~/godot/godot --headless -s res://tests/sim_bolum.gd -- --level=$L 2>&1 | tee /tmp/bolum.txt | grep -E "FAIL|SONUC|merge|ERROR|Parse|devriye|yol yok|engel" | head -60
           grep -q "SONUC: BASARILI" /tmp/bolum.txt
           ~/godot/godot --headless -s res://tests/sim_pencere.gd -- --level=$L 2>&1 | tee /tmp/pencere.txt | grep -E "FAIL|SONUC|ERROR" | head -40
           grep -q "SONUC: BASARILI" /tmp/pencere.txt

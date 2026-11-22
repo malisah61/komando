@@ -150,7 +150,7 @@ G([[400, 2220], [550, 2220]], None, "dag")                            # gasthaus
 G([[1330, 1990]], 180, "dag")                                         # karakol kapisi
 G([[1420, 1950], [1550, 2000]], None, "dag")                          # karakol ici
 G([[1230, 1300], [1230, 2700]], None, "dag")                          # koy yolu
-G([[900, 2500], [1350, 2650]], None, "dag")
+G([[900, 2580], [1350, 2650]], None, "dag")
 G([[1450, 2300], [1450, 3000]], None, "dag")
 G([[1700, 3000], [1700, 3500]], None, "dag")                          # dere dogusu
 # avlu: ofis, trafo, kompresor, atolye, kisla
