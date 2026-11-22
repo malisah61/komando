@@ -648,3 +648,37 @@ Ekip kodunun ek yükü ölçülemeyecek kadar küçük (Bölüm 5'te Tur 6 kodu 
 ### Kaynaklar
 - Commandos 2 karakter geçişi ve keskin nişancı (sınırlı mermi, uzun menzil): https://commandos.fandom.com/wiki/Sniper
 - Shadow Tactics: tanık ve ceset görme kuralları: https://www.gamedeveloper.com/design/the-stealth-design-of-shadow-tactics-blades-of-the-shogun
+
+## Tur 8 – Canlı oturum (22–23 Kasım 2026 gecesi: Sprite Atölye karakterleri + Bölüm 9)
+
+Kullanıcı isteği: "Komando'ya bir bölüm daha yap, karakterleri bizim atölyede üretip renderle, yeni yeni karakterler üret."
+
+### 1. Sprite Atölye sipariş hattı
+- `assets/siparis.json` (bu repo) → [sprite-atolye](https://github.com/malisah61/sprite-atolye) **Sipariş** iş akışı (`siparis.yml`, girdi: hedef repo + dal):
+  1. atölye motoru (Modal, DreamShaper XL) tariften 3 aday çizer, arka planı otomatik temizler; en uyumlu aday seçilir,
+  2. TripoSR (MIT) görselden 3D model çıkarır (GitHub Actions, CPU),
+  3. `siparis/komando_hatti.py` (Blender): bu reponun `tools/blender/asker.py` sahnesi + `asker2.py` Quaternius UAL (CC0) mankeni/iskeleti yüklenir; model mankenin boyuna ölçeklenir, **kollar aşağıda çizilmişse** mankenin kolları modele en iyi oturan açıya indirilir (KD-ağacı uyum ölçümü), ağırlıklar o pozdan aktarılır (Data Transfer) ve model ters dönüşle T-poza açılır; bacaklar ve kol-gövde arası gerilen yüzler kesilir; ekipman (tüfek, matara, sırt çantası) `asker2.add_gear` ile,
+  4. `asker2` ile aynı döngü: 8 yön × 8 animasyon (idle, walk, run, crouch, action, plant, shoot, death), 128 px, aynı json düzeni → oyunda kod değişikliği gerekmez.
+- Çıktılar sprite-atolye `deneme-sonuclari` dalında `siparis/komando/<zaman>/` (adaylar, seçilen görsel, 3D model, sprite sayfası, önizleme). AJAN_TOKEN varsa hedef repoya PR açılır; bu tur sprite'lar oturumdan kopyalandı.
+
+### 2. Yeni karakterler
+| Sprite | Kim | Oyunda |
+|---|---|---|
+| `alman_dag` | Gebirgsjäger (dağ avcısı) | asker türü `dag`: er'den biraz dayanıklı, biraz uzağı görür |
+| `alman_muhendis` | beyaz önlüklü fabrika mühendisi | asker türü `muhendis`: zayıf (40 can), kötü nişancı, alarm verir; başında "Mühendis" |
+| `isci` | zorunlu çalıştırılan işçi | dost karakter (`outfit`) |
+| `madenci` | maden ustabaşı Franz Hofer | dost karakter (temas) |
+| `komando_nisanci` | Şahin (Yzb. Blake) | `commando.gd`: rol özel sprite `komando_<rol>` (yoksa ortak komando sprite'ı) |
+
+### 3. Bölüm 9 – Dağın İçindeki Fabrika
+`tools/gen_bolum9.py`: 6000x4200 Salzkammergut; kuzeyde dağ kitlesi (iç içe geçen kayalar + yar duvarı) ve iki tünel ağzı, ortada fabrika avlusu (trafo, kompresör, kilitli mühendislik ofisi, atölye, SS kışlası), batıda Bergdorf, doğuda tel örgülü işçi kampı (kilitli ceza barakası), güneyde göl. 92 asker, 7 kule, 4 projektör, 5 kışla, 9 siren, 20 bina. Görevler ve hikâye: `docs/SENARYO.md`.
+
+### 4. Testler
+- Yeni `test_dal.yml`: main dışındaki dallarda derlemesiz hızlı doğrulama (import + `sim_bolum`, `sim_pencere`, `sim_ekip`).
+- Bölüm 9: `sim_bolum` BAŞARILI (tüm görevler, 92 asker devriyesi), `sim_pencere` BAŞARILI, `sim_ekip` BAŞARILI (nişancı yerinden iki yuva 550 / 569 px, çalılıkta gizli, ikisi de vuruldu). İlk denemede yuva kum torbaları atış hattında siper olduğu için Şahin ıskaladı → torbalar yana alındı.
+- `build.yml`: Bölüm 9 için `sim_bolum` + `sim_pencere`.
+
+### 5. Sonraki
+- Bölüm 9 harita render'ı ana dala geçince CI'da başlar (saatler sürer, bitene kadar düz zemin).
+- Atölye karakterlerinin yüzleri TripoSR yüzünden bulanık; oyun ölçeğinde (≈45 px boy) sorun değil. İyileştirme adayı: TRELLIS / görsel izdüşümüyle doku.
+- Sıradaki bölümler için yeni karakter = `assets/siparis.json`'a bir satır.
