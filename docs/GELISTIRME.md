@@ -682,3 +682,4 @@ Kullanıcı isteği: "Komando'ya bir bölüm daha yap, karakterleri bizim atöly
 - Bölüm 9 harita render'ı ana dala geçince CI'da başlar (saatler sürer, bitene kadar düz zemin).
 - Atölye karakterlerinin yüzleri TripoSR yüzünden bulanık; oyun ölçeğinde (≈45 px boy) sorun değil. İyileştirme adayı: TRELLIS / görsel izdüşümüyle doku.
 - Sıradaki bölümler için yeni karakter = `assets/siparis.json`'a bir satır.
+- Ana dala geçiş: 23 Kasım gece; Bölüm 9 harita render'ı ve derleme CI'da.
