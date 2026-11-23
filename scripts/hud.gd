@@ -4,6 +4,7 @@ extends CanvasLayer
 ## Sag alt: envanter + ozel yetenek butonlari · Orta: sonuc mesaji
 ## Tum parcalar capa (anchor) ile kenarlara yapisir: telefon ve PC'de ayni duzen.
 
+const Kaydir = preload("res://scripts/kaydir.gd")
 const Minimap = preload("res://scripts/minimap.gd")
 const Kayit = preload("res://scripts/kayit.gd")
 const Yenilikler = preload("res://scripts/yenilikler.gd")
@@ -430,24 +431,39 @@ func _ready() -> void:
 
 
 func show_menu(levels: Array) -> void:
+	## Tur 9: bolum listesi kaydirilabilir (10+ bolum ekrana sigmiyordu): baslik ve alttaki dugmeler sabit,
+	## ortadaki liste parmakla / fareyle surukleyerek ya da tekerlekle kayar. En son oynanan bolume kaydirilir.
 	get_tree().paused = true
 	var shade := ColorRect.new()
-	shade.color = Color(0, 0, 0, 0.72)
+	shade.color = Color(0.02, 0.03, 0.02, 0.9)
 	shade.set_anchors_preset(Control.PRESET_FULL_RECT)
 	shade.mouse_filter = Control.MOUSE_FILTER_STOP     # oyuna dokunus gecmesin
 	add_child(shade)
+	var frame := MarginContainer.new()
+	frame.set_anchors_preset(Control.PRESET_FULL_RECT)
+	for side in ["left", "right", "top", "bottom"]:
+		frame.add_theme_constant_override("margin_" + side, 14)
+	shade.add_child(frame)
 	var box := VBoxContainer.new()
-	box.set_anchors_preset(Control.PRESET_CENTER)
-	box.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	box.grow_vertical = Control.GROW_DIRECTION_BOTH
-	box.add_theme_constant_override("separation", 14)
-	shade.add_child(box)
-	var t := _label("KOMANDO", 54, ACCENT)
+	box.add_theme_constant_override("separation", 8)
+	frame.add_child(box)
+	var t := _label("KOMANDO", 40, ACCENT)
 	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(t)
-	var st := _label("Görev seç", 20, Color(1, 1, 1, 0.8))
+	var st := _label("Görev seç  (listeyi parmağınla ya da fareyle kaydır)", 16, Color(1, 1, 1, 0.75))
 	st.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(st)
+	var scroll = Kaydir.new()
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	var w: float = minf(600.0, get_viewport().get_visible_rect().size.x - 40.0)
+	scroll.custom_minimum_size = Vector2(w + 16.0, 0)
+	box.add_child(scroll)
+	var list := VBoxContainer.new()
+	list.add_theme_constant_override("separation", 10)
+	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(list)
+	var focus_btn: Button = null
 	for lv in levels:
 		var best: Dictionary = main.best_of(lv[0])
 		var extra := ""
@@ -455,31 +471,39 @@ func show_menu(levels: Array) -> void:
 			var bt: float = best["time"]
 			extra = "   %s %s · %d puan · %d:%02d" % ["★".repeat(best["stars"]) + "☆".repeat(3 - best["stars"]), best["rank"], best["points"], int(bt) / 60, int(bt) % 60]
 		var b := _button("%s%s\n%s" % [lv[1], extra, lv[2]], false)
-		b.custom_minimum_size = Vector2(520, 84)
-		b.add_theme_font_size_override("font_size", 20)
+		b.custom_minimum_size = Vector2(w, 78)
+		b.add_theme_font_size_override("font_size", 18)
+		b.clip_text = true
 		var path: String = lv[0]
-		b.pressed.connect(func(): main.choose_level(path))
-		box.add_child(b)
+		b.pressed.connect(func():
+			if scroll.tap_ok():
+				main.choose_level(path))
+		list.add_child(b)
+		if path == main.level_choice:
+			focus_btn = b
+	if focus_btn != null:
+		# listeyi oynanan bolume getir (yerlesim bir kare sonra hesaplanir)
+		var fb: Button = focus_btn
+		get_tree().process_frame.connect(func(): scroll.ensure_control_visible(fb), CONNECT_ONE_SHOT)
 	var row := HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.add_theme_constant_override("separation", 12)
 	box.add_child(row)
 	var lb := _button("Kayıtlı oyunu yükle", false)
-	lb.custom_minimum_size = Vector2(250, 56)
+	lb.custom_minimum_size = Vector2(230, 52)
 	lb.pressed.connect(func(): show_saves(true))
 	row.add_child(lb)
 	var nb := _button("Yenilikler", false)
-	nb.custom_minimum_size = Vector2(250, 56)
+	nb.custom_minimum_size = Vector2(180, 52)
 	nb.pressed.connect(func(): show_news())
 	row.add_child(nb)
 	if main.level_choice != "":
 		var back := _button("Geri dön", false)
-		back.custom_minimum_size = Vector2(200, 56)
-		back.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		back.custom_minimum_size = Vector2(160, 52)
 		back.pressed.connect(func():
 			shade.queue_free()
 			get_tree().paused = false)
-		box.add_child(back)
+		row.add_child(back)
 
 
 func _process(delta: float) -> void:
@@ -740,7 +764,7 @@ func show_briefing(data: Dictionary, objectives: Array) -> void:
 	shade.set_anchors_preset(Control.PRESET_FULL_RECT)
 	shade.mouse_filter = Control.MOUSE_FILTER_STOP
 	add_child(shade)
-	var scroll := ScrollContainer.new()
+	var scroll = Kaydir.new()
 	scroll.set_anchors_preset(Control.PRESET_FULL_RECT)
 	scroll.offset_left = 60
 	scroll.offset_right = -60
@@ -932,7 +956,7 @@ func show_news() -> void:
 	shade.set_anchors_preset(Control.PRESET_FULL_RECT)
 	shade.mouse_filter = Control.MOUSE_FILTER_STOP
 	add_child(shade)
-	var scroll := ScrollContainer.new()
+	var scroll = Kaydir.new()
 	scroll.set_anchors_preset(Control.PRESET_FULL_RECT)
 	scroll.offset_left = 60
 	scroll.offset_right = -60

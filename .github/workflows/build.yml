@@ -85,6 +85,12 @@ jobs:
           ~/godot/godot --headless -s res://tests/sim_bolum.gd -- --level=res://levels/bolum9.json
           ~/godot/godot --headless -s res://tests/sim_pencere.gd -- --level=res://levels/bolum9.json
 
+      - name: Oyuncu geri bildirimi testi (çalı hafızası, bıçak hamlesi, pencere dokunuşu, kaydırılan bölüm listesi – Tur 9)
+        run: |
+          ~/godot/godot --headless -s res://tests/sim_denge.gd -- --level=res://levels/bolum1.json
+          ~/godot/godot --headless -s res://tests/sim_denge.gd -- --level=res://levels/bolum8.json
+          xvfb-run -a -s "-screen 0 1280x720x24" ~/godot/godot --rendering-driver opengl3 --resolution 1280x720 -s res://tests/shot_menu.gd
+
       - name: PC derlemesi (Windows + Linux, en kaliteli sürüm)
         run: |
           mkdir -p build/windows build/linux build/dist

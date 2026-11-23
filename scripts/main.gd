@@ -46,6 +46,7 @@ var pending_enter := -1       # kapiya yuruyup girilecek bina
 var peeking := false          # kapidan disari bakiyor
 # Tur 6: pencereden giris/cikis + gercekci anahtar deligi
 var pending_window := -1      # yuruyup tirmanilacak pencere
+var _window_auto := false     # Tur 9: varinca otomatik tirman (yalniz cift dokunusta)
 var climb := {}               # {w, t, phase, dir: "in"/"out"} - tirmanirken komando yerinden oynamaz
 const CLIMB_TIME := 1.1       # kapi aninda; pencere biraz yavas (iki yari: tirman / in)
 var peek_from := Vector2.ZERO # bakilan acikligin onu (dis harita)
@@ -927,8 +928,10 @@ func _update_action() -> void:
 		var pw: Dictionary = level.windows[pending_window]
 		var pq: Vector2 = pw["int"] if cur_interior >= 0 else pw["ext"]
 		if c.global_position.distance_to(pq) < 22.0:
-			use_window(pending_window)
-			return
+			if _window_auto:
+				use_window(pending_window)
+				return
+			pending_window = -1           # Tur 9: tek dokunus yalniz pencerenin onune goturur; girmek icin dugme
 		if c.navigation_agent.is_navigation_finished() and c.global_position.distance_to(pq) > 30.0:
 			pending_window = -1
 	# kapi gecisleri
@@ -1172,7 +1175,7 @@ func _tap(p: Vector2) -> void:
 			return
 	# Tur 6: pencereye dokunuldu (dis harita: pencerenin onu ya da duvardaki yeri; ic: pencerenin dibi)
 	var twi := -1
-	var tbd := 34.0
+	var tbd := 24.0               # Tur 9: 34 -> 24 px (duvarin yanina dokununca yanlislikla pencere secilmesin)
 	for w in level.windows:
 		if cur_interior >= 0:
 			if w["b"] != cur_interior:
@@ -1190,9 +1193,12 @@ func _tap(p: Vector2) -> void:
 		level.window_hint[twi] = 2.5
 		pending_enter = -1
 		pending_window = twi
+		_window_auto = dbl            # Tur 9: cift dokunus = kos ve tirman; tek dokunus = yalniz onune git
 		var tw: Dictionary = level.windows[twi]
 		commando.move_to(tw["int"] if cur_interior >= 0 else tw["ext"])
 		commando.run_once = dbl
+		if not dbl and not (cur_interior < 0 and window_locked(twi)):
+			hud.toast("Pencerenin önüne gidiyor: girmek için düğmeye bas (çift dokunuş: koşup gir)")
 		if cur_interior < 0 and window_locked(twi):
 			hud.toast("Pencere kilitli: %s gerekli" % level.interiors[tw["b"]]["locked"].replace("_", " "))
 		return

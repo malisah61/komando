@@ -1088,6 +1088,10 @@ func _process(dt: float) -> bool:
 	if main._cut_i >= 0 and main.alert_level < 2 and c.target_guard == null:
 		c.navigation_agent.target_position = c.global_position
 		return false
+	# Tur 9: bicak hamlesi (0,3 sn) ve toparlanma: iyi oyuncu vurus bitene kadar baska komut vermez
+	if c.target_guard != null and is_instance_valid(c.target_guard) and c.target_guard.alive \
+			and c.global_position.distance_to(c.target_guard.global_position) < 34.0 and c.weapon != "pistol":
+		return false
 	if _team_step(dt):
 		return false
 	if main.commando != _rb() and not _escort:

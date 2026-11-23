@@ -15,6 +15,7 @@ const SHEET_FALLBACK := "res://assets/sprites/enemy_sprite_sheet.png"   # elle e
 const VIEW_RANGE := 230.0
 const VIEW_HALF := 0.56          # ~32 derece
 const RAYS := 24
+const BUSH_MEMORY := 6.0         # Tur 9: gordugu caliya giren hedefi bu kadar sn hatirlar
 const NEAR_FRAC := 0.55          # koninin yakin kismi: comelen burada gorulur (Desperados III)
 const BUSH_SEE := 105.0          # caliya saklanani bu mesafeden yakin gorur (comelikse x0.7)
 # Tur 6: koni disinda yakindan fark etme (yandan/arkadan). [yaricap px, koni hizina oran]. Alarm yaricapi ve hizi artirir,
@@ -79,6 +80,7 @@ var _cover_t := 0.0
 var _took_cover := false
 var _last_dir := Vector2.ZERO     # hedefin son gorulen hareket yonu (tahminli arama)
 var tag := ""                     # Tur 7: gorev etiketi ("eliminate" gorevi: bu etiketli askerler susturulmali)
+var _mem_t := 0.0                 # Tur 9: caliya giren hedefi hatirlama suresi
 var drops := ""                   # oldugunde dusen esya (anahtar)
 var siren_pos := Vector2.ZERO
 var _far_t := 0.0
@@ -233,6 +235,17 @@ func _combat(delta: float) -> void:
 	var tp: Vector2 = target.global_position
 	var d := global_position.distance_to(tp)
 	var sees: bool = d < view_range() * 1.25 and main.level.has_los(global_position, tp)
+	# Tur 9: gozunun onunde caliya giren gorunmez olmaz. Askerin seni son gordugu yerin dibindeki caliya
+	# saklandiysan (70 px) yerini bilir: caliya ates eder (isabet x0.6) ve yaklasir; ~6 sn sonra ya da
+	# calinin icinden uzaklasirsan izini kaybeder. Gorulmeden caliya girmek hala gizler.
+	var mem := false
+	if not sees and target.has_method("is_hidden") and target.is_hidden() and tp.distance_to(investigate_pos) < 70.0 \
+			and _mem_t < BUSH_MEMORY and d < view_range() * 1.25 and main.level.has_los(global_position, tp, true):
+		sees = true
+		mem = true
+		_mem_t += delta
+	elif sees:
+		_mem_t = 0.0
 	# yaralandi: bir kez siper al, kisa sure bekle, sonra yeniden catis
 	if _cover_pos != null:
 		if _walk(delta, 1.8) or global_position.distance_to(_cover_pos) < 10.0:
@@ -253,10 +266,15 @@ func _combat(delta: float) -> void:
 			return
 	if sees:
 		_lost_t = 0.0
-		investigate_pos = tp
+		if not mem:
+			investigate_pos = tp
 		if target.velocity.length() > 5.0:
 			_last_dir = target.velocity.normalized()
 		velocity = Vector2.ZERO
+		if mem and d > 90.0:
+			# caliya dogru ilerle (yakindan cali kurali seni zaten bulur)
+			navigation_agent.target_position = tp
+			_walk(delta, 0.9)
 		var want := (tp - global_position).angle()
 		facing = lerp_angle(facing, want, minf(1.0, delta * 10.0))
 		_fire_t -= delta
@@ -368,6 +386,9 @@ func _start_search() -> void:
 	timer = 1.5
 	_search_pts.clear()
 	var map0: RID = navigation_agent.get_navigation_map()
+	if main.level.is_inside_view_blocker(investigate_pos):
+		# Tur 9: hedef bir calida kaybolduysa once o caliya bakar
+		_search_pts.append(NavigationServer2D.map_get_closest_point(map0, investigate_pos))
 	if _last_dir != Vector2.ZERO:
 		# tahminli arama: hedefin kactigi yone dogru once bak
 		_search_pts.append(NavigationServer2D.map_get_closest_point(map0, investigate_pos + _last_dir * 160.0))
@@ -484,6 +505,7 @@ func _set_investigate(p: Vector2) -> void:
 
 
 func enter_combat(tgt) -> void:
+	_mem_t = 0.0
 	if not alive:
 		return
 	var was := state == &"combat"
@@ -734,7 +756,11 @@ func _watch(delta: float) -> void:
 				enter_combat(spotted)
 				return
 	else:
-		suspicion = maxf(0.0, suspicion - delta * 0.35)
+		# Tur 9: supheli asker gozunun onunde caliya giren seni hemen unutmaz: o caliya bakarken suphe yavas duser
+		var k := 0.35
+		if state == &"suspicious" and main.level.is_inside_view_blocker(investigate_pos):
+			k = 0.12
+		suspicion = maxf(0.0, suspicion - delta * k)
 
 	_scan_t -= delta
 	if _scan_t > 0.0:

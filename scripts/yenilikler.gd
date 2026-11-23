@@ -2,6 +2,12 @@ extends RefCounted
 ## Oyun ici "Yenilikler" ekrani: her gece turunda en uste 3-5 satir eklenir (en yeni once).
 
 const LIST := [
+	["Tur 9 – 23 Kasım 2026 (Oyuncu geri bildirimi)", [
+		"Bölüm seçimi artık kaydırılıyor: liste parmakla ya da fareyle sürüklenir, tekerlek de çalışır; en son oynadığın bölüm görünür gelir.",
+		"Çalı artık sihirli değil: asker seni gözünün önünde çalıya girerken gördüyse yerini bilir, çalıya ateş eder ve yaklaşır (yaklaşık 6 sn). Görülmeden girersen yine gizlenirsin; arayan asker önce kaybolduğun çalıya bakar.",
+		"Bıçak dengelendi: kısa bir hamle ve her öldürmeden sonra toparlanma var, art arda hızlı öldürme yok. Seni fark etmiş ve sana bakan asker tek darbede ölmez: boğuşma çıkar.",
+		"Pencere: tek dokunuş seni yalnız pencerenin önüne götürür; girmek için düğmeye bas. Çift dokunuş: koşup gir.",
+	]],
 	["Tur 8 – 23 Kasım 2026 (Sprite Atölye karakterleri)", [
 		"Yeni bölüm: Bölüm 9 – Dağın İçindeki Fabrika (Salzkammergut: dağa oyulmuş jet fabrikası, iki tünel ağzı, işçi kampı, göl iskelesi).",
 		"Yeni karakterler Sprite Atölye'de üretildi: dağ avcıları (Gebirgsjäger), beyaz önlüklü mühendisler, işçiler, maden ustabaşı Franz Hofer, Tadeusz Kowal.",

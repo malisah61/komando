@@ -683,3 +683,29 @@ Kullanıcı isteği: "Komando'ya bir bölüm daha yap, karakterleri bizim atöly
 - Atölye karakterlerinin yüzleri TripoSR yüzünden bulanık; oyun ölçeğinde (≈45 px boy) sorun değil. İyileştirme adayı: TRELLIS / görsel izdüşümüyle doku.
 - Sıradaki bölümler için yeni karakter = `assets/siparis.json`'a bir satır.
 - Ana dala geçiş: 23 Kasım gece; Bölüm 9 harita render'ı ve derleme CI'da.
+
+## Tur 9 – Canlı oturum (23 Kasım 2026: oyuncu geri bildirimi)
+
+Mehmet Ali'nin bildirdikleri: (1) bölüm listesi ekranı kaplıyor, aşağı kaydırılamıyor; (2) çalıya saklanınca askerlerin farkındalığı aniden gidiyor; (3) bıçakla hepsini "tak tak" öldürüyoruz; (4) pencerenin oraya tıklayınca yanlışlıkla direkt içeri giriyor.
+
+### 1. Kaydırılan listeler
+`scripts/kaydir.gd` (ScrollContainer): dokunuş/fare sürüklemesini `_input`'ta düğmelerden önce izler (12 px ölü bölge), bırakınca atalet; sürükleme sonrası düğmeye "tıklama" sayılmaz (`tap_ok`). Godot'nun kendi kabı düğmelerin üstünden sürüklemeyi kaydırmıyordu, PC'de fareyle sürükleme yoktu. Bölüm seçimi: başlık ve alt düğmeler sabit, ortadaki liste kayar, son oynanan bölüme kaydırılır. Brifing ve Yenilikler de aynı sınıfı kullanıyor.
+
+### 2. Çalı hafızası (`guard.gd`)
+- Çatışmadaki asker seni son gördüğü yerin 70 px yakınındaki çalıya girdiğini gördüyse **6 sn** boyunca yerini bilir (`BUSH_MEMORY`): çalıya ateş eder (isabet zaten ×0,6), 90 px'e kadar yaklaşır; orada yakın çalı kuralı seni bulur. Çalının içinden uzaklaşırsan ya da süre dolarsa izini kaybeder.
+- Şüpheli asker, seni kaybettiği nokta bir çalıysa şüphesini yavaş düşürür (0,35 → 0,12 /sn): "?" hemen kaybolmaz, çalıya bakmaya gelir.
+- Aramada kaybolunan çalı ilk bakılan nokta.
+- Görülmeden çalıya girmek eskisi gibi gizler.
+
+### 3. Bıçak dengesi (`commando.gd`)
+- Hamle: hedefe 30 px'te durup **0,3 sn** sonra vurur (bıçak ve yumruk). Bu sırada asker dönerse boğuşma.
+- Toparlanma: her öldürme/bayıltmadan sonra **0,9 sn** saldırı yok. Yan yana iki askeri art arda öldürmek ~1,2 sn (önce ~0 sn).
+- Seni fark etmiş (şüphe ≥ 0,3 ya da tetikte arıyor) ve sana bakan askere tek darbe yok: 35 hasar + çatışma.
+
+### 4. Pencere dokunuşu (`main.gd`)
+Tek dokunuş yalnız pencerenin önüne götürür (bildirim: "girmek için düğmeye bas"), girmek için eylem düğmesi; çift dokunuş koşup girer. Pencere seçme yarıçapı 34 → 24 px.
+
+### 5. Testler
+- `tests/sim_denge.gd` (CI, Bölüm 1 ve 8): gözü önünde çalıya giren → asker 2,5 sn sonra hâlâ çatışmada ve çalıya yaklaştı; görülmeden giren fark edilmedi; arama önce çalıya bakar; bıçak hamlesi (0,12 sn'de ayakta, 0,3 sn'de öldü), toparlanma (ikinci asker 1,19 sn'de), fark etmiş ve bakan askere boğuşma; pencere tek dokunuş girmedi, çift dokunuş girdi.
+- `tests/shot_menu.gd` (CI, xvfb): 10 bölüm, liste ekranda bitiyor, sürükleyince 332 px kaydı, sürükle-bırak bölüm seçmedi, son bölüme dokununca seçildi.
+- Bütün eski testler geçti (sim, sim1–4, sim_kayit, sim_aci, sim_bolum 0–9, sim_pencere 1/6/8, sim_ekip).

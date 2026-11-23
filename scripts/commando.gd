@@ -34,6 +34,9 @@ var run := false                  # HUD'daki Kos dugmesi
 var run_once := false             # cift dokunus: bu hareket icin kos
 var crouch := false               # HUD'daki Comel dugmesi
 const KNIFE_FRONT_DMG := 35.0
+const KNIFE_WINDUP := 0.3         # Tur 9: bicak/yumruk hamlesi (durup vurur)
+const KILL_RECOVER := 0.9         # Tur 9: oldurmeden sonra toparlanma (art arda hizli oldurme yok)
+var _lunge_t := 0.0
 var weapon := "knife"             # "knife" / "pistol" - secim kalicidir
 var ammo := 12
 var medkits := 1
@@ -258,22 +261,41 @@ func _attack_step(delta: float) -> void:
 	var d := global_position.distance_to(g.global_position)
 	if weapon == "knife" or weapon == "fist":
 		if d < 30.0:
-			# onden ve tetikteyken tek darbede olmez: yaralar, catisma baslar
+			# Tur 9: bicak artik "tak tak" degil: once kisa bir hamle (KNIFE_WINDUP sn, durur), her oldurmeden
+			# sonra toparlanma (KILL_RECOVER sn). Hamle sirasinda asker sana donerse ya da zaten seni fark
+			# etmis ve sana bakiyorsa tek darbede olmez: bogusma (yaralar, catisma baslar).
+			navigation_agent.target_position = global_position
+			facing = (g.global_position - global_position).angle()
+			if _cool > 0.0:
+				return
+			if _lunge_t <= 0.0:
+				_play(&"action", true)
+			_lunge_t += delta
+			if _lunge_t < KNIFE_WINDUP:
+				return
+			_lunge_t = 0.0
 			var to_me: Vector2 = global_position - g.global_position
 			var facing_me: bool = absf(wrapf(to_me.angle() - g.facing, -PI, PI)) < 1.2
-			if g.state == &"combat" and facing_me:
+			var aware: bool = g.state == &"combat" or g.suspicion >= 0.3 or \
+					(g.state in [&"suspicious", &"investigate", &"search"] and g.vigilant_t > 0.0)
+			if aware and facing_me:
 				g.take_damage(KNIFE_FRONT_DMG if weapon == "knife" else 12.0, global_position)
+				if g.alive and g.state != &"combat":
+					g.enter_combat(self)
 				_cool = 0.6
 			elif weapon == "fist":
 				g.knock_out()                 # bayilt: oldurmez, ~40 sn sonra ayilir (bagla!)
 				main.stats["knockouts"] = main.stats.get("knockouts", 0) + 1
+				_cool = KILL_RECOVER
 			else:
 				g.kill()
+				_cool = KILL_RECOVER
 			main.scuffle(g.global_position, self)
 			target_guard = null
 			_play(&"action", true)
 			navigation_agent.target_position = global_position
 		else:
+			_lunge_t = 0.0
 			_repath -= delta
 			if _repath <= 0.0:
 				_repath = 0.25
